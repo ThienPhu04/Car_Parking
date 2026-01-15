@@ -1,0 +1,33 @@
+export const MESSAGES = {
+  ERROR: {
+    NETWORK: 'Lỗi kết nối mạng. Vui lòng thử lại.',
+    UNKNOWN: 'Đã xảy ra lỗi. Vui lòng thử lại.',
+    UNAUTHORIZED: 'Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.',
+    VALIDATION: 'Dữ liệu không hợp lệ.',
+    SERVER: 'Lỗi máy chủ. Vui lòng thử lại sau.',
+    TIMEOUT: 'Yêu cầu quá thời gian chờ.',
+  },
+  SUCCESS: {
+    LOGIN: 'Đăng nhập thành công!',
+    REGISTER: 'Đăng ký thành công!',
+    BOOKING_CREATED: 'Đặt chỗ thành công!',
+    BOOKING_CANCELLED: 'Đã hủy đặt chỗ.',
+    PROFILE_UPDATED: 'Cập nhật thông tin thành công!',
+    VEHICLE_ADDED: 'Thêm xe thành công!',
+    VEHICLE_DELETED: 'Xóa xe thành công!',
+  },
+  VALIDATION: {
+    PHONE_REQUIRED: 'Vui lòng nhập số điện thoại.',
+    PHONE_INVALID: 'Số điện thoại không hợp lệ.',
+    EMAIL_REQUIRED: 'Vui lòng nhập email.',
+    EMAIL_INVALID: 'Email không hợp lệ.',
+    PASSWORD_REQUIRED: 'Vui lòng nhập mật khẩu.',
+    PASSWORD_MIN_LENGTH: 'Mật khẩu phải có ít nhất 6 ký tự.',
+    PASSWORD_INVALID: 'Mật khẩu phải chứa chữ và số.',
+    NAME_REQUIRED: 'Vui lòng nhập họ tên.',
+    OTP_REQUIRED: 'Vui lòng nhập mã OTP.',
+    OTP_INVALID: 'Mã OTP không hợp lệ.',
+    LICENSE_PLATE_REQUIRED: 'Vui lòng nhập biển số xe.',
+    LICENSE_PLATE_INVALID: 'Biển số xe không hợp lệ.',
+  },
+} as const;
