@@ -4,6 +4,17 @@ import { authService } from '../features/auth/services/authService';
 import { storage } from '../shared/utils/storage';
 import { CONFIG } from '../shared/constants/config';
 
+// 🔧 DEVELOPMENT MODE - Set to true để bypass auth
+const DEV_MODE = true; // 👈 THAY ĐỔI Ở ĐÂY
+const MOCK_USER: User = {
+  id: 'dev_user_001',
+  name: 'Developer User',
+  email: 'dev@smartparking.com',
+  phone: '0123456789',
+  avatar: undefined,
+  createdAt: new Date().toISOString(),
+};
+
 interface AuthContextType {
   user: User | null;
   tokens: AuthTokens | null;
@@ -21,11 +32,27 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [user, setUser] = useState<User | null>(null);
   const [tokens, setTokens] = useState<AuthTokens | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  // Trong AuthProvider
+  // const [user, setUser] = useState<User | null>({
+  //   id: 'guest_001',
+  //   name: 'Người dùng',
+  //   phone: '0123456789',
+  //   email: 'guest@example.com',
+  //   avatar: "null",
+  //   createdAt: new Date().toISOString(),
+  // });
 
+  // const [tokens, setTokens] = useState<AuthTokens | null>({
+  //   accessToken: 'guest_token',
+  //   refreshToken: 'guest_refresh_token',
+  // });
+
+  // const [isLoading, setIsLoading] = useState(false); // Đặt false ngay từ đầu
   useEffect(() => {
     loadAuthData();
   }, []);
-
+  console.log('AuthContext - user:', user);
+  console.log('AuthContext - tokens:', tokens);
   const loadAuthData = async () => {
     try {
       const [savedUser, savedToken, savedRefreshToken] = await Promise.all([
@@ -103,6 +130,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     user,
     tokens,
     isAuthenticated: !!user && !!tokens,
+    // isAuthenticated: true,
     isLoading,
     login,
     logout,

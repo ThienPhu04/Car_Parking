@@ -4,6 +4,41 @@ import { apiClient } from '../../../services/api/apiClient';
 import { ENDPOINTS } from '../../../shared/constants/endpoints';
 import { slotHelper } from '../../../shared/utils/slotHelper';
 
+export const mockParkingSlots = (floor: number): ParkingSlot[] => [
+  {
+    id: '1',
+    code: 'A1',
+    floor,
+    status: SlotStatus.AVAILABLE,
+    position: { x: 10, y: 20 },
+    features: ['near_elevator'],
+  },
+  {
+    id: '2',
+    code: 'A2',
+    floor,
+    status: SlotStatus.OCCUPIED,
+    position: { x: 20, y: 20 },
+  },
+  {
+    id: '3',
+    code: 'B1',
+    floor,
+    status: SlotStatus.RESERVED,
+    position: { x: 10, y: 40 },
+    reservedBy: 'user_123',
+    reservedUntil: '2026-01-20T10:00:00Z',
+  },
+  {
+    id: '4',
+    code: 'B2',
+    floor,
+    status: SlotStatus.AVAILABLE,
+    position: { x: 20, y: 40 },
+    features: ['ev_charging', 'covered'],
+  },
+];
+
 export const useParkingSlots = (lotId: string, floor: number) => {
   const [slots, setSlots] = useState<ParkingSlot[]>([]);
   const [isLoading, setIsLoading] = useState(false);

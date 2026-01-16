@@ -13,7 +13,7 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS } from '../../../shared/constants/colors';
 import { Card } from '../../../shared/components/Card';
-import { useAuth } from '../../../store/AuthContext';
+// import { useAuth } from '../../../store/AuthContext';
 import { useParking } from '../../../store/ParkingContext';
 import { MainStackParamList } from '../../../types/navigation.types';
 import { SPACING } from '../../../shared/constants/spacing';
@@ -23,7 +23,7 @@ type HomeScreenNavigationProp = NativeStackNavigationProp<MainStackParamList>;
 
 const HomeScreen: React.FC = () => {
   const navigation = useNavigation<HomeScreenNavigationProp>();
-  const { user } = useAuth();
+  // const { user } = useAuth();
   const { slots, floors } = useParking();
   const [refreshing, setRefreshing] = useState(false);
 
@@ -83,7 +83,7 @@ const HomeScreen: React.FC = () => {
         <View style={styles.header}>
           <View>
             <Text style={styles.greeting}>Xin chào,</Text>
-            <Text style={styles.userName}>{user?.name || 'Người dùng'}</Text>
+            {/* <Text style={styles.userName}>{user?.name || 'Người dùng'}</Text> */}
           </View>
           <TouchableOpacity
             style={styles.avatarContainer}
@@ -282,7 +282,7 @@ const styles = StyleSheet.create({
     gap: SPACING.md,
   },
   quickActionItem: {
-    width: '22%',
+    width: '21%',
     alignItems: 'center',
   },
   quickActionIcon: {

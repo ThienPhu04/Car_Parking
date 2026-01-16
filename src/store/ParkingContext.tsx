@@ -53,7 +53,7 @@ export const ParkingProvider: React.FC<{ children: ReactNode; lotId: string }> =
 
   const subscribeToFloor = (floor: number) => {
     const topic = MQTT_TOPICS.SLOT_STATUS(lotId, floor);
-    
+
     const unsubscribe = mqttService.subscribe(topic, (message: SlotUpdateMessage) => {
       updateSlotStatus(message.slotId, message.status);
     });

@@ -12,13 +12,14 @@ import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { COLORS } from '../../../shared/constants/colors';
 import { Card } from '../../../shared/components/Card';
-import { useAuth } from '../../../store/AuthContext';
+// import { useAuth } from '../../../store/AuthContext';
 import { SPACING } from '../../../shared/constants/spacing';
 import { TYPOGRAPHY } from '../../../shared/constants/typography';
-
 const ProfileScreen: React.FC = () => {
   const navigation = useNavigation();
-  const { user, logout } = useAuth();
+  // const { user, logout } = useAuth();
+  const user = { name: 'Người dùng Test', email: 'test@example.com', phone: '0909090909' };
+  const logout = async () => { };
 
   const menuItems = [
     {
@@ -31,7 +32,7 @@ const ProfileScreen: React.FC = () => {
       icon: 'time-outline',
       title: 'Lịch sử đỗ xe',
       subtitle: 'Xem lịch sử các lần đỗ xe',
-      onPress: () => {},
+      onPress: () => { },
     },
     {
       icon: 'notifications-outline',
@@ -43,34 +44,34 @@ const ProfileScreen: React.FC = () => {
       icon: 'language-outline',
       title: 'Ngôn ngữ',
       subtitle: 'Tiếng Việt',
-      onPress: () => {},
+      onPress: () => { },
     },
     {
       icon: 'help-circle-outline',
       title: 'Trợ giúp',
       subtitle: 'Câu hỏi thường gặp',
-      onPress: () => {},
+      onPress: () => { },
     },
     {
       icon: 'document-text-outline',
       title: 'Điều khoản & Chính sách',
       subtitle: 'Điều khoản sử dụng và chính sách',
-      onPress: () => {},
+      onPress: () => { },
     },
   ];
 
-  const handleLogout = () => {
-    Alert.alert('Đăng xuất', 'Bạn có chắc muốn đăng xuất?', [
-      { text: 'Hủy', style: 'cancel' },
-      {
-        text: 'Đăng xuất',
-        style: 'destructive',
-        onPress: async () => {
-          await logout();
-        },
-      },
-    ]);
-  };
+  //   const handleLogout = () => {
+  //     Alert.alert('Đăng xuất', 'Bạn có chắc muốn đăng xuất?', [
+  //       { text: 'Hủy', style: 'cancel' },
+  //       {
+  //         text: 'Đăng xuất',
+  //         style: 'destructive',
+  //         onPress: async () => {
+  //           await logout();
+  //         },
+  //       },
+  //     ]);
+  //   };
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -121,10 +122,10 @@ const ProfileScreen: React.FC = () => {
         </View>
 
         {/* Logout Button */}
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+        {/* <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
           <Icon name="log-out-outline" size={24} color={COLORS.error} />
           <Text style={styles.logoutText}>Đăng xuất</Text>
-        </TouchableOpacity>
+        </TouchableOpacity> */}
 
         <Text style={styles.version}>Phiên bản 1.0.0</Text>
       </ScrollView>

@@ -1,10 +1,13 @@
 import { useState, useCallback } from 'react';
 import { Vehicle } from '../../../types/vehicle.types';
 import { vehicleService } from '../services/vehicleService';
-import { useAuth } from '../../../store/AuthContext';
+// import { useAuth } from '../../../store/AuthContext';
 
 export const useProfile = () => {
-  const { user, updateUser, refreshUser } = useAuth();
+  // const { user, updateUser, refreshUser } = useAuth();
+  const user = { name: 'Người dùng Test', email: 'test@example.com', phone: '0909090909', id: '1' };
+  const updateUser = async () => { };
+  const refreshUser = async () => { };
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
