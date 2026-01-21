@@ -93,24 +93,6 @@ const HomeScreen: React.FC = () => {
           </TouchableOpacity>
         </View>
 
-        {/* Stats Cards */}
-        <View style={styles.statsContainer}>
-          <Card style={styles.statCard}>
-            <Icon name="checkmark-circle" size={32} color={COLORS.success} />
-            <Text style={styles.statValue}>{stats.availableSlots}</Text>
-            <Text style={styles.statLabel}>Chỗ trống</Text>
-          </Card>
-          <Card style={styles.statCard}>
-            <Icon name="car" size={32} color={COLORS.error} />
-            <Text style={styles.statValue}>{stats.occupiedSlots}</Text>
-            <Text style={styles.statLabel}>Đã đỗ</Text>
-          </Card>
-          <Card style={styles.statCard}>
-            <Icon name="time" size={32} color={COLORS.warning} />
-            <Text style={styles.statValue}>{stats.reservedSlots}</Text>
-            <Text style={styles.statLabel}>Đã đặt</Text>
-          </Card>
-        </View>
 
         {/* Quick Actions */}
         <View style={styles.section}>
