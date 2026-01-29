@@ -1,8 +1,8 @@
 export const CONFIG = {
   // API Configuration
   API_BASE_URL: __DEV__ 
-    ? 'http://localhost:3000/api' 
-    : 'https://api.smartparking.com/api',
+    ? 'https://be-smartparking.onrender.com/' 
+    : 'https://be-smartparking.onrender.com/',
   API_TIMEOUT: 30000, // 30 seconds
   
   // MQTT Configuration

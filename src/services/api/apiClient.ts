@@ -73,7 +73,11 @@ class ApiClient {
               refreshToken,
             });
 
-            const { accessToken } = response.data.data;
+            // const { accessToken } = response.data.data;
+            const accessToken = response?.data?.data?.accessToken;
+            if (!accessToken) {
+               throw new Error('No access token in refresh response'); 
+              }
             await storage.setItem(CONFIG.STORAGE_KEYS.AUTH_TOKEN, accessToken);
 
             this.failedQueue.forEach((prom) => prom.resolve(accessToken));

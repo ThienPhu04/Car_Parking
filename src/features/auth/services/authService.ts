@@ -11,7 +11,9 @@ import { ApiResponse } from '../../../types/api.types';
 
 
 export const authService = {
-  async login(credentials: LoginRequest): Promise<ApiResponse<{ user: User; tokens: AuthTokens }>> {
+  async login(credentials: LoginRequest): Promise<ApiResponse<{
+    data: any; user: User; tokens: AuthTokens 
+}>> {
     return apiClient.post(ENDPOINTS.LOGIN, credentials);
   },
 

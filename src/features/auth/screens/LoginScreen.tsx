@@ -27,20 +27,20 @@ type LoginScreenNavigationProp = NativeStackNavigationProp<AuthStackParamList, '
 const LoginScreen: React.FC = () => {
   const navigation = useNavigation<LoginScreenNavigationProp>();
   const { login } = useAuth();
-  const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [errors, setErrors] = useState({ phone: '', password: '' });
+  const [errors, setErrors] = useState({ email: '', password: '' });
   const [isLoading, setIsLoading] = useState(false);
 
   const validateForm = () => {
-    const newErrors = { phone: '', password: '' };
+    const newErrors = { email: '', password: '' };
     let isValid = true;
 
-    if (!validate.required(phone)) {
-      newErrors.phone = MESSAGES.VALIDATION.PHONE_REQUIRED;
+    if (!validate.required(email)) {
+      newErrors.email = MESSAGES.VALIDATION.EMAIL_REQUIRED;
       isValid = false;
-    } else if (!validate.phone(phone)) {
-      newErrors.phone = MESSAGES.VALIDATION.PHONE_INVALID;
+    } else if (!validate.email(email)) {
+      newErrors.email = MESSAGES.VALIDATION.EMAIL_INVALID;
       isValid = false;
     }
 
@@ -58,7 +58,7 @@ const LoginScreen: React.FC = () => {
 
     try {
       setIsLoading(true);
-      await login(phone, password);
+      await login(email, password);
     } catch (error: any) {
       Alert.alert('Lỗi đăng nhập', error.message || MESSAGES.ERROR.UNKNOWN);
     } finally {
@@ -83,13 +83,13 @@ const LoginScreen: React.FC = () => {
 
         <View style={styles.form}>
           <Input
-            label="Số điện thoại"
-            placeholder="Nhập số điện thoại"
-            value={phone}
-            onChangeText={setPhone}
-            keyboardType="phone-pad"
-            leftIcon="call-outline"
-            error={errors.phone}
+            label="Email"
+            placeholder="Nhập email"
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            leftIcon="mail-outline"
+            error={errors.email}
             autoCapitalize="none"
           />
 

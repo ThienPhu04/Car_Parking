@@ -4,23 +4,13 @@ import { authService } from '../features/auth/services/authService';
 import { storage } from '../shared/utils/storage';
 import { CONFIG } from '../shared/constants/config';
 
-// 🔧 DEVELOPMENT MODE - Set to true để bypass auth
-const DEV_MODE = true; // 👈 THAY ĐỔI Ở ĐÂY
-const MOCK_USER: User = {
-  id: 'dev_user_001',
-  name: 'Developer User',
-  email: 'dev@smartparking.com',
-  phone: '0123456789',
-  avatar: undefined,
-  createdAt: new Date().toISOString(),
-};
 
 interface AuthContextType {
   user: User | null;
   tokens: AuthTokens | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (phone: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   updateUser: (user: User) => void;
   refreshUser: () => Promise<void>;
@@ -32,27 +22,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [user, setUser] = useState<User | null>(null);
   const [tokens, setTokens] = useState<AuthTokens | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  // Trong AuthProvider
-  // const [user, setUser] = useState<User | null>({
-  //   id: 'guest_001',
-  //   name: 'Người dùng',
-  //   phone: '0123456789',
-  //   email: 'guest@example.com',
-  //   avatar: "null",
-  //   createdAt: new Date().toISOString(),
-  // });
-
-  // const [tokens, setTokens] = useState<AuthTokens | null>({
-  //   accessToken: 'guest_token',
-  //   refreshToken: 'guest_refresh_token',
-  // });
-
-  // const [isLoading, setIsLoading] = useState(false); // Đặt false ngay từ đầu
   useEffect(() => {
     loadAuthData();
   }, []);
-  console.log('AuthContext - user:', user);
-  console.log('AuthContext - tokens:', tokens);
+
   const loadAuthData = async () => {
     try {
       const [savedUser, savedToken, savedRefreshToken] = await Promise.all([
@@ -61,38 +34,92 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         storage.getItem<string>(CONFIG.STORAGE_KEYS.REFRESH_TOKEN),
       ]);
 
-      if (savedUser && savedToken && savedRefreshToken) {
+      // if (savedUser && savedToken && savedRefreshToken) {
+      //   setUser(savedUser);
+      //   setTokens({
+      //     accessToken: savedToken,
+      //     refreshToken: savedRefreshToken,
+      //   });
+      // }
+      if (savedUser) {
         setUser(savedUser);
-        setTokens({
-          accessToken: savedToken,
-          refreshToken: savedRefreshToken,
-        });
       }
+
     } catch (error) {
       console.error('Error loading auth data:', error);
     } finally {
       setIsLoading(false);
     }
   };
+//  const login = async (email: string, password: string) => {
+//     try {
+//       const response = await authService.login({ email, password });
+//       console.log('LOGIN RESPONSE:', response);
 
-  const login = async (phone: string, password: string) => {
+//       // const { user: userData, tokens: tokensData } = response.data;
+//       const userData = response?.data?.data;
+//       // const tokensData = response?.data?.tokens;
+//       // if (!tokensData) {
+//       //    /* show lỗi, throw hoặc return */ 
+//       //    throw new Error('No tokens returned'); 
+//       //   }
+//       if (!userData) {
+//         throw new Error('No user returned');
+//       }
+//       // await Promise.all([
+//       //   storage.setItem(CONFIG.STORAGE_KEYS.USER_DATA, userData),
+//       //   storage.setItem(CONFIG.STORAGE_KEYS.AUTH_TOKEN, tokensData.accessToken),
+//       //   storage.setItem(CONFIG.STORAGE_KEYS.REFRESH_TOKEN, tokensData.refreshToken),
+//       // ]);
+//       await storage.setItem(CONFIG.STORAGE_KEYS.USER_DATA, userData);
+
+//       setUser(userData);
+//       setTokens(null);
+//     } catch (error) {
+//       console.error('Login error:', error);
+//       throw error;
+//     }
+//   };
+
+  const login = async (email: string, password: string) => {
     try {
-      const response = await authService.login({ phone, password });
-      const { user: userData, tokens: tokensData } = response.data;
+      const response = await authService.login({ email, password });
+      console.log('LOGIN RESPONSE:', response);
+      // Normalize response shape coming from apiClient / server
+      // apiClient.post returns `response.data` (server body), while some services
+      // might return the full axios response. Support both shapes safely.
+      const serverBody = response?.data ?? response; // if axios response, take .data; otherwise response is already body
+      const payload = serverBody?.data ?? serverBody; // if server nests actual payload in `data`, unwrap it
 
-      await Promise.all([
-        storage.setItem(CONFIG.STORAGE_KEYS.USER_DATA, userData),
-        storage.setItem(CONFIG.STORAGE_KEYS.AUTH_TOKEN, tokensData.accessToken),
-        storage.setItem(CONFIG.STORAGE_KEYS.REFRESH_TOKEN, tokensData.refreshToken),
-      ]);
+      const userData = payload?.user ?? payload; // payload might be { user, tokens } or directly the user object
+      const tokensData = payload?.tokens ?? null;
+
+      if (!userData) {
+        throw new Error('No user returned');
+      }
+
+      // Persist user always; persist tokens only if present
+      await storage.setItem(CONFIG.STORAGE_KEYS.USER_DATA, userData);
+      if (tokensData?.accessToken) {
+        await Promise.all([
+          storage.setItem(CONFIG.STORAGE_KEYS.AUTH_TOKEN, tokensData.accessToken),
+          storage.setItem(CONFIG.STORAGE_KEYS.REFRESH_TOKEN, tokensData.refreshToken),
+        ]);
+        setTokens(tokensData);
+      } else {
+        // Ensure we don't crash elsewhere; keep tokens null for now
+        await storage.removeItem(CONFIG.STORAGE_KEYS.AUTH_TOKEN);
+        await storage.removeItem(CONFIG.STORAGE_KEYS.REFRESH_TOKEN);
+        setTokens(null);
+      }
 
       setUser(userData);
-      setTokens(tokensData);
     } catch (error) {
       console.error('Login error:', error);
       throw error;
     }
   };
+
 
   const logout = async () => {
     try {
@@ -129,7 +156,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const value: AuthContextType = {
     user,
     tokens,
-    isAuthenticated: !!user && !!tokens,
+    isAuthenticated: !!user,
+    // isAuthenticated: !!user && !!tokens,
     // isAuthenticated: true,
     isLoading,
     login,

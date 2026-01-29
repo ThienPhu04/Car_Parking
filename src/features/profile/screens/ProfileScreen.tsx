@@ -15,11 +15,10 @@ import { Card } from '../../../shared/components/Card';
 // import { useAuth } from '../../../store/AuthContext';
 import { SPACING } from '../../../shared/constants/spacing';
 import { TYPOGRAPHY } from '../../../shared/constants/typography';
+import { useAuth } from '@store/AuthContext';
 const ProfileScreen: React.FC = () => {
   const navigation = useNavigation();
-  // const { user, logout } = useAuth();
-  const user = { name: 'Người dùng Test', email: 'test@example.com', phone: '0909090909' };
-  const logout = async () => { };
+  const { user, logout } = useAuth();
 
   const menuItems = [
     {
@@ -58,20 +57,26 @@ const ProfileScreen: React.FC = () => {
       subtitle: 'Điều khoản sử dụng và chính sách',
       onPress: () => { },
     },
+     {
+      icon: 'log-out-outline',
+      title: 'Đăng xuất',
+      subtitle: 'Đăng xuất khỏi tài khoản',
+      onPress: () => { handleLogout(); },
+    },
   ];
 
-  //   const handleLogout = () => {
-  //     Alert.alert('Đăng xuất', 'Bạn có chắc muốn đăng xuất?', [
-  //       { text: 'Hủy', style: 'cancel' },
-  //       {
-  //         text: 'Đăng xuất',
-  //         style: 'destructive',
-  //         onPress: async () => {
-  //           await logout();
-  //         },
-  //       },
-  //     ]);
-  //   };
+    const handleLogout = () => {
+      Alert.alert('Đăng xuất', 'Bạn có chắc muốn đăng xuất?', [
+        { text: 'Hủy', style: 'cancel' },
+        {
+          text: 'Đăng xuất',
+          style: 'destructive',
+          onPress: async () => {
+            await logout();
+          },
+        },
+      ]);
+    };
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>

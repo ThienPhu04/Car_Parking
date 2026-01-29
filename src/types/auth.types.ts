@@ -1,6 +1,7 @@
 export interface User {
-  id: string;
-  name: string;
+  id?: string;
+  name?: string;
+  role: string;
   email: string;
   phone: string;
   avatar?: string;
@@ -13,7 +14,7 @@ export interface AuthTokens {
 }
 
 export interface LoginRequest {
-  phone: string;
+  email: string;
   password?: string;
 }
 

@@ -3,7 +3,7 @@ import { StatusBar } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AppNavigator } from './src/app/navigation/AppNavigator';
-// import { AuthProvider } from './src/store/AuthContext';
+import { AuthProvider } from './src/store/AuthContext';
 import { ParkingProvider } from './src/store/ParkingContext';
 import { NotificationProvider } from './src/store/NotificationContext';
 import { mqttService } from './src/services/mqtt/mqttClient';
@@ -34,13 +34,13 @@ const App: React.FC = () => {
           barStyle="dark-content"
           backgroundColor={COLORS.background}
         />
-        {/* <AuthProvider> */}
+        <AuthProvider>
         <NotificationProvider>
           <ParkingProvider lotId="lot_001">
             <AppNavigator />
           </ParkingProvider>
         </NotificationProvider>
-        {/* </AuthProvider> */}
+        </AuthProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

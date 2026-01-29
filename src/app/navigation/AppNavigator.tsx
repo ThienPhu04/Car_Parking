@@ -1,11 +1,11 @@
 import React from 'react';
-// import { useAuth } from '../../store/AuthContext';
+import { useAuth } from '../../store/AuthContext';
 import { RootStackParamList, AuthStackParamList, MainStackParamList } from '../../types/navigation.types';
 
 // Auth Screens
-// import LoginScreen from '../../features/auth/screens/LoginScreen';
-// import RegisterScreen from '../../features/auth/screens/RegisterScreen';
-// import OTPVerificationScreen from '../../features/auth/screens/OTPVerificationScreen';
+import LoginScreen from '../../features/auth/screens/LoginScreen';
+import RegisterScreen from '../../features/auth/screens/RegisterScreen';
+import OTPVerificationScreen from '../../features/auth/screens/OTPVerificationScreen';
 
 // Main Navigation
 import { TabNavigator } from './TabNavigator';
@@ -28,21 +28,21 @@ const AuthStack = createNativeStackNavigator<AuthStackParamList>();
 const MainStack = createNativeStackNavigator<MainStackParamList>();
 
 
-// const AuthNavigator: React.FC = () => {
-//   return (
-//     <AuthStack.Navigator
-//       screenOptions={{
-//         headerShown: false,
-//         animation: 'fade',
-//         contentStyle: { backgroundColor: COLORS.background },
-//       }}
-//     >
-//       <AuthStack.Screen name="Login" component={LoginScreen} />
-//       <AuthStack.Screen name="Register" component={RegisterScreen} />
-//       <AuthStack.Screen name="OTPVerification" component={OTPVerificationScreen} />
-//     </AuthStack.Navigator>
-//   );
-// };
+const AuthNavigator: React.FC = () => {
+  return (
+    <AuthStack.Navigator
+      screenOptions={{
+        headerShown: false,
+        animation: 'fade',
+        contentStyle: { backgroundColor: COLORS.background },
+      }}
+    >
+      <AuthStack.Screen name="Login" component={LoginScreen} />
+      <AuthStack.Screen name="Register" component={RegisterScreen} />
+      <AuthStack.Screen name="OTPVerification" component={OTPVerificationScreen} />
+    </AuthStack.Navigator>
+  );
+};
 
 const MainNavigator: React.FC = () => {
   return (
@@ -113,22 +113,22 @@ const MainNavigator: React.FC = () => {
 };
 
 export const AppNavigator: React.FC = () => {
-  // const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
 
 
-  // if (isLoading) {
-  //   return <Loading fullscreen text="Đang tải..." />;
-  // }
+  if (isLoading) {
+    return <Loading fullscreen text="Đang tải..." />;
+  }
 
   return (
     <NavigationContainer>
       <RootStack.Navigator screenOptions={{ headerShown: false }}>
-        {/* {isAuthenticated ? (
+        {isAuthenticated ? (
           <RootStack.Screen name="Main" component={MainNavigator} />
         ) : (
           <RootStack.Screen name="Auth" component={AuthNavigator} />
-        )} */}
-        <RootStack.Screen name="Main" component={MainNavigator} />
+        )}
+        {/* <RootStack.Screen name="Main" component={MainNavigator} /> */}
       </RootStack.Navigator>
     </NavigationContainer>
   );

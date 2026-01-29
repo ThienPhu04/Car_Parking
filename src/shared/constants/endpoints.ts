@@ -1,11 +1,11 @@
 export const ENDPOINTS = {
   // Auth
-  LOGIN: '/auth/login',
-  REGISTER: '/auth/register',
-  VERIFY_OTP: '/auth/verify-otp',
-  REFRESH_TOKEN: '/auth/refresh-token',
-  LOGOUT: '/auth/logout',
-  FORGOT_PASSWORD: '/auth/forgot-password',
+  LOGIN: '/api/us/login',
+  REGISTER: '/api/us/register',
+  VERIFY_OTP: '/api/us/verify-otp',
+  REFRESH_TOKEN: '/api/us/refresh-token',
+  LOGOUT: '/api/us/logout',
+  FORGOT_PASSWORD: '/api/us/forgot-password',
   
   // User
   GET_PROFILE: '/users/profile',
