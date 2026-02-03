@@ -1,68 +1,89 @@
-import { FloorLayout, ParkingSlot, Position, CellType, NavigationRoute } from "@app-types/parking.types";
-import { useNavigation } from "@react-navigation/native";
-import { Card } from "@shared/components/Card";
-import { COLORS } from "@shared/constants/colors";
-import { MQTT_TOPICS } from "@shared/constants/mqttTopics";
-import { SPACING } from "@shared/constants/spacing";
-import { TYPOGRAPHY } from "@shared/constants/typography";
-import React, { useEffect, useState } from "react";
-import { Alert, Modal, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-
+// src/features/parking-map/screens/ParkingMapScreen.tsx - CẬP NHẬT
+import React, { useEffect, useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Alert,
+  Modal,
+  ActivityIndicator,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Ionicons';
-import { FloorSelector } from "../components/FloorSelector";
-import { SlotLegend } from "../components/SlotLegend";
-import { useMQTT } from "../hooks/useMQTT";
-import { generateFloorLayout } from "../ultils/floorLayoutGenerator";
-import { ParkingNavigator } from "../ultils/navigationHelper";
-import { ParkingGrid } from "../components/ParkingGrid";
-import { NavigationPanel } from "../components/NavigationPanel";
+import { COLORS } from '../../../shared/constants/colors';
+import { Card } from '../../../shared/components/Card';
+import { NavigationPanel } from '../components/NavigationPanel';
+import { FloorSelector } from '../components/FloorSelector';
+import { SlotLegend } from '../components/SlotLegend';
+import { useParkingMap } from '../hooks/useParkingMap';
+import { useMQTT } from '../hooks/useMQTT';
+import { 
+  ParkingSlot, 
+  Position, 
+  NavigationRoute, 
+  CellType,
+  SlotStatus 
+} from '../../../types/parking.types';
+import { MQTT_TOPICS } from '@shared/constants/mqttTopics';
+import { ParkingNavigator } from '../ultils/navigationHelper';
+import { SPACING } from '@shared/constants/spacing';
+import { TYPOGRAPHY } from '@shared/constants/typography';
+import { EnhancedParkingGrid } from '../components/EnhancedParkingGrid';
 
 const ParkingMapScreen: React.FC = () => {
   const navigation = useNavigation();
-  const [selectedFloor, setSelectedFloor] = useState(1);
-  const [floorLayout, setFloorLayout] = useState<FloorLayout | null>(null);
+  const parkingCode = 'PK001';
+
+  const {
+    parkingMap,
+    currentLayout,
+    isLoading,
+    error,
+    switchFloor,
+    updateSlotStatus,
+    refresh,
+  } = useParkingMap(parkingCode);
+
   const [selectedSlot, setSelectedSlot] = useState<ParkingSlot | null>(null);
   const [navigationRoute, setNavigationRoute] = useState<NavigationRoute | null>(null);
-  const [isNavigating, setIsNavigating] = useState(false);
   const [showEntrySelector, setShowEntrySelector] = useState(false);
-
-  const lotId = 'lot_001';
 
   // MQTT real-time updates
   const { isConnected } = useMQTT(
-    MQTT_TOPICS.SLOT_STATUS(lotId, selectedFloor),
+    currentLayout ? MQTT_TOPICS.SLOT_STATUS(parkingCode, currentLayout.floorLevel) : '',
     (message) => {
-      // Update slot status in real-time
-      if (floorLayout) {
-        const updatedSlots = floorLayout.slots.map(slot =>
-          slot.id === message.slotId ? { ...slot, status: message.status } : slot
-        );
-        setFloorLayout({ ...floorLayout, slots: updatedSlots });
-      }
+      // Update slot status real-time
+      updateSlotStatus(
+        message.slotId,
+        message.status as SlotStatus,
+        getStatusName(message.status)
+      );
     }
   );
 
-  useEffect(() => {
-    loadFloorLayout(selectedFloor);
-  }, [selectedFloor]);
-
-  const loadFloorLayout = (floor: number) => {
-    const layout = generateFloorLayout(floor);
-    setFloorLayout(layout);
-    setSelectedSlot(null);
-    setNavigationRoute(null);
-    setIsNavigating(false);
+  const getStatusName = (status: number): string => {
+    switch (status) {
+      case SlotStatus.AVAILABLE:
+        return 'Trống';
+      case SlotStatus.RESERVED:
+        return 'Đã đặt';
+      case SlotStatus.OCCUPIED:
+        return 'Đã có xe';
+      default:
+        return 'Không xác định';
+    }
   };
 
   const handleSlotPress = (slot: ParkingSlot) => {
     setSelectedSlot(slot);
     setNavigationRoute(null);
 
-    if (slot.status === 'available') {
+    if (slot.status === SlotStatus.AVAILABLE) {
       Alert.alert(
-        `Chỗ ${slot.code}`,
-        'Bạn muốn làm gì?',
+        `${slot.name} (${slot.code})`,
+        `Khu vực: ${slot.zone}\nTrạng thái: ${slot.statusName}`,
         [
           { text: 'Hủy', style: 'cancel' },
           {
@@ -76,39 +97,40 @@ const ParkingMapScreen: React.FC = () => {
         ]
       );
     } else {
-      Alert.alert('Thông báo', 'Chỗ này đã có xe hoặc đã được đặt');
+      Alert.alert(
+        'Thông báo',
+        `Chỗ này ${slot.statusName.toLowerCase()}`
+      );
     }
   };
 
   const handleFindRoute = (entryIndex: number = 0) => {
-    if (!selectedSlot || !floorLayout) return;
+    if (!selectedSlot || !currentLayout) return;
 
-    const entry = floorLayout.entries[entryIndex];
+    const entry = currentLayout.entries[entryIndex];
     if (!entry) {
       Alert.alert('Lỗi', 'Không tìm thấy lối vào');
       return;
     }
 
     setShowEntrySelector(false);
-    setIsNavigating(true);
 
     // Tìm ô đường đi gần slot nhất
-    const nearestRoadToSlot = findNearestRoad(
-      floorLayout,
+    const nearestRoad = findNearestRoad(
+      currentLayout.cells,
       { x: selectedSlot.x, y: selectedSlot.y }
     );
 
-    if (!nearestRoadToSlot) {
+    if (!nearestRoad) {
       Alert.alert('Lỗi', 'Không thể tìm đường đi đến chỗ này');
-      setIsNavigating(false);
       return;
     }
 
     // Sử dụng A* để tìm đường
-    const navigator = new ParkingNavigator(floorLayout.cells);
+    const navigator = new ParkingNavigator(currentLayout.cells);
     const route = navigator.findPath(
       { x: entry.x, y: entry.y },
-      nearestRoadToSlot
+      nearestRoad
     );
 
     if (route) {
@@ -117,22 +139,23 @@ const ParkingMapScreen: React.FC = () => {
       setNavigationRoute(route);
       Alert.alert(
         'Tìm đường thành công',
-        `Khoảng cách: ${route.distance}m\nThời gian: ${route.estimatedTime}s`
+        `Khoảng cách: ${route.distance}m\nThời gian ước tính: ${route.estimatedTime}s`
       );
     } else {
       Alert.alert('Lỗi', 'Không tìm thấy đường đi');
     }
-
-    setIsNavigating(false);
   };
 
-  const findNearestRoad = (layout: FloorLayout, position: Position): Position | null => {
+  const findNearestRoad = (
+    cells: any[][],
+    position: Position
+  ): Position | null => {
     let nearest: Position | null = null;
     let minDistance = Infinity;
 
-    for (let y = 0; y < layout.height; y++) {
-      for (let x = 0; x < layout.width; x++) {
-        const cell = layout.cells[y][x];
+    for (let y = 0; y < cells.length; y++) {
+      for (let x = 0; x < cells[y].length; x++) {
+        const cell = cells[y][x];
         if (cell.type === CellType.ROAD || cell.type === CellType.ENTRY) {
           const distance = Math.abs(x - position.x) + Math.abs(y - position.y);
           if (distance < minDistance) {
@@ -152,14 +175,46 @@ const ParkingMapScreen: React.FC = () => {
   };
 
   const handleBooking = (slot: ParkingSlot) => {
-    (navigation as any).navigate('Booking' as any, { slotId: slot.id });
+    (navigation as any).navigate('Booking', { slotId: slot.id });
   };
 
-  if (!floorLayout) {
+  const handleFloorChange = (floorLevel: number) => {
+    switchFloor(floorLevel);
+    setSelectedSlot(null);
+    setNavigationRoute(null);
+  };
+
+  // Loading state
+  if (isLoading && !parkingMap) {
     return (
       <View style={styles.loadingContainer}>
-        <Text>Đang tải bản đồ...</Text>
+        <ActivityIndicator size="large" color={COLORS.primary} />
+        <Text style={styles.loadingText}>Đang tải bản đồ bãi đỗ...</Text>
       </View>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <SafeAreaView style={styles.errorContainer}>
+        <Icon name="alert-circle-outline" size={64} color={COLORS.error} />
+        <Text style={styles.errorTitle}>Không thể tải bản đồ</Text>
+        <Text style={styles.errorText}>{error.message}</Text>
+        <TouchableOpacity style={styles.retryButton} onPress={refresh}>
+          <Text style={styles.retryText}>Thử lại</Text>
+        </TouchableOpacity>
+      </SafeAreaView>
+    );
+  }
+
+  // No data state
+  if (!parkingMap || !currentLayout) {
+    return (
+      <SafeAreaView style={styles.errorContainer}>
+        <Icon name="map-outline" size={64} color={COLORS.textSecondary} />
+        <Text style={styles.errorTitle}>Không có dữ liệu</Text>
+      </SafeAreaView>
     );
   }
 
@@ -174,9 +229,10 @@ const ParkingMapScreen: React.FC = () => {
               { backgroundColor: isConnected ? COLORS.success : COLORS.error },
             ]}
           />
-          <Text style={styles.headerTitle}>
-            {isConnected ? 'Đang kết nối' : 'Mất kết nối'}
-          </Text>
+          <View>
+            <Text style={styles.headerTitle}>{parkingMap.name}</Text>
+            <Text style={styles.headerSubtitle}>{parkingMap.location}</Text>
+          </View>
         </View>
 
         <View style={styles.headerRight}>
@@ -201,19 +257,51 @@ const ParkingMapScreen: React.FC = () => {
       </View>
 
       {/* Floor Selector */}
-      <FloorSelector
-        selectedFloor={selectedFloor}
-        onFloorChange={setSelectedFloor}
-        floors={[1, 2, 3, 4]}
-      />
+      {parkingMap.floors.length > 1 && (
+        <FloorSelector
+          selectedFloor={currentLayout.floorLevel}
+          onFloorChange={handleFloorChange}
+          floors={parkingMap.floors.map(f => f.level)}
+        />
+      )}
 
-      {/* Info Card */}
+      {/* Floor Stats */}
+      <Card style={styles.statsCard}>
+        <View style={styles.statsRow}>
+          <View style={styles.statItem}>
+            <Icon name="checkmark-circle" size={16} color={COLORS.success} />
+            <Text style={styles.statText}>
+              {parkingMap.floors.find(f => f.level === currentLayout.floorLevel)?.availableSlots || 0} trống
+            </Text>
+          </View>
+          <View style={styles.statItem}>
+            <Icon name="car" size={16} color={COLORS.error} />
+            <Text style={styles.statText}>
+              {parkingMap.floors.find(f => f.level === currentLayout.floorLevel)?.occupiedSlots || 0} đã đỗ
+            </Text>
+          </View>
+          <View style={styles.statItem}>
+            <Icon name="time" size={16} color={COLORS.warning} />
+            <Text style={styles.statText}>
+              {parkingMap.floors.find(f => f.level === currentLayout.floorLevel)?.reservedSlots || 0} đã đặt
+            </Text>
+          </View>
+        </View>
+      </Card>
+
+      {/* Selected Slot Info */}
       {selectedSlot && (
         <Card style={styles.infoCard}>
           <View style={styles.infoRow}>
-            <Icon name="car" size={20} color={COLORS.primary} />
+            <Icon name="location" size={20} color={COLORS.primary} />
             <Text style={styles.infoText}>
-              Chỗ đã chọn: <Text style={styles.infoValue}>{selectedSlot.code}</Text>
+              {selectedSlot.name} ({selectedSlot.code})
+            </Text>
+          </View>
+          <View style={styles.infoRow}>
+            <Icon name="business" size={20} color={COLORS.textSecondary} />
+            <Text style={styles.infoText}>
+              Khu vực: {selectedSlot.zone}
             </Text>
           </View>
           {navigationRoute && (
@@ -221,13 +309,13 @@ const ParkingMapScreen: React.FC = () => {
               <View style={styles.infoRow}>
                 <Icon name="navigate" size={20} color={COLORS.success} />
                 <Text style={styles.infoText}>
-                  Khoảng cách: <Text style={styles.infoValue}>{navigationRoute.distance}m</Text>
+                  Khoảng cách: {navigationRoute.distance}m
                 </Text>
               </View>
               <View style={styles.infoRow}>
                 <Icon name="time" size={20} color={COLORS.warning} />
                 <Text style={styles.infoText}>
-                  Thời gian: <Text style={styles.infoValue}>{navigationRoute.estimatedTime}s</Text>
+                  Thời gian: {navigationRoute.estimatedTime}s
                 </Text>
               </View>
             </>
@@ -236,8 +324,8 @@ const ParkingMapScreen: React.FC = () => {
       )}
 
       {/* Parking Grid */}
-      <ParkingGrid
-        layout={floorLayout}
+      <EnhancedParkingGrid
+        layout={currentLayout}
         selectedSlot={selectedSlot}
         navigationPath={navigationRoute?.path || null}
         onSlotPress={handleSlotPress}
@@ -254,20 +342,6 @@ const ParkingMapScreen: React.FC = () => {
       {/* Legend */}
       <View style={styles.legendContainer}>
         <SlotLegend />
-        <View style={styles.extraLegend}>
-          <View style={styles.legendItem}>
-            <Text style={styles.legendIcon}>⬇️</Text>
-            <Text style={styles.legendText}>Lối vào</Text>
-          </View>
-          <View style={styles.legendItem}>
-            <Text style={styles.legendIcon}>⬆️</Text>
-            <Text style={styles.legendText}>Lối ra</Text>
-          </View>
-          <View style={styles.legendItem}>
-            <View style={[styles.legendBox, { backgroundColor: '#E0E0E0' }]} />
-            <Text style={styles.legendText}>Đường đi</Text>
-          </View>
-        </View>
       </View>
 
       {/* Entry Selector Modal */}
@@ -286,7 +360,7 @@ const ParkingMapScreen: React.FC = () => {
               </TouchableOpacity>
             </View>
 
-            {floorLayout.entries.map((entry, index) => (
+            {currentLayout.entries.map((entry, index) => (
               <TouchableOpacity
                 key={entry.id}
                 style={styles.entryItem}
@@ -313,6 +387,43 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: COLORS.background,
+  },
+  loadingText: {
+    marginTop: SPACING.md,
+    fontSize: TYPOGRAPHY.fontSize.md,
+    color: COLORS.textSecondary,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: COLORS.background,
+    padding: SPACING.xl,
+  },
+  errorTitle: {
+    fontSize: TYPOGRAPHY.fontSize.xl,
+    fontWeight: TYPOGRAPHY.fontWeight.bold,
+    color: COLORS.textPrimary,
+    marginTop: SPACING.lg,
+  },
+  errorText: {
+    fontSize: TYPOGRAPHY.fontSize.md,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    marginTop: SPACING.sm,
+  },
+  retryButton: {
+    marginTop: SPACING.lg,
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: SPACING.xl,
+    paddingVertical: SPACING.md,
+    borderRadius: 8,
+  },
+  retryText: {
+    color: COLORS.white,
+    fontSize: TYPOGRAPHY.fontSize.md,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold,
   },
   header: {
     flexDirection: 'row',
@@ -326,6 +437,7 @@ const styles = StyleSheet.create({
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
   },
   headerRight: {
     flexDirection: 'row',
@@ -340,8 +452,13 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: TYPOGRAPHY.fontSize.md,
-    fontWeight: TYPOGRAPHY.fontWeight.medium,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold,
     color: COLORS.textPrimary,
+  },
+  headerSubtitle: {
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    color: COLORS.textSecondary,
+    marginTop: 2,
   },
   clearButton: {
     padding: SPACING.xs,
@@ -349,8 +466,26 @@ const styles = StyleSheet.create({
   infoButton: {
     padding: SPACING.xs,
   },
-  infoCard: {
+  statsCard: {
     margin: SPACING.md,
+    padding: SPACING.sm,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+  },
+  statItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+  },
+  statText: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    color: COLORS.textPrimary,
+  },
+  infoCard: {
+    marginHorizontal: SPACING.md,
+    marginBottom: SPACING.md,
     padding: SPACING.md,
   },
   infoRow: {
@@ -361,39 +496,14 @@ const styles = StyleSheet.create({
   },
   infoText: {
     fontSize: TYPOGRAPHY.fontSize.sm,
-    color: COLORS.textSecondary,
-  },
-  infoValue: {
-    fontWeight: TYPOGRAPHY.fontWeight.bold,
     color: COLORS.textPrimary,
+    flex: 1,
   },
   legendContainer: {
     padding: SPACING.md,
     backgroundColor: COLORS.backgroundSecondary,
     borderTopWidth: 1,
     borderTopColor: COLORS.border,
-  },
-  extraLegend: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginTop: SPACING.sm,
-  },
-  legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.xs,
-  },
-  legendIcon: {
-    fontSize: 16,
-  },
-  legendBox: {
-    width: 16,
-    height: 16,
-    borderRadius: 4,
-  },
-  legendText: {
-    fontSize: TYPOGRAPHY.fontSize.xs,
-    color: COLORS.textPrimary,
   },
   modalOverlay: {
     flex: 1,

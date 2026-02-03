@@ -34,13 +34,13 @@ const App: React.FC = () => {
           barStyle="dark-content"
           backgroundColor={COLORS.background}
         />
-        <AuthProvider>
+        {/* <AuthProvider> */}
         <NotificationProvider>
           <ParkingProvider lotId="lot_001">
             <AppNavigator />
           </ParkingProvider>
         </NotificationProvider>
-        </AuthProvider>
+        {/* </AuthProvider> */}
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

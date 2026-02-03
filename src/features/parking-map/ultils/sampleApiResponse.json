@@ -1,0 +1,83 @@
+{
+  "success": true,
+  "data": {
+    "code": "PK001",
+    "name": "Bãi xe thông minh Quận 8",
+    "location": "Phường 8, TP HCM",
+    "status": 1,
+    "statusName": "Hoạt động",
+    "totalFloors": 2,
+    "floors": [
+      {
+        "code": "PK001-F1",
+        "name": "Tầng 1",
+        "level": 1,
+        "totalSlots": 3,
+        "entrances": 2,
+        "exits": 0,
+        "availableSlots": 3,
+        "occupiedSlots": 0,
+        "reservedSlots": 0,
+        "status": 1,
+        "statusName": "Hoạt động",
+        "slots": [
+          {
+            "code": "PK001-F1-S1",
+            "nameSlot": "Vị trí A",
+            "x": 1,
+            "y": 2,
+            "status": 0,
+            "statusName": "Đang chỉnh sửa",
+            "zone": "Khu vực A"
+          },
+          {
+            "code": "PK001-F1-S2",
+            "nameSlot": "Vị trí B",
+            "x": 4,
+            "y": 5,
+            "status": 1,
+            "statusName": "Hoạt động",
+            "zone": "Khu vực A"
+          },
+          {
+            "code": "PK001-F1-S3",
+            "nameSlot": "Vị trí C",
+            "x": 8,
+            "y": 9,
+            "status": 1,
+            "statusName": "Hoạt động",
+            "zone": "Khu vực A"
+          }
+        ]
+      },
+      {
+        "code": "PK001-F2",
+        "name": "Tầng 2",
+        "level": 2,
+        "totalSlots": 3,
+        "entrances": 2,
+        "exits": 0,
+        "availableSlots": 3,
+        "occupiedSlots": 0,
+        "reservedSlots": 0,
+        "status": 1,
+        "statusName": "Hoạt động",
+        "slots": []
+      },
+      {
+        "code": "PK001-F3",
+        "name": "Tầng 3",
+        "level": 3,
+        "totalSlots": 3,
+        "entrances": 2,
+        "exits": 0,
+        "availableSlots": 3,
+        "occupiedSlots": 0,
+        "reservedSlots": 0,
+        "status": 0,
+        "statusName": "Đang chỉnh sửa",
+        "slots": []
+      }
+    ]
+  }
+}

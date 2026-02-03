@@ -26,7 +26,7 @@ export const ENDPOINTS = {
     `/parking/lots/${lotId}/slots${floor ? `?floor=${floor}` : ''}`,
   GET_SLOT: (slotId: string) => `/parking/slots/${slotId}`,
   GET_AVAILABLE_SLOTS: (lotId: string) => `/parking/lots/${lotId}/available`,
-  
+  GET_MAP : '/api/us/getParkingMap',
   // Bookings
   GET_BOOKINGS: '/bookings',
   CREATE_BOOKING: '/bookings',

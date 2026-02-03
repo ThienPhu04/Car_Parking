@@ -113,22 +113,22 @@ const MainNavigator: React.FC = () => {
 };
 
 export const AppNavigator: React.FC = () => {
-  const { isAuthenticated, isLoading } = useAuth();
+  // const { isAuthenticated, isLoading } = useAuth();
 
 
-  if (isLoading) {
-    return <Loading fullscreen text="Đang tải..." />;
-  }
+  // if (isLoading) {
+  //   return <Loading fullscreen text="Đang tải..." />;
+  // }
 
   return (
     <NavigationContainer>
       <RootStack.Navigator screenOptions={{ headerShown: false }}>
-        {isAuthenticated ? (
+        {/* {isAuthenticated ? (
           <RootStack.Screen name="Main" component={MainNavigator} />
         ) : (
           <RootStack.Screen name="Auth" component={AuthNavigator} />
-        )}
-        {/* <RootStack.Screen name="Main" component={MainNavigator} /> */}
+        )} */}
+        <RootStack.Screen name="Main" component={MainNavigator} />
       </RootStack.Navigator>
     </NavigationContainer>
   );

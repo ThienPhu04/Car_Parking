@@ -3,6 +3,8 @@ import { ParkingSlot, Floor } from '../types/parking.types';
 import { mqttService } from '../services/mqtt/mqttClient';
 import { SlotUpdateMessage } from '../types/mqtt.types';
 import { MQTT_TOPICS } from '../shared/constants/mqttTopics';
+import { ENDPOINTS } from '@shared/constants/endpoints';
+import { apiClient } from '@services/api/apiClient';
 
 interface ParkingContextType {
   slots: ParkingSlot[];
@@ -72,6 +74,8 @@ export const ParkingProvider: React.FC<{ children: ReactNode; lotId: string }> =
   const refreshSlots = async () => {
     // TODO: Fetch slots from API
     try {
+      const response = await apiClient.get<ParkingSlot[]>(ENDPOINTS.GET_MAP);
+      console.log('API car parking response:', response);
       // const response = await apiClient.get(ENDPOINTS.GET_SLOTS(lotId, selectedFloor));
       // setSlots(response.data);
     } catch (error) {
