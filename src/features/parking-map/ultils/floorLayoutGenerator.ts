@@ -1,17 +1,29 @@
-import { FloorLayout, FloorDTO, SlotDTO, SlotStatus, ParkingCell, CellType, ParkingSlot, EntryPoint, ExitPoint , SlotFeature} from "@app-types/parking.types";
+import {
+  FloorLayout,
+  FloorDTO,
+  SlotDTO,
+  SlotStatus,
+  ParkingCell,
+  CellType,
+  ParkingSlot,
+  EntryPoint,
+  ExitPoint,
+  SlotFeature,
+} from '@app-types/parking.types';
 
 /**
- * Generator cho mock floor layout khi chưa có API
- * Sử dụng cùng logic với ParkingMapTransformer
+ * Generator for mock floor layout during development/testing.
+ * Keeps behavior aligned with ParkingMapTransformer.
  */
 export class FloorLayoutGenerator {
   /**
-   * Generate mock floor layout (for development/testing)
+   * Generate mock floor layout.
    */
   static generateMockFloorLayout(floorLevel: number): FloorLayout {
     const mockFloorDTO: FloorDTO = {
       code: `MOCK-F${floorLevel}`,
-      name: `Tầng ${floorLevel}`,
+      name: `Tang ${floorLevel}`,
+      nameFloor: `Tang ${floorLevel}`,
       level: floorLevel,
       totalSlots: 30,
       entrances: 2,
@@ -20,7 +32,7 @@ export class FloorLayoutGenerator {
       occupiedSlots: 10,
       reservedSlots: 5,
       status: 1,
-      statusName: 'Hoạt động',
+      statusName: 'Hoat dong',
       slots: this.generateMockSlots(floorLevel),
     };
 
@@ -28,7 +40,7 @@ export class FloorLayoutGenerator {
   }
 
   /**
-   * Generate mock slots
+   * Generate mock slots.
    */
   private static generateMockSlots(floorLevel: number): SlotDTO[] {
     const slots: SlotDTO[] = [];
@@ -37,13 +49,14 @@ export class FloorLayoutGenerator {
     // Left side slots
     for (let y = 3; y < 18; y += 2) {
       for (let x = 1; x <= 3; x++) {
+        const status = this.randomStatus();
         slots.push({
           code: `MOCK-F${floorLevel}-L${slotIndex}`,
-          nameSlot: `Vị trí L${slotIndex}`,
+          nameSlot: `Vi tri L${slotIndex}`,
           x,
           y,
-          status: this.randomStatus(),
-          statusName: this.getStatusName(this.randomStatus()),
+          status,
+          statusName: this.getStatusName(status),
           zone: 'Khu A',
         });
         slotIndex++;
@@ -51,16 +64,18 @@ export class FloorLayoutGenerator {
     }
 
     slotIndex = 1;
+
     // Right side slots
     for (let y = 3; y < 18; y += 2) {
       for (let x = 8; x <= 10; x++) {
+        const status = this.randomStatus();
         slots.push({
           code: `MOCK-F${floorLevel}-R${slotIndex}`,
-          nameSlot: `Vị trí R${slotIndex}`,
+          nameSlot: `Vi tri R${slotIndex}`,
           x,
           y,
-          status: this.randomStatus(),
-          statusName: this.getStatusName(this.randomStatus()),
+          status,
+          statusName: this.getStatusName(status),
           zone: 'Khu B',
         });
         slotIndex++;
@@ -80,25 +95,52 @@ export class FloorLayoutGenerator {
   private static getStatusName(status: SlotStatus): string {
     switch (status) {
       case SlotStatus.AVAILABLE:
-        return 'Trống';
+        return 'Trong';
       case SlotStatus.RESERVED:
-        return 'Đã đặt';
+        return 'Da dat';
       case SlotStatus.OCCUPIED:
-        return 'Đã có xe';
+        return 'Da co xe';
       default:
-        return 'Không xác định';
+        return 'Khong xac dinh';
     }
   }
 
+  private static getFloorName(floorDto: FloorDTO): string {
+    return floorDto.nameFloor || floorDto.name || `Tang ${floorDto.level}`;
+  }
+
   /**
-   * Generate FloorLayout từ FloorDTO
-   * (Duplicate logic from ParkingMapTransformer for standalone use)
+   * Supports both old shape (floor.slots) and new shape (floor.zones[].slots).
+   */
+  private static extractSlotsFromFloor(floorDto: FloorDTO): SlotDTO[] {
+    if (Array.isArray(floorDto.slots)) {
+      return floorDto.slots;
+    }
+
+    if (!Array.isArray(floorDto.zones)) {
+      return [];
+    }
+
+    return floorDto.zones.flatMap(zone => {
+      if (!Array.isArray(zone.slots)) {
+        return [];
+      }
+
+      return zone.slots.map(slot => ({
+        ...slot,
+        zone: slot.zone || zone.nameZone,
+        nameZone: slot.nameZone || zone.nameZone,
+      }));
+    });
+  }
+
+  /**
+   * Generate FloorLayout from FloorDTO.
    */
   static generateFloorLayout(floorDto: FloorDTO, parkingCode: string): FloorLayout {
-    // Calculate grid size
-    const { width, height } = this.calculateGridSize(floorDto.slots);
+    const slotDtos = this.extractSlotsFromFloor(floorDto);
+    const { width, height } = this.calculateGridSize(slotDtos);
 
-    // Initialize grid with walls
     const cells: ParkingCell[][] = Array(height)
       .fill(null)
       .map(() =>
@@ -110,34 +152,27 @@ export class FloorLayoutGenerator {
           }))
       );
 
-    // Transform slots
-    const slots = floorDto.slots.map((slotDto) =>
-      this.transformSlot(slotDto, floorDto)
-    );
+    const slots = slotDtos.map(slotDto => this.transformSlot(slotDto, floorDto));
 
-    // Place slots in grid
-    slots.forEach((slot) => {
-      if (slot.y < height && slot.x < width) {
+    slots.forEach(slot => {
+      if (slot.y >= 0 && slot.y < height && slot.x >= 0 && slot.x < width) {
         cells[slot.y][slot.x] = slot;
       }
     });
 
-    // Generate roads
     this.generateRoads(cells, width, height, slots);
 
-    // Generate entries & exits
     const entries = this.generateEntries(floorDto, width, height);
     const exits = this.generateExits(floorDto, width, height);
 
-    // Place entries/exits in grid
-    entries.forEach((entry) => {
-      if (entry.y < height && entry.x < width) {
+    entries.forEach(entry => {
+      if (entry.y >= 0 && entry.y < height && entry.x >= 0 && entry.x < width) {
         cells[entry.y][entry.x] = entry;
       }
     });
 
-    exits.forEach((exit) => {
-      if (exit.y < height && exit.x < width) {
+    exits.forEach(exit => {
+      if (exit.y >= 0 && exit.y < height && exit.x >= 0 && exit.x < width) {
         cells[exit.y][exit.x] = exit;
       }
     });
@@ -145,7 +180,7 @@ export class FloorLayoutGenerator {
     return {
       floorId: floorDto.code,
       floorLevel: floorDto.level,
-      floorName: floorDto.name,
+      floorName: this.getFloorName(floorDto),
       width,
       height,
       cells,
@@ -156,7 +191,7 @@ export class FloorLayoutGenerator {
   }
 
   /**
-   * Transform SlotDTO to ParkingSlot
+   * Transform SlotDTO to ParkingSlot.
    */
   private static transformSlot(dto: SlotDTO, floorDto: FloorDTO): ParkingSlot {
     return {
@@ -165,11 +200,14 @@ export class FloorLayoutGenerator {
       name: dto.nameSlot,
       floorId: floorDto.code,
       floorLevel: floorDto.level,
-      zone: dto.zone,
+      zone: dto.zone || dto.nameZone || 'Khong xac dinh',
       x: dto.x,
       y: dto.y,
       status: dto.status as SlotStatus,
       statusName: dto.statusName,
+      isActive: dto.isActive,
+      isSensorReal: dto.isSensorReal,
+      sensorId: dto.sensorId,
       type: CellType.SLOT,
       walkable: false,
       features: this.detectSlotFeatures(dto),
@@ -177,17 +215,15 @@ export class FloorLayoutGenerator {
   }
 
   /**
-   * Detect slot features based on position
+   * Detect slot features based on position.
    */
   private static detectSlotFeatures(slot: SlotDTO): SlotFeature[] {
     const features: SlotFeature[] = [];
 
-    // Near elevator: x <= 1 or x >= 10
     if (slot.x <= 1 || slot.x >= 10) {
       features.push('near_elevator');
     }
 
-    // Near exit: y >= 18
     if (slot.y >= 18) {
       features.push('near_exit');
     }
@@ -196,15 +232,15 @@ export class FloorLayoutGenerator {
   }
 
   /**
-   * Calculate grid size from slots
+   * Calculate grid size from slots.
    */
-  private static calculateGridSize(slots: SlotDTO[]): { width: number; height: number } {
-    if (slots.length === 0) {
+  private static calculateGridSize(slots?: SlotDTO[]): { width: number; height: number } {
+    if (!Array.isArray(slots) || slots.length === 0) {
       return { width: 12, height: 20 };
     }
 
-    const maxX = Math.max(...slots.map((s) => s.x), 11);
-    const maxY = Math.max(...slots.map((s) => s.y), 19);
+    const maxX = Math.max(...slots.map(s => s.x), 11);
+    const maxY = Math.max(...slots.map(s => s.y), 19);
 
     return {
       width: Math.max(maxX + 2, 12),
@@ -213,7 +249,7 @@ export class FloorLayoutGenerator {
   }
 
   /**
-   * Generate roads connecting slots
+   * Generate roads connecting slots.
    */
   private static generateRoads(
     cells: ParkingCell[][],
@@ -221,7 +257,6 @@ export class FloorLayoutGenerator {
     height: number,
     slots: ParkingSlot[]
   ): void {
-    // Central road - columns 5 and 6
     const centerCol1 = Math.floor(width / 2) - 1;
     const centerCol2 = Math.floor(width / 2);
 
@@ -234,7 +269,6 @@ export class FloorLayoutGenerator {
       }
     }
 
-    // Horizontal roads - every 4 rows
     for (let y = 2; y < height; y += 4) {
       for (let x = 0; x < width; x++) {
         if (cells[y][x].type === CellType.WALL) {
@@ -243,14 +277,13 @@ export class FloorLayoutGenerator {
       }
     }
 
-    // Ensure road to each slot
-    slots.forEach((slot) => {
+    slots.forEach(slot => {
       this.ensureRoadToSlot(cells, slot, width, height);
     });
   }
 
   /**
-   * Ensure there's a road adjacent to slot
+   * Ensure there is a road adjacent to slot.
    */
   private static ensureRoadToSlot(
     cells: ParkingCell[][],
@@ -259,10 +292,10 @@ export class FloorLayoutGenerator {
     height: number
   ): void {
     const directions = [
-      { dx: 0, dy: -1 }, // Up
-      { dx: 1, dy: 0 }, // Right
-      { dx: 0, dy: 1 }, // Down
-      { dx: -1, dy: 0 }, // Left
+      { dx: 0, dy: -1 },
+      { dx: 1, dy: 0 },
+      { dx: 0, dy: 1 },
+      { dx: -1, dy: 0 },
     ];
 
     let hasAdjacentRoad = false;
@@ -279,7 +312,6 @@ export class FloorLayoutGenerator {
       }
     }
 
-    // Create road below if no adjacent road
     if (!hasAdjacentRoad) {
       const belowY = slot.y + 1;
       if (belowY < height && cells[belowY][slot.x].type === CellType.WALL) {
@@ -289,7 +321,7 @@ export class FloorLayoutGenerator {
   }
 
   /**
-   * Generate entry points
+   * Generate entry points.
    */
   private static generateEntries(
     floorDto: FloorDTO,
@@ -305,7 +337,7 @@ export class FloorLayoutGenerator {
     if (numEntries >= 1) {
       entries.push({
         id: `${floorDto.code}-ENTRY-A`,
-        name: `Lối vào ${floorDto.level}A`,
+        name: `Loi vao ${floorDto.level}A`,
         floorId: floorDto.code,
         floorLevel: floorDto.level,
         x: centerCol1,
@@ -318,7 +350,7 @@ export class FloorLayoutGenerator {
     if (numEntries >= 2) {
       entries.push({
         id: `${floorDto.code}-ENTRY-B`,
-        name: `Lối vào ${floorDto.level}B`,
+        name: `Loi vao ${floorDto.level}B`,
         floorId: floorDto.code,
         floorLevel: floorDto.level,
         x: centerCol2,
@@ -332,7 +364,7 @@ export class FloorLayoutGenerator {
   }
 
   /**
-   * Generate exit points
+   * Generate exit points.
    */
   private static generateExits(
     floorDto: FloorDTO,
@@ -348,7 +380,7 @@ export class FloorLayoutGenerator {
     if (numExits >= 1) {
       exits.push({
         id: `${floorDto.code}-EXIT-A`,
-        name: `Lối ra ${floorDto.level}A`,
+        name: `Loi ra ${floorDto.level}A`,
         floorId: floorDto.code,
         floorLevel: floorDto.level,
         x: centerCol1,
@@ -361,7 +393,7 @@ export class FloorLayoutGenerator {
     if (numExits >= 2) {
       exits.push({
         id: `${floorDto.code}-EXIT-B`,
-        name: `Lối ra ${floorDto.level}B`,
+        name: `Loi ra ${floorDto.level}B`,
         floorId: floorDto.code,
         floorLevel: floorDto.level,
         x: centerCol2,
@@ -376,7 +408,7 @@ export class FloorLayoutGenerator {
 }
 
 /**
- * Compatibility function - for backward compatibility
+ * Compatibility function.
  */
 export const generateFloorLayout = (floorLevel: number): FloorLayout => {
   return FloorLayoutGenerator.generateMockFloorLayout(floorLevel);

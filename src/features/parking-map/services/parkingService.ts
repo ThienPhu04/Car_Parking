@@ -1,12 +1,11 @@
-import { ApiResponse } from "@app-types/api.types";
-import { ParkingMapDTO, FloorDTO } from "@app-types/parking.types";
-import { apiClient } from "@services/api/apiClient";
+import { ApiResponse } from '@app-types/api.types';
+import { ParkingMapResponseDTO, FloorDTO } from '@app-types/parking.types';
+import { apiClient } from '@services/api/apiClient';
 
 export const parkingService = {
 
-  async getParkingMap(parkingCode: string): Promise<ApiResponse<ParkingMapDTO>> {
-    // Backend expects parkingCode in request body (POST)
-    return apiClient.post('/api/us/getParkingMap', { parkingCode });
+  async getParkingMap(parkingCode: string): Promise<ApiResponse<ParkingMapResponseDTO>> {
+    return apiClient.post('/api/ad/getListMap', { parkingCode });
   },
 
   async getFloor(parkingCode: string, floorLevel: number): Promise<ApiResponse<FloorDTO>> {

@@ -30,6 +30,8 @@ export const ParkingGrid: React.FC<ParkingGridProps> = ({
     if (!cell) return COLORS.background;
 
     switch (cell.type) {
+      case CellType.ZONE:
+        return '#F3F6FF';
       case CellType.SLOT:
         if (cell.status === SlotStatus.AVAILABLE) return COLORS.success;
         if (cell.status === SlotStatus.OCCUPIED) return COLORS.error;
@@ -42,7 +44,7 @@ export const ParkingGrid: React.FC<ParkingGridProps> = ({
       case CellType.EXIT:
         return '#2196F3';
       case CellType.WALL:
-        return '#9E9E9E';
+        return '#E0E0E0';
       default:
         return COLORS.background;
     }
@@ -164,6 +166,29 @@ export const ParkingGrid: React.FC<ParkingGridProps> = ({
                     >
                       {(cell as ParkingSlot).code}
                     </SvgText>
+                  )}
+
+                  {/* Zone label - only render when this is left-most zone cell */}
+                  {cell.type === CellType.ZONE && (
+                    (() => {
+                      const leftCell = x > 0 ? layout.cells[y][x - 1] : null;
+                      const zoneName = (cell as any).zoneName || (cell as any).nameZone || '';
+                      if (!leftCell || leftCell.type !== CellType.ZONE) {
+                        return (
+                          <SvgText
+                            x={x * CELL_SIZE + 4}
+                            y={y * CELL_SIZE + 12}
+                            fontSize={10}
+                            fontWeight="bold"
+                            fill="#333333"
+                            textAnchor="start"
+                          >
+                            {zoneName}
+                          </SvgText>
+                        );
+                      }
+                      return null;
+                    })()
                   )}
 
                   {/* Icon cho Entry/Exit */}

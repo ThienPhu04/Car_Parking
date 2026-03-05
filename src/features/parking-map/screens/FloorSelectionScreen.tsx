@@ -5,118 +5,78 @@ import {
   StyleSheet,
   FlatList,
   TouchableOpacity,
+  ListRenderItemInfo,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView }                      from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
-import Icon from 'react-native-vector-icons/Ionicons';
-import { Card } from '../../../shared/components/Card';
-import { COLORS} from '../../../shared/constants/colors';
-import { Floor } from '../../../types/parking.types';
-import { SPACING } from '@shared/constants/spacing';
-import { TYPOGRAPHY } from '@shared/constants/typography';
+import Icon                                  from 'react-native-vector-icons/Ionicons';
 
-type FloorSelectionRouteProp = RouteProp<
-  { FloorSelection: { onFloorSelect: (floor: number) => void } },
-  'FloorSelection'
->;
+import { Card }       from '../../../shared/components/Card';
+import { COLORS }     from '../../../shared/constants/colors';
+import { SPACING }    from '../../../shared/constants/spacing';
+import { TYPOGRAPHY } from '../../../shared/constants/typography';
+import { Floor }      from '../../../types/parking.types';
+
+// ─── NAVIGATION PARAMS ───────────────────────────────────────────────────────
+
+type FloorSelectionParams = {
+  FloorSelection: {
+    floors: Floor[];
+    onFloorSelect: (floorLevel: number) => void;
+  };
+};
+
+type FloorSelectionRoute = RouteProp<FloorSelectionParams, 'FloorSelection'>;
+
+// ─── COMPONENT ───────────────────────────────────────────────────────────────
 
 const FloorSelectionScreen: React.FC = () => {
   const navigation = useNavigation();
-  const route = useRoute<FloorSelectionRouteProp>();
-  const { onFloorSelect } = route.params || {};
+  const route      = useRoute<FloorSelectionRoute>();
+  const { floors = [], onFloorSelect } = route.params ?? {};
 
-  // Mock data
-  const floors: Floor[] = [
-    {
-      id: 1,
-      name: 'Tầng 1',
-      totalSlots: 30,
-      availableSlots: 12,
-      occupiedSlots: 15,
-      reservedSlots: 3,
-    },
-    {
-      id: 2,
-      name: 'Tầng 2',
-      totalSlots: 30,
-      availableSlots: 8,
-      occupiedSlots: 18,
-      reservedSlots: 4,
-    },
-    {
-      id: 3,
-      name: 'Tầng 3',
-      totalSlots: 30,
-      availableSlots: 15,
-      occupiedSlots: 12,
-      reservedSlots: 3,
-    },
-    {
-      id: 4,
-      name: 'Tầng 4',
-      totalSlots: 30,
-      availableSlots: 10,
-      occupiedSlots: 17,
-      reservedSlots: 3,
-    },
-  ];
-
-  const handleFloorSelect = (floor: Floor) => {
-    if (onFloorSelect) {
-      onFloorSelect(floor.id);
-    }
+  const handleSelect = (floor: Floor) => {
+    onFloorSelect?.(floor.level);
     navigation.goBack();
   };
 
-  const renderFloorItem = ({ item }: { item: Floor }) => {
-    const occupancyRate = (item.occupiedSlots + item.reservedSlots) / item.totalSlots;
+  const renderItem = ({ item }: ListRenderItemInfo<Floor>) => {
+    const total     = item.totalSlots || 1;
+    const occupied  = item.occupiedSlots + item.reservedSlots;
+    const rate      = Math.min(occupied / total, 1);
+
+    const barColor =
+      rate > 0.8 ? COLORS.error :
+      rate > 0.5 ? COLORS.warning :
+                   COLORS.success;
 
     return (
-      <TouchableOpacity onPress={() => handleFloorSelect(item)}>
-        <Card style={styles.floorCard}>
-          <View style={styles.floorHeader}>
-            <View style={styles.floorIcon}>
-              <Icon name="layers" size={24} color={COLORS.primary} />
+      <TouchableOpacity onPress={() => handleSelect(item)} activeOpacity={0.75}>
+        <Card style={styles.card}>
+          {/* Floor header */}
+          <View style={styles.cardHeader}>
+            <View style={styles.floorIconWrap}>
+              <Icon name="layers" size={22} color={COLORS.primary} />
             </View>
             <View style={styles.floorInfo}>
               <Text style={styles.floorName}>{item.name}</Text>
-              <Text style={styles.floorSlots}>
+              <Text style={styles.floorMeta}>
                 {item.availableSlots}/{item.totalSlots} chỗ trống
               </Text>
             </View>
             <Icon name="chevron-forward" size={20} color={COLORS.textSecondary} />
           </View>
 
-          <View style={styles.progressBar}>
-            <View
-              style={[
-                styles.progressFill,
-                {
-                  width: `${occupancyRate * 100}%`,
-                  backgroundColor:
-                    occupancyRate > 0.8
-                      ? COLORS.error
-                      : occupancyRate > 0.5
-                      ? COLORS.warning
-                      : COLORS.success,
-                },
-              ]}
-            />
+          {/* Occupancy bar */}
+          <View style={styles.barTrack}>
+            <View style={[styles.barFill, { width: `${rate * 100}%`, backgroundColor: barColor }]} />
           </View>
 
-          <View style={styles.floorStats}>
-            <View style={styles.statItem}>
-              <View style={[styles.statDot, { backgroundColor: COLORS.success }]} />
-              <Text style={styles.statText}>{item.availableSlots} trống</Text>
-            </View>
-            <View style={styles.statItem}>
-              <View style={[styles.statDot, { backgroundColor: COLORS.error }]} />
-              <Text style={styles.statText}>{item.occupiedSlots} đã đỗ</Text>
-            </View>
-            <View style={styles.statItem}>
-              <View style={[styles.statDot, { backgroundColor: COLORS.warning }]} />
-              <Text style={styles.statText}>{item.reservedSlots} đặt trước</Text>
-            </View>
+          {/* Stats row */}
+          <View style={styles.statsRow}>
+            <Stat color={COLORS.success} label={`${item.availableSlots} trống`} />
+            <Stat color={COLORS.error}   label={`${item.occupiedSlots} có xe`}  />
+            <Stat color={COLORS.warning} label={`${item.reservedSlots} đặt`}    />
           </View>
         </Card>
       </TouchableOpacity>
@@ -125,20 +85,38 @@ const FloorSelectionScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
+      {/* Screen header */}
       <View style={styles.header}>
         <Text style={styles.title}>Chọn tầng</Text>
-        <Text style={styles.subtitle}>Chọn tầng để xem sơ đồ chi tiết</Text>
+        <Text style={styles.subtitle}>Xem sơ đồ chi tiết từng tầng</Text>
       </View>
 
       <FlatList
         data={floors}
-        keyExtractor={(item) => item.id.toString()}
-        renderItem={renderFloorItem}
-        contentContainerStyle={styles.listContent}
+        keyExtractor={f => f.code}
+        renderItem={renderItem}
+        contentContainerStyle={styles.list}
+        ListEmptyComponent={
+          <View style={styles.empty}>
+            <Icon name="layers-outline" size={48} color={COLORS.textSecondary} />
+            <Text style={styles.emptyText}>Không có dữ liệu tầng</Text>
+          </View>
+        }
       />
     </SafeAreaView>
   );
 };
+
+// ─── STAT CHIP ───────────────────────────────────────────────────────────────
+
+const Stat: React.FC<{ color: string; label: string }> = ({ color, label }) => (
+  <View style={statStyles.wrap}>
+    <View style={[statStyles.dot, { backgroundColor: color }]} />
+    <Text style={statStyles.label}>{label}</Text>
+  </View>
+);
+
+// ─── STYLES ──────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   container: {
@@ -146,37 +124,36 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
   },
   header: {
-    padding: SPACING.lg,
-    backgroundColor: COLORS.backgroundSecondary,
+    padding:          SPACING.lg,
+    backgroundColor:  COLORS.backgroundSecondary,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
   },
   title: {
-    fontSize: TYPOGRAPHY.fontSize.xxl,
+    fontSize:   TYPOGRAPHY.fontSize.xxl,
     fontWeight: TYPOGRAPHY.fontWeight.bold,
-    color: COLORS.textPrimary,
+    color:      COLORS.textPrimary,
     marginBottom: SPACING.xs,
   },
   subtitle: {
     fontSize: TYPOGRAPHY.fontSize.md,
-    color: COLORS.textSecondary,
+    color:    COLORS.textSecondary,
   },
-  listContent: {
+  list: {
     padding: SPACING.md,
   },
-  floorCard: {
-    marginBottom: SPACING.md,
-    padding: SPACING.lg,
+  card: {
+    marginBottom:     SPACING.md,
+    padding:          SPACING.lg,
   },
-  floorHeader: {
+  cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: SPACING.md,
   },
-  floorIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+  floorIconWrap: {
+    width: 44, height: 44,
+    borderRadius: 22,
     backgroundColor: `${COLORS.primary}20`,
     justifyContent: 'center',
     alignItems: 'center',
@@ -186,43 +163,53 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   floorName: {
-    fontSize: TYPOGRAPHY.fontSize.lg,
+    fontSize:   TYPOGRAPHY.fontSize.lg,
     fontWeight: TYPOGRAPHY.fontWeight.bold,
-    color: COLORS.textPrimary,
+    color:      COLORS.textPrimary,
     marginBottom: SPACING.xs,
   },
-  floorSlots: {
+  floorMeta: {
     fontSize: TYPOGRAPHY.fontSize.sm,
-    color: COLORS.textSecondary,
+    color:    COLORS.textSecondary,
   },
-  progressBar: {
+  barTrack: {
     height: 8,
     backgroundColor: COLORS.background,
     borderRadius: 4,
     overflow: 'hidden',
     marginBottom: SPACING.md,
   },
-  progressFill: {
+  barFill: {
     height: '100%',
     borderRadius: 4,
   },
-  floorStats: {
+  statsRow: {
     flexDirection: 'row',
     justifyContent: 'space-around',
   },
-  statItem: {
+  empty: {
+    alignItems: 'center',
+    marginTop: SPACING.xl * 2,
+    gap: SPACING.md,
+  },
+  emptyText: {
+    fontSize: TYPOGRAPHY.fontSize.md,
+    color:    COLORS.textSecondary,
+  },
+});
+
+const statStyles = StyleSheet.create({
+  wrap: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.xs,
   },
-  statDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+  dot: {
+    width: 8, height: 8, borderRadius: 4,
   },
-  statText: {
+  label: {
     fontSize: TYPOGRAPHY.fontSize.sm,
-    color: COLORS.textSecondary,
+    color:    COLORS.textSecondary,
   },
 });
 

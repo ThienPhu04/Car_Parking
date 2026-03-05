@@ -1,62 +1,69 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { COLORS } from '../../../shared/constants/colors';
-import { SPACING } from '../../../shared/constants/spacing';
+import { COLORS }     from '../../../shared/constants/colors';
+import { SPACING }    from '../../../shared/constants/spacing';
 import { TYPOGRAPHY } from '../../../shared/constants/typography';
 
-export const SlotLegend: React.FC = () => {
-  const legends = [
-    { color: COLORS.available, label: 'Trống' },
-    { color: COLORS.occupied, label: 'Đã đỗ' },
-    { color: COLORS.reserved, label: 'Đã đặt' },
-  ];
+interface LegendItem {
+  color: string;
+  label: string;
+}
 
-  return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Chú thích:</Text>
-      <View style={styles.legendsContainer}>
-        {legends.map((legend, index) => (
-          <View key={index} style={styles.legendItem}>
-            <View style={[styles.colorBox, { backgroundColor: legend.color }]} />
-            <Text style={styles.legendText}>{legend.label}</Text>
-          </View>
-        ))}
-      </View>
+const ITEMS: LegendItem[] = [
+  { color: COLORS.success,       label: 'Trống'    },
+  { color: COLORS.error,         label: 'Có xe'    },
+  { color: COLORS.warning,       label: 'Đã đặt'   },
+  { color: '#c8d7eb',            label: 'Đường đi' },
+];
+
+export const SlotLegend: React.FC = () => (
+  <View style={styles.container}>
+    <Text style={styles.title}>Chú thích:</Text>
+
+    <View style={styles.items}>
+      {ITEMS.map(item => (
+        <View key={item.label} style={styles.item}>
+          <View style={[styles.dot, { backgroundColor: item.color }]} />
+          <Text style={styles.label}>{item.label}</Text>
+        </View>
+      ))}
     </View>
-  );
-};
+  </View>
+);
+
+// ─── STYLES ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.backgroundSecondary,
-    padding: SPACING.md,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
+    alignItems:   'center',
+    flexWrap:     'wrap',
+    gap: SPACING.sm,
   },
   title: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontSize:   TYPOGRAPHY.fontSize.sm,
     fontWeight: TYPOGRAPHY.fontWeight.medium,
-    color: COLORS.textSecondary,
-    marginRight: SPACING.md,
+    color:      COLORS.textSecondary,
   },
-  legendsContainer: {
+  items: {
     flexDirection: 'row',
-    gap: SPACING.md,
+    flexWrap:      'wrap',
+    gap: SPACING.sm,
   },
-  legendItem: {
+  item: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems:   'center',
     gap: SPACING.xs,
   },
-  colorBox: {
-    width: 16,
-    height: 16,
-    borderRadius: 4,
+  dot: {
+    width:  14,
+    height: 14,
+    borderRadius: 3,
+    borderWidth:  0.5,
+    borderColor: 'rgba(0,0,0,0.15)',
   },
-  legendText: {
+  label: {
     fontSize: TYPOGRAPHY.fontSize.sm,
-    color: COLORS.textPrimary,
+    color:    COLORS.textPrimary,
   },
 });

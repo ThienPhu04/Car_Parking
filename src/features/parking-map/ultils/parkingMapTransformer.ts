@@ -1,377 +1,645 @@
 import {
-  ParkingMapDTO,
-  FloorDTO,
-  SlotDTO,
-  ParkingMap,
-  Floor,
-  FloorLayout,
-  ParkingSlot,
-  EntryPoint,
-  ExitPoint,
-  ParkingCell,
-  CellType,
-  SlotStatus,
-  SlotFeature,
+  ParkingMapDTO, FloorDTO, ZoneDTO,
+  LaneDTO,
+  ParkingMap, Floor, FloorLayout, ParkingSlot,
+  EntryPoint, ExitPoint, ParkingCell, ZoneCell,
+  CellType, Position, SlotStatus, ZoneLayout,
 } from '../../../types/parking.types';
 
-/**
- * Transform backend DTO sang app models
- */
+// ─── Hằng số convert canvas → grid ───────────────────────────────────────────
+//
+// Admin tool dùng canvas pixel. Mỗi ô grid = CELL_SIZE pixel.
+// Ví dụ thực tế:  positionX=-100, positionY=80 (GroupSlot Dãy 1)
+//                  zone.points=[-180,40, 480,40, 480,160, -180,160]
+//                  lane.witdh=946, positionY≈400
+//
+// Chọn CELL_SIZE=40 → grid hợp lý khoảng 18×14 cells cho floor này.
+const CELL_SIZE = 40;
+
+// ─── Helper: canvas px → grid index ─────────────────────────────────────────
+
+function toGrid(canvasPx: number, offset: number): number {
+  return Math.round((canvasPx + offset) / CELL_SIZE);
+}
+
+function toGridMin(canvasPx: number, offset: number): number {
+  return Math.floor((canvasPx + offset) / CELL_SIZE);
+}
+
+function toGridMax(canvasPx: number, offset: number): number {
+  return Math.ceil((canvasPx + offset) / CELL_SIZE);
+}
+
+function normalizeRectByRotation(
+  width: number,
+  height: number,
+  rotation: number,
+): { width: number; height: number } {
+  const deg = ((rotation % 360) + 360) % 360;
+  const isQuarterTurn = Math.abs(deg - 90) < 1 || Math.abs(deg - 270) < 1;
+  return isQuarterTurn ? { width: height, height: width } : { width, height };
+}
+
+function getLaneCanvasBounds(lane: LaneDTO): { left: number; top: number; right: number; bottom: number } {
+  const rawWidth = Math.max(lane.witdh ?? CELL_SIZE, CELL_SIZE);
+  const rawHeight = Math.max(lane.height ?? CELL_SIZE, CELL_SIZE);
+  const normalized = normalizeRectByRotation(rawWidth, rawHeight, lane.rotation ?? 0);
+  const left = lane.positionX;
+  const top = lane.positionY;
+  return {
+    left,
+    top,
+    right: left + normalized.width,
+    bottom: top + normalized.height,
+  };
+}
+
+function rotateAround(
+  x: number,
+  y: number,
+  centerX: number,
+  centerY: number,
+  angleDeg: number,
+): { x: number; y: number } {
+  if (!angleDeg) return { x, y };
+
+  const rad = (angleDeg * Math.PI) / 180;
+  const cos = Math.cos(rad);
+  const sin = Math.sin(rad);
+  const dx = x - centerX;
+  const dy = y - centerY;
+
+  return {
+    x: centerX + dx * cos - dy * sin,
+    y: centerY + dx * sin + dy * cos,
+  };
+}
+
+// ─── Tính offset để shift tọa độ âm về ≥ 0 ──────────────────────────────────
+
+function calcFloorOffset(dto: FloorDTO): { ox: number; oy: number } {
+  let minX = Infinity;
+  let minY = Infinity;
+
+  // Boundary của floor
+  if (dto.boundary?.points) {
+    for (let i = 0; i < dto.boundary.points.length; i += 2) {
+      minX = Math.min(minX, dto.boundary.points[i]);
+      minY = Math.min(minY, dto.boundary.points[i + 1]);
+    }
+  }
+  // Zone points
+  for (const z of dto.zones ?? []) {
+    for (let i = 0; i < z.points.length; i += 2) {
+      minX = Math.min(minX, z.points[i]);
+      minY = Math.min(minY, z.points[i + 1]);
+    }
+    // GroupSlot positions
+    for (const g of z.groupSlots ?? []) {
+      minX = Math.min(minX, g.positionX);
+      minY = Math.min(minY, g.positionY);
+    }
+  }
+  // Entrances / Exits / Lanes
+  for (const e of dto.entrances ?? []) { minX = Math.min(minX, e.positionX); minY = Math.min(minY, e.positionY); }
+  for (const e of dto.exits     ?? []) { minX = Math.min(minX, e.positionX); minY = Math.min(minY, e.positionY); }
+  for (const l of dto.lanes     ?? []) {
+    const bounds = getLaneCanvasBounds(l);
+    minX = Math.min(minX, bounds.left, bounds.right);
+    minY = Math.min(minY, bounds.top, bounds.bottom);
+  }
+
+  return {
+    ox: isFinite(minX) ? -minX : 0,
+    oy: isFinite(minY) ? -minY : 0,
+  };
+}
+
+// ─── Tính kích thước grid ────────────────────────────────────────────────────
+
+function calcGridSize(dto: FloorDTO, ox: number, oy: number): { width: number; height: number } {
+  let maxGX = 11;
+  let maxGY = 11;
+
+  if (dto.boundary?.points) {
+    for (let i = 0; i < dto.boundary.points.length; i += 2) {
+      maxGX = Math.max(maxGX, toGrid(dto.boundary.points[i],     ox));
+      maxGY = Math.max(maxGY, toGrid(dto.boundary.points[i + 1], oy));
+    }
+  }
+  for (const z of dto.zones ?? []) {
+    for (let i = 0; i < z.points.length; i += 2) {
+      maxGX = Math.max(maxGX, toGrid(z.points[i],     ox));
+      maxGY = Math.max(maxGY, toGrid(z.points[i + 1], oy));
+    }
+    for (const g of z.groupSlots ?? []) {
+      maxGX = Math.max(maxGX, toGrid(g.positionX + g.width,  ox));
+      maxGY = Math.max(maxGY, toGrid(g.positionY + g.height, oy));
+    }
+  }
+  for (const e of dto.entrances ?? []) { maxGX = Math.max(maxGX, toGrid(e.positionX + e.witdh, ox)); maxGY = Math.max(maxGY, toGrid(e.positionY + e.height, oy)); }
+  for (const e of dto.exits     ?? []) { maxGX = Math.max(maxGX, toGrid(e.positionX + e.witdh, ox)); maxGY = Math.max(maxGY, toGrid(e.positionY + e.height, oy)); }
+  for (const lane of dto.lanes ?? []) {
+    const bounds = getLaneCanvasBounds(lane);
+    maxGX = Math.max(maxGX, toGridMax(bounds.right, ox));
+    maxGY = Math.max(maxGY, toGridMax(bounds.bottom, oy));
+  }
+
+  return { width: maxGX + 2, height: maxGY + 2 };
+}
+
+// ─── TRANSFORMER CLASS ────────────────────────────────────────────────────────
+
 export class ParkingMapTransformer {
-  /**
-   * Transform ParkingMapDTO -> ParkingMap
-   */
+
   static transformParkingMap(dto: ParkingMapDTO): ParkingMap {
-    const floors = dto.floors.map(floorDto => this.transformFloor(floorDto, dto.code));
-    const layouts = dto.floors.map(floorDto => 
-      this.generateFloorLayout(floorDto, dto.code)
-    );
+    const floorDtos = Array.isArray(dto.floors) ? dto.floors : [];
+    const floors    = floorDtos.map(f => this.buildFloor(f));
+    const layouts   = floorDtos.map(f => this.buildLayout(f));
+
+    const totalSlots = layouts.reduce((s, l) => s + l.slots.length, 0);
+    console.log('[Transformer] floors:', floorDtos.length, '| slots:', totalSlots);
 
     return {
-      code: dto.code,
-      name: dto.name,
-      location: dto.location,
-      status: dto.status,
-      statusName: dto.statusName,
+      code: dto.code, name: dto.name, location: dto.location,
+      status: dto.status, statusName: dto.statusName,
       totalFloors: dto.totalFloors,
-      floors,
-      layouts,
+      floors, layouts,
     };
   }
 
-  /**
-   * Transform FloorDTO -> Floor
-   */
-  static transformFloor(dto: FloorDTO, parkingCode: string): Floor {
+  // ─── Floor domain object ─────────────────────────────────────────────────────
+
+  static buildFloor(dto: FloorDTO): Floor {
+    const floorId = dto._id ?? dto.code;
+    const allGroupSlots = (dto.zones ?? []).flatMap(z => z.groupSlots ?? []);
+    const totalSlots    = allGroupSlots.reduce((s, g) => s + (g.slots?.length ?? 0), 0);
+    const available     = allGroupSlots.reduce((s, g) => s + (g.availableSlots ?? 0), 0);
+    const occupied      = allGroupSlots.reduce((s, g) => s + (g.occupiedSlots  ?? 0), 0);
+    const reserved      = allGroupSlots.reduce((s, g) => s + (g.reservedSlots  ?? 0), 0);
+
     return {
-      id: dto.code,
-      code: dto.code,
-      name: dto.name,
-      level: dto.level,
-      totalSlots: dto.totalSlots,
-      availableSlots: dto.availableSlots,
-      occupiedSlots: dto.occupiedSlots,
-      reservedSlots: dto.reservedSlots,
-      entrances: dto.entrances,
-      exits: dto.exits,
-      status: dto.status,
-      statusName: dto.statusName,
+      id:             floorId,
+      code:           dto.code,
+      name:           dto.nameFloor,
+      level:          dto.level,
+      totalSlots,
+      availableSlots: available,
+      occupiedSlots:  occupied,
+      reservedSlots:  reserved,
+      entrances:      (dto.entrances ?? []).length,
+      exits:          (dto.exits     ?? []).length,
+      status:         dto.status,
+      statusName:     dto.statusName,
+      totalZones:     (dto.zones ?? []).length,
     };
   }
 
-  /**
-   * Transform SlotDTO -> ParkingSlot
-   */
-  static transformSlot(dto: SlotDTO, floorDto: FloorDTO): ParkingSlot {
-    return {
-      id: dto.code,
-      code: dto.code,
-      name: dto.nameSlot,
-      floorId: floorDto.code,
-      floorLevel: floorDto.level,
-      zone: dto.zone,
-      x: dto.x,
-      y: dto.y,
-      status: dto.status as SlotStatus,
-      statusName: dto.statusName,
-      type: CellType.SLOT,
-      walkable: false,
-      features: this.detectSlotFeatures(dto),
-    };
-  }
+  // ─── Floor layout (grid) ─────────────────────────────────────────────────────
 
-  /**
-   * Detect features dựa trên vị trí
-   */
-  static detectSlotFeatures(slot: SlotDTO): SlotFeature[] {
-    const features: SlotFeature[] = [];
-    
-    // Near elevator: x = 0 hoặc x gần edge
-    if (slot.x <= 1 || slot.x >= 10) {
-      features.push('near_elevator');
-    }
-    
-    // Near exit: y gần cuối
-    if (slot.y >= 18) {
-      features.push('near_exit');
-    }
-    
-    return features;
-  }
+  static buildLayout(dto: FloorDTO): FloorLayout {
+    const floorId = dto._id ?? dto.code;
+    const { ox, oy }    = calcFloorOffset(dto);
+    const { width, height } = calcGridSize(dto, ox, oy);
+    const zones = this.buildZoneLayouts(dto, ox, oy);
 
-  /**
-   * Generate FloorLayout từ FloorDTO
-   */
-  static generateFloorLayout(floorDto: FloorDTO, parkingCode: string): FloorLayout {
-    // Xác định kích thước grid dựa trên slots
-    const { width, height } = this.calculateGridSize(floorDto.slots);
-    
-    // Khởi tạo grid với walls
-    const cells: ParkingCell[][] = Array(height).fill(null).map(() =>
-      Array(width).fill(null).map(() => ({
-        type: CellType.WALL,
-        walkable: false,
-      }))
+    // 1. Init grid — toàn bộ WALL
+    const cells: ParkingCell[][] = Array.from({ length: height }, () =>
+      Array.from({ length: width }, () => ({ type: CellType.WALL, walkable: false })),
     );
 
-    // Transform slots
-    const slots = floorDto.slots.map(slotDto => 
-      this.transformSlot(slotDto, floorDto)
-    );
+    // 2. Vẽ zone bounding boxes
+    this.paintZones(cells, width, height, dto.zones ?? [], ox, oy);
 
-    // Đặt slots vào grid
-    slots.forEach(slot => {
-      if (slot.y < height && slot.x < width) {
+    // 3. Vẽ lanes (đường đi thực tế từ Lane collection)
+    const laneRoadCells = this.paintLanes(cells, width, height, dto.lanes ?? [], ox, oy);
+
+    // 4. Đặt slots (mỗi GroupSlot là 1 dãy, tọa độ từ groupSlot.positionX/Y)
+    const allSlots = this.buildSlots(dto, ox, oy);
+    allSlots.forEach(slot => {
+      if (slot.y >= 0 && slot.y < height && slot.x >= 0 && slot.x < width) {
         cells[slot.y][slot.x] = slot;
       }
     });
 
-    // Generate đường đi (roads)
-    this.generateRoads(cells, width, height, slots);
+    // 5. Vẽ road fallback cho slot chưa có road kề
+    allSlots.forEach(s => this.ensureRoad(cells, s, width, height));
 
-    // Generate entries & exits
-    const entries = this.generateEntries(floorDto, width, height);
-    const exits = this.generateExits(floorDto, width, height);
-
-    // Đặt entries/exits vào grid
-    entries.forEach(entry => {
-      if (entry.y < height && entry.x < width) {
-        cells[entry.y][entry.x] = entry;
-      }
+    // 6. Entry / Exit với tọa độ thực
+    const entries = this.buildEntries(dto, ox, oy);
+    const exits   = this.buildExits(dto, ox, oy);
+    entries.forEach(e => {
+      if (e.y >= 0 && e.y < height && e.x >= 0 && e.x < width) cells[e.y][e.x] = e;
+    });
+    exits.forEach(e => {
+      if (e.y >= 0 && e.y < height && e.x >= 0 && e.x < width) cells[e.y][e.x] = e;
     });
 
-    exits.forEach(exit => {
-      if (exit.y < height && exit.x < width) {
-        cells[exit.y][exit.x] = exit;
-      }
-    });
+    // 7. Tạo mạng đường đi liên tục từ IN/OUT đến các khu slot
+    this.connectAccessPointsToRoad(cells, [...entries, ...exits], laneRoadCells, width, height);
+    this.connectSlotsToRoadNetwork(cells, allSlots, laneRoadCells, width, height);
+    this.promoteNonSlotCellsToRoad(cells, width, height);
 
     return {
-      floorId: floorDto.code,
-      floorLevel: floorDto.level,
-      floorName: floorDto.name,
-      width,
-      height,
-      cells,
-      slots,
-      entries,
-      exits,
+      floorId,
+      floorLevel: dto.level,
+      floorName:  dto.nameFloor,
+      width, height, cells,
+      slots: allSlots, entries, exits, zones,
     };
   }
 
-  /**
-   * Tính kích thước grid dựa trên slots
-   */
-  static calculateGridSize(slots: SlotDTO[]): { width: number; height: number } {
-    if (slots.length === 0) {
-      return { width: 12, height: 20 }; // Default size
+  static buildZoneLayouts(dto: FloorDTO, ox: number, oy: number): ZoneLayout[] {
+    return (dto.zones ?? [])
+      .map(zone => {
+        const points: Position[] = [];
+        for (let i = 0; i < (zone.points?.length ?? 0); i += 2) {
+          points.push({
+            x: toGrid(zone.points[i], ox),
+            y: toGrid(zone.points[i + 1], oy),
+          });
+        }
+
+        if (points.length < 3) return null;
+        return { code: zone.code, name: zone.nameZone, points };
+      })
+      .filter((zone): zone is ZoneLayout => zone !== null);
+  }
+
+  // ─── Build slots từ zones → groupSlots → slots ───────────────────────────────
+  //
+  // Mỗi GroupSlot là 1 dãy xe (có positionX/Y + direction + width + height).
+  // Các Slot trong GroupSlot được xếp ngang/dọc theo direction.
+
+  static buildSlots(dto: FloorDTO, ox: number, oy: number): ParkingSlot[] {
+    const result: ParkingSlot[] = [];
+
+    for (const zone of dto.zones ?? []) {
+      for (const group of zone.groupSlots ?? []) {
+        const rawSlots = group.slots ?? [];
+        const count    = rawSlots.length;
+        if (count === 0) continue;
+
+        // Kích thước mỗi slot = width/height của group chia đều
+        const isHorizontal = (group.direction ?? 'horizontal') !== 'vertical';
+        const slotCanvasW  = isHorizontal ? group.width / count : group.width;
+        const slotCanvasH  = isHorizontal ? group.height : group.height / count;
+        const centerX = group.positionX + group.width / 2;
+        const centerY = group.positionY + group.height / 2;
+
+        rawSlots.forEach((raw, idx) => {
+          // Tọa độ tâm ô slot trong canvas
+          const rawX = isHorizontal
+            ? group.positionX + slotCanvasW * idx + slotCanvasW / 2
+            : group.positionX + slotCanvasW / 2;
+          const rawY = isHorizontal
+            ? group.positionY + slotCanvasH / 2
+            : group.positionY + slotCanvasH * idx + slotCanvasH / 2;
+          const rotated = rotateAround(rawX, rawY, centerX, centerY, group.rotation ?? 0);
+
+          result.push({
+            id:           raw.code,
+            code:         raw.code,
+            name:         raw.nameSlot,
+            floorId:      dto._id ?? dto.code,
+            floorLevel:   dto.level,
+            zone:         zone.nameZone,
+            x:            toGrid(rotated.x, ox),
+            y:            toGrid(rotated.y, oy),
+            status:       raw.status as SlotStatus,
+            statusName:   raw.statusName,
+            isActive:     raw.isActive,
+            isSensorReal: raw.isSensorReal,
+            sensorId:     raw.sensorId ?? undefined,
+            type:         CellType.SLOT,
+            walkable:     false,
+            features:     [],
+          });
+        });
+      }
     }
 
-    const maxX = Math.max(...slots.map(s => s.x), 11);
-    const maxY = Math.max(...slots.map(s => s.y), 19);
-
-    return {
-      width: Math.max(maxX + 2, 12),
-      height: Math.max(maxY + 2, 20),
-    };
+    return result;
   }
 
-  /**
-   * Generate roads dựa trên vị trí slots
-   */
-  static generateRoads(
-    cells: ParkingCell[][],
-    width: number,
-    height: number,
-    slots: ParkingSlot[]
+  // ─── Paint zone backgrounds ──────────────────────────────────────────────────
+
+  static paintZones(
+    cells: ParkingCell[][], w: number, h: number,
+    zones: ZoneDTO[], ox: number, oy: number,
   ): void {
-    // Đường chính giữa (central road) - Cột 5 và 6
-    const centerCol1 = Math.floor(width / 2) - 1;
-    const centerCol2 = Math.floor(width / 2);
+    for (const zone of zones) {
+      if (!zone.points || zone.points.length < 4) continue;
 
-    for (let y = 0; y < height; y++) {
-      if (cells[y][centerCol1].type === CellType.WALL) {
-        cells[y][centerCol1] = { type: CellType.ROAD, walkable: true };
+      const gxs: number[] = [];
+      const gys: number[] = [];
+      for (let i = 0; i < zone.points.length; i += 2) {
+        gxs.push(toGrid(zone.points[i],     ox));
+        gys.push(toGrid(zone.points[i + 1], oy));
       }
-      if (cells[y][centerCol2].type === CellType.WALL) {
-        cells[y][centerCol2] = { type: CellType.ROAD, walkable: true };
+
+      const sx = Math.max(0,     Math.min(...gxs));
+      const sy = Math.max(0,     Math.min(...gys));
+      const ex = Math.min(w - 1, Math.max(...gxs));
+      const ey = Math.min(h - 1, Math.max(...gys));
+
+      for (let y = sy; y <= ey; y++) {
+        for (let x = sx; x <= ex; x++) {
+          if (cells[y]?.[x]?.type === CellType.WALL) {
+            const zoneCell: ZoneCell = {
+              type: CellType.ZONE, walkable: false,
+              zoneCode: zone.code,
+              zoneName: zone.nameZone,
+            };
+            cells[y][x] = zoneCell;
+          }
+        }
       }
     }
+  }
 
-    // Đường ngang (horizontal roads) - Mỗi 4 hàng
-    for (let y = 2; y < height; y += 4) {
-      for (let x = 0; x < width; x++) {
-        if (cells[y][x].type === CellType.WALL) {
-          cells[y][x] = { type: CellType.ROAD, walkable: true };
+  // ─── Paint lanes (đường đi thực tế) ─────────────────────────────────────────
+  //
+  // Lane có positionX/Y (tâm), witdh, height, rotation.
+  // Khi rotation=0: lane nằm ngang.
+
+  static paintLanes(
+    cells: ParkingCell[][], w: number, h: number,
+    lanes: LaneDTO[], ox: number, oy: number,
+  ): Position[] {
+    const road = (): ParkingCell => ({ type: CellType.ROAD, walkable: true });
+    const roadSet = new Set<string>();
+
+    for (const lane of lanes) {
+      const bounds = getLaneCanvasBounds(lane);
+      const sx = Math.max(0, toGridMin(bounds.left, ox));
+      const sy = Math.max(0, toGridMin(bounds.top, oy));
+      const ex = Math.min(w - 1, toGridMax(bounds.right, ox));
+      const ey = Math.min(h - 1, toGridMax(bounds.bottom, oy));
+
+      for (let y = sy; y <= ey; y++) {
+        for (let x = sx; x <= ex; x++) {
+          if (cells[y]?.[x]?.type !== CellType.SLOT &&
+              cells[y]?.[x]?.type !== CellType.ENTRY &&
+              cells[y]?.[x]?.type !== CellType.EXIT) {
+            cells[y][x] = road();
+            roadSet.add(`${x},${y}`);
+          }
         }
       }
     }
 
-    // Đảm bảo có đường đến mỗi slot
-    slots.forEach(slot => {
-      this.ensureRoadToSlot(cells, slot, width, height);
+    return Array.from(roadSet).map(item => {
+      const [x, y] = item.split(',').map(Number);
+      return { x, y };
     });
   }
 
-  /**
-   * Đảm bảo có đường đi đến slot
-   */
-  static ensureRoadToSlot(
-    cells: ParkingCell[][],
-    slot: ParkingSlot,
-    width: number,
-    height: number
-  ): void {
-    const directions = [
-      { dx: 0, dy: -1 }, // Up
-      { dx: 1, dy: 0 },  // Right
-      { dx: 0, dy: 1 },  // Down
-      { dx: -1, dy: 0 }, // Left
-    ];
+  // ─── Đảm bảo slot có ít nhất 1 ô road kề ────────────────────────────────────
 
-    // Check xung quanh slot, nếu không có road thì tạo
-    let hasAdjacentRoad = false;
-    
-    for (const dir of directions) {
-      const nx = slot.x + dir.dx;
-      const ny = slot.y + dir.dy;
-      
-      if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
-        if (cells[ny][nx].type === CellType.ROAD) {
-          hasAdjacentRoad = true;
+  static ensureRoad(cells: ParkingCell[][], slot: ParkingSlot, w: number, h: number): void {
+    const dirs = [{ dx: 0, dy: -1 }, { dx: 1, dy: 0 }, { dx: 0, dy: 1 }, { dx: -1, dy: 0 }];
+    const hasRoad = dirs.some(({ dx, dy }) => {
+      const nx = slot.x + dx; const ny = slot.y + dy;
+      return nx >= 0 && nx < w && ny >= 0 && ny < h
+        && cells[ny]?.[nx]?.type === CellType.ROAD;
+    });
+    if (!hasRoad) {
+      for (const { dx, dy } of [{ dx: 0, dy: 1 }, { dx: 1, dy: 0 }, { dx: 0, dy: -1 }]) {
+        const nx = slot.x + dx; const ny = slot.y + dy;
+        if (nx >= 0 && nx < w && ny >= 0 && ny < h
+          && cells[ny]?.[nx]?.type !== CellType.SLOT) {
+          cells[ny][nx] = { type: CellType.ROAD, walkable: true };
           break;
         }
       }
     }
+  }
 
-    // Nếu chưa có road xung quanh, tạo road ở dưới
-    if (!hasAdjacentRoad) {
-      const belowY = slot.y + 1;
-      if (belowY < height && cells[belowY][slot.x].type === CellType.WALL) {
-        cells[belowY][slot.x] = { type: CellType.ROAD, walkable: true };
+  // ─── Entries / Exits với tọa độ thực ────────────────────────────────────────
+
+  static connectAccessPointsToRoad(
+    cells: ParkingCell[][],
+    points: Array<EntryPoint | ExitPoint>,
+    laneRoadCells: Position[],
+    w: number,
+    h: number,
+  ): void {
+    for (const point of points) {
+      const start = { x: point.x, y: point.y };
+      const target = this.findNearestTarget(start, laneRoadCells, cells, w, h);
+      if (!target) continue;
+      this.carveRoad(cells, start, target, w, h);
+    }
+  }
+
+  static connectSlotsToRoadNetwork(
+    cells: ParkingCell[][],
+    slots: ParkingSlot[],
+    laneRoadCells: Position[],
+    w: number,
+    h: number,
+  ): void {
+    for (const slot of slots) {
+      const roadAnchor = this.findAdjacentWalkableCell(cells, slot.x, slot.y, w, h);
+      if (!roadAnchor) continue;
+
+      const target = this.findNearestTarget(roadAnchor, laneRoadCells, cells, w, h, roadAnchor);
+      if (!target) continue;
+
+      this.carveRoad(cells, roadAnchor, target, w, h);
+    }
+  }
+
+  static findAdjacentWalkableCell(
+    cells: ParkingCell[][],
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+  ): Position | null {
+    const dirs = [{ dx: 0, dy: 1 }, { dx: 1, dy: 0 }, { dx: 0, dy: -1 }, { dx: -1, dy: 0 }];
+    for (const dir of dirs) {
+      const nx = x + dir.dx;
+      const ny = y + dir.dy;
+      if (!this.inBounds(nx, ny, w, h)) continue;
+      if (cells[ny][nx].walkable) return { x: nx, y: ny };
+    }
+    return null;
+  }
+
+  static findNearestTarget(
+    start: Position,
+    preferredTargets: Position[],
+    cells: ParkingCell[][],
+    w: number,
+    h: number,
+    except?: Position,
+  ): Position | null {
+    const sourceTargets = preferredTargets.length > 0
+      ? preferredTargets
+      : this.collectWalkableCells(cells, w, h);
+
+    let best: Position | null = null;
+    let bestDist = Infinity;
+
+    for (const target of sourceTargets) {
+      if (target.x === start.x && target.y === start.y) continue;
+      if (except && target.x === except.x && target.y === except.y) continue;
+
+      const dist = Math.abs(target.x - start.x) + Math.abs(target.y - start.y);
+      if (dist < bestDist) {
+        bestDist = dist;
+        best = target;
+      }
+    }
+
+    return best;
+  }
+
+  static collectWalkableCells(cells: ParkingCell[][], w: number, h: number): Position[] {
+    const result: Position[] = [];
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        if (cells[y][x].walkable) result.push({ x, y });
+      }
+    }
+    return result;
+  }
+
+  static carveRoad(
+    cells: ParkingCell[][],
+    start: Position,
+    end: Position,
+    w: number,
+    h: number,
+  ): boolean {
+    if (start.x === end.x && start.y === end.y) return true;
+
+    const candidates = [
+      this.buildManhattanPath(start, end, true),
+      this.buildManhattanPath(start, end, false),
+    ].filter(path => path.length > 0 && this.isPathBuildable(path, cells, w, h));
+
+    if (candidates.length === 0) return false;
+
+    candidates.sort((a, b) => this.pathCost(a, cells) - this.pathCost(b, cells) || a.length - b.length);
+    const path = candidates[0];
+
+    for (const node of path) {
+      if (!this.inBounds(node.x, node.y, w, h)) continue;
+      const cell = cells[node.y][node.x];
+      if (cell.type === CellType.SLOT || cell.type === CellType.ENTRY || cell.type === CellType.EXIT) continue;
+      if (cell.type !== CellType.ROAD || !cell.walkable) {
+        cells[node.y][node.x] = { type: CellType.ROAD, walkable: true };
+      }
+    }
+
+    return true;
+  }
+
+  static buildManhattanPath(start: Position, end: Position, xFirst: boolean): Position[] {
+    const path: Position[] = [];
+    let x = start.x;
+    let y = start.y;
+
+    if (xFirst) {
+      while (x !== end.x) {
+        x += Math.sign(end.x - x);
+        path.push({ x, y });
+      }
+      while (y !== end.y) {
+        y += Math.sign(end.y - y);
+        path.push({ x, y });
+      }
+      return path;
+    }
+
+    while (y !== end.y) {
+      y += Math.sign(end.y - y);
+      path.push({ x, y });
+    }
+    while (x !== end.x) {
+      x += Math.sign(end.x - x);
+      path.push({ x, y });
+    }
+
+    return path;
+  }
+
+  static isPathBuildable(path: Position[], cells: ParkingCell[][], w: number, h: number): boolean {
+    return path.every(node =>
+      this.inBounds(node.x, node.y, w, h) &&
+      cells[node.y][node.x].type !== CellType.SLOT
+    );
+  }
+
+  static pathCost(path: Position[], cells: ParkingCell[][]): number {
+    return path.reduce((cost, node) => cost + (cells[node.y][node.x].walkable ? 0 : 1), 0);
+  }
+
+  static inBounds(x: number, y: number, w: number, h: number): boolean {
+    return x >= 0 && x < w && y >= 0 && y < h;
+  }
+
+  static promoteNonSlotCellsToRoad(cells: ParkingCell[][], w: number, h: number): void {
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const cell = cells[y][x];
+        if (cell.type === CellType.SLOT || cell.type === CellType.ENTRY || cell.type === CellType.EXIT) {
+          continue;
+        }
+        cells[y][x] = { type: CellType.ROAD, walkable: true };
       }
     }
   }
 
-  /**
-   * Generate entry points
-   */
-  static generateEntries(
-    floorDto: FloorDTO,
-    width: number,
-    height: number
-  ): EntryPoint[] {
-    const entries: EntryPoint[] = [];
-    const centerCol1 = Math.floor(width / 2) - 1;
-    const centerCol2 = Math.floor(width / 2);
-
-    // Tạo số lượng entries theo backend
-    const numEntries = Math.min(floorDto.entrances || 2, 2);
-
-    if (numEntries >= 1) {
-      entries.push({
-        id: `${floorDto.code}-ENTRY-A`,
-        name: `Lối vào ${floorDto.level}A`,
-        floorId: floorDto.code,
-        floorLevel: floorDto.level,
-        x: centerCol1,
-        y: 0,
-        type: CellType.ENTRY,
-        walkable: true,
-      });
-    }
-
-    if (numEntries >= 2) {
-      entries.push({
-        id: `${floorDto.code}-ENTRY-B`,
-        name: `Lối vào ${floorDto.level}B`,
-        floorId: floorDto.code,
-        floorLevel: floorDto.level,
-        x: centerCol2,
-        y: 0,
-        type: CellType.ENTRY,
-        walkable: true,
-      });
-    }
-
-    return entries;
+  static buildEntries(dto: FloorDTO, ox: number, oy: number): EntryPoint[] {
+    return (dto.entrances ?? []).map((e, i) => ({
+      id:         `${dto.code}-ENTRY-${e.code}`,
+      name:       `Lối vào ${i + 1}`,
+      floorId:    dto._id ?? dto.code,
+      floorLevel: dto.level,
+      x:          toGrid(e.positionX + (e.witdh ?? CELL_SIZE) / 2, ox),
+      y:          toGrid(e.positionY + (e.height ?? CELL_SIZE) / 2, oy),
+      type:       CellType.ENTRY,
+      walkable:   true,
+    }));
   }
 
-  /**
-   * Generate exit points
-   */
-  static generateExits(
-    floorDto: FloorDTO,
-    width: number,
-    height: number
-  ): ExitPoint[] {
-    const exits: ExitPoint[] = [];
-    const centerCol1 = Math.floor(width / 2) - 1;
-    const centerCol2 = Math.floor(width / 2);
-
-    const numExits = Math.min(floorDto.exits || 2, 2);
-
-    if (numExits >= 1) {
-      exits.push({
-        id: `${floorDto.code}-EXIT-A`,
-        name: `Lối ra ${floorDto.level}A`,
-        floorId: floorDto.code,
-        floorLevel: floorDto.level,
-        x: centerCol1,
-        y: height - 1,
-        type: CellType.EXIT,
-        walkable: true,
-      });
-    }
-
-    if (numExits >= 2) {
-      exits.push({
-        id: `${floorDto.code}-EXIT-B`,
-        name: `Lối ra ${floorDto.level}B`,
-        floorId: floorDto.code,
-        floorLevel: floorDto.level,
-        x: centerCol2,
-        y: height - 1,
-        type: CellType.EXIT,
-        walkable: true,
-      });
-    }
-
-    return exits;
+  static buildExits(dto: FloorDTO, ox: number, oy: number): ExitPoint[] {
+    return (dto.exits ?? []).map((e, i) => ({
+      id:         `${dto.code}-EXIT-${e.code}`,
+      name:       `Lối ra ${i + 1}`,
+      floorId:    dto._id ?? dto.code,
+      floorLevel: dto.level,
+      x:          toGrid(e.positionX + (e.witdh ?? CELL_SIZE) / 2, ox),
+      y:          toGrid(e.positionY + (e.height ?? CELL_SIZE) / 2, oy),
+      type:       CellType.EXIT,
+      walkable:   true,
+    }));
   }
 
-  /**
-   * Update slot status real-time
-   */
+  // ─── Real-time MQTT update ───────────────────────────────────────────────────
+
   static updateSlotStatus(
-    layout: FloorLayout,
-    slotCode: string,
-    newStatus: SlotStatus,
-    newStatusName: string
+    layout: FloorLayout, slotCode: string,
+    newStatus: SlotStatus, newStatusName: string,
   ): FloorLayout {
-    const updatedSlots = layout.slots.map(slot =>
-      slot.code === slotCode
-        ? { ...slot, status: newStatus, statusName: newStatusName }
-        : slot
-    );
-
-    // Update trong cells grid
-    const updatedCells = layout.cells.map(row =>
-      row.map(cell => {
-        if (cell.type === CellType.SLOT) {
-          const slotCell = cell as ParkingSlot;
-          if (slotCell.code === slotCode) {
-            return { ...slotCell, status: newStatus, statusName: newStatusName };
-          }
-        }
-        return cell;
-      })
-    );
-
     return {
       ...layout,
-      slots: updatedSlots,
-      cells: updatedCells,
+      slots: layout.slots.map(s =>
+        s.code === slotCode ? { ...s, status: newStatus, statusName: newStatusName } : s,
+      ),
+      cells: layout.cells.map(row =>
+        row.map(cell => {
+          if (cell.type !== CellType.SLOT) return cell;
+          const s = cell as ParkingSlot;
+          return s.code === slotCode
+            ? { ...s, status: newStatus, statusName: newStatusName }
+            : cell;
+        }),
+      ),
     };
   }
 }
