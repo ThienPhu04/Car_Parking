@@ -1,6 +1,6 @@
 import {
   ParkingMapDTO, FloorDTO, ZoneDTO,
-  LaneDTO,
+  LaneDTO, RawSlotDTO,
   ParkingMap, Floor, FloorLayout, ParkingSlot,
   EntryPoint, ExitPoint, ParkingCell, ZoneCell,
   CellType, Position, SlotStatus, ZoneLayout,
@@ -14,7 +14,7 @@ import {
 //                  lane.witdh=946, positionY≈400
 //
 // Chọn CELL_SIZE=40 → grid hợp lý khoảng 18×14 cells cho floor này.
-const CELL_SIZE = 40;
+const CELL_SIZE = 25;
 
 // ─── Helper: canvas px → grid index ─────────────────────────────────────────
 
@@ -151,6 +151,28 @@ function calcGridSize(dto: FloorDTO, ox: number, oy: number): { width: number; h
 // ─── TRANSFORMER CLASS ────────────────────────────────────────────────────────
 
 export class ParkingMapTransformer {
+  private static getSlotStatusFromSensor(raw: RawSlotDTO): {
+    status: SlotStatus;
+    statusName: string;
+  } {
+    if (typeof raw.sensorStatus === 'boolean') {
+      return raw.sensorStatus
+        ? { status: SlotStatus.OCCUPIED, statusName: 'Đã có xe' }
+        : { status: SlotStatus.AVAILABLE, statusName: 'Trống' };
+    }
+
+    // Fallback for payloads that do not provide sensorStatus.
+    switch (raw.status) {
+      case SlotStatus.AVAILABLE:
+        return { status: SlotStatus.AVAILABLE, statusName: 'Trống' };
+      case SlotStatus.RESERVED:
+        return { status: SlotStatus.RESERVED, statusName: 'Đã đặt' };
+      case SlotStatus.OCCUPIED:
+        return { status: SlotStatus.OCCUPIED, statusName: 'Đã có xe' };
+      default:
+        return { status: SlotStatus.AVAILABLE, statusName: 'Trống' };
+    }
+  }
 
   static transformParkingMap(dto: ParkingMapDTO): ParkingMap {
     const floorDtos = Array.isArray(dto.floors) ? dto.floors : [];
@@ -288,6 +310,8 @@ export class ParkingMapTransformer {
         const centerY = group.positionY + group.height / 2;
 
         rawSlots.forEach((raw, idx) => {
+          const mappedStatus = this.getSlotStatusFromSensor(raw);
+
           // Tọa độ tâm ô slot trong canvas
           const rawX = isHorizontal
             ? group.positionX + slotCanvasW * idx + slotCanvasW / 2
@@ -306,8 +330,8 @@ export class ParkingMapTransformer {
             zone:         zone.nameZone,
             x:            toGrid(rotated.x, ox),
             y:            toGrid(rotated.y, oy),
-            status:       raw.status as SlotStatus,
-            statusName:   raw.statusName,
+            status:       mappedStatus.status,
+            statusName:   mappedStatus.statusName,
             isActive:     raw.isActive,
             isSensorReal: raw.isSensorReal,
             sensorId:     raw.sensorId ?? undefined,

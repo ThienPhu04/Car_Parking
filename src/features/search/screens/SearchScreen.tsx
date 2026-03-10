@@ -9,6 +9,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Ionicons';
+
 import { COLORS } from '../../../shared/constants/colors';
 import { SearchBar } from '../components/SearchBar';
 import { FilterOptions } from '../components/FilterOptions';
@@ -24,7 +25,7 @@ const SearchScreen: React.FC = () => {
   const navigation = useNavigation();
   const lotId = 'lot_001';
   const { slots } = useParkingSlots(lotId, 1);
-  
+
   const {
     searchQuery,
     setSearchQuery,
@@ -38,46 +39,60 @@ const SearchScreen: React.FC = () => {
 
   const handleSlotSelect = (slot: ParkingSlot) => {
     if (slot.status === SlotStatus.AVAILABLE) {
-      (navigation as any).navigate('ParkingMap' as any, { selectedSlot: slot.id });
+      (navigation as any).navigate('ParkingMap', { selectedSlot: slot.id });
     }
   };
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
+
+      {/* HEADER */}
       <View style={styles.header}>
-        <Text style={styles.title}>Tìm kiếm chỗ đỗ</Text>
+        <Text style={styles.title}>Tìm chỗ đỗ</Text>
+        <Text style={styles.subtitle}>
+          Nhập mã chỗ hoặc sử dụng bộ lọc
+        </Text>
       </View>
 
-      <View style={styles.searchContainer}>
-        <SearchBar
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          placeholder="Tìm theo mã chỗ (VD: A1, B2...)"
-        />
-        <TouchableOpacity
-          style={styles.filterButton}
-          onPress={() => setShowFilters(!showFilters)}
-        >
-          <Icon
-            name={showFilters ? 'close' : 'filter'}
-            size={24}
-            color={COLORS.primary}
+      {/* SEARCH AREA */}
+      <View style={styles.searchSection}>
+        <View style={styles.searchRow}>
+          <SearchBar
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholder="VD: A1, B2..."
           />
-        </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.filterButton,
+              showFilters && styles.filterButtonActive,
+            ]}
+            onPress={() => setShowFilters(!showFilters)}
+          >
+            <Icon
+              name="options-outline"
+              size={20}
+              color={showFilters ? '#fff' : COLORS.primary}
+            />
+          </TouchableOpacity>
+        </View>
+
+        {showFilters && (
+          <FilterOptions
+            filters={filters}
+            onUpdateFilters={updateFilters}
+            onClearFilters={clearFilters}
+          />
+        )}
       </View>
 
-      {showFilters && (
-        <FilterOptions
-          filters={filters}
-          onUpdateFilters={updateFilters}
-          onClearFilters={clearFilters}
-        />
-      )}
-
+      {/* RESULT HEADER */}
       <View style={styles.resultHeader}>
         <Text style={styles.resultText}>
-          {filteredSlots.length} kết quả
+          {filteredSlots.length} chỗ phù hợp
         </Text>
+
         {(searchQuery || Object.keys(filters).length > 0) && (
           <TouchableOpacity
             onPress={() => {
@@ -85,16 +100,17 @@ const SearchScreen: React.FC = () => {
               clearFilters();
             }}
           >
-            <Text style={styles.clearText}>Xóa bộ lọc</Text>
+            <Text style={styles.clearText}>Xóa lọc</Text>
           </TouchableOpacity>
         )}
       </View>
 
+      {/* RESULT LIST */}
       {filteredSlots.length === 0 ? (
         <EmptyState
           icon="search-outline"
-          title="Không tìm thấy kết quả"
-          description="Thử thay đổi từ khóa hoặc bộ lọc tìm kiếm"
+          title="Không tìm thấy"
+          description="Thử thay đổi từ khóa hoặc bộ lọc"
         />
       ) : (
         <FlatList
@@ -114,55 +130,87 @@ const SearchScreen: React.FC = () => {
   );
 };
 
+export default SearchScreen;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: '#F6F7F9',
   },
+
   header: {
-    padding: SPACING.md,
-    backgroundColor: COLORS.backgroundSecondary,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    paddingHorizontal: SPACING.lg,
+    paddingTop: SPACING.md,
+    paddingBottom: SPACING.sm,
   },
+
   title: {
-    fontSize: TYPOGRAPHY.fontSize.xxl,
-    fontWeight: TYPOGRAPHY.fontWeight.bold,
+    fontSize: 26,
+    fontWeight: '700',
     color: COLORS.textPrimary,
   },
-  searchContainer: {
+
+  subtitle: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    color: COLORS.textSecondary,
+    marginTop: 2,
+  },
+
+  searchSection: {
+    marginTop: SPACING.sm,
+    marginHorizontal: SPACING.md,
+    padding: SPACING.sm,
+    backgroundColor: '#fff',
+    borderRadius: 14,
+
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
+  },
+
+  searchRow: {
     flexDirection: 'row',
-    padding: SPACING.md,
     gap: SPACING.sm,
   },
+
   filterButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 8,
-    backgroundColor: `${COLORS.primary}20`,
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: `${COLORS.primary}15`,
     justifyContent: 'center',
     alignItems: 'center',
   },
+
+  filterButtonActive: {
+    backgroundColor: COLORS.primary,
+  },
+
   resultHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
+    marginTop: SPACING.md,
+    marginBottom: SPACING.xs,
+    paddingHorizontal: SPACING.lg,
   },
+
   resultText: {
     fontSize: TYPOGRAPHY.fontSize.md,
+    fontWeight: '500',
     color: COLORS.textSecondary,
   },
+
   clearText: {
     fontSize: TYPOGRAPHY.fontSize.sm,
     color: COLORS.primary,
-    fontWeight: TYPOGRAPHY.fontWeight.medium,
+    fontWeight: '600',
   },
+
   listContent: {
-    padding: SPACING.md,
-    paddingBottom: 100,
+    paddingHorizontal: SPACING.md,
+    paddingTop: SPACING.sm,
+    paddingBottom: 120,
   },
 });
-
-export default SearchScreen;

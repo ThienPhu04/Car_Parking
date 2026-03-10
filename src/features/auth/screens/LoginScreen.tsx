@@ -72,74 +72,75 @@ const LoginScreen: React.FC = () => {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={styles.container}
         keyboardShouldPersistTaps="handled"
       >
-        <View style={styles.header}>
-          <Icon name="car-sport" size={64} color={COLORS.primary} />
-          <Text style={styles.title}>Smart Parking</Text>
-          <Text style={styles.subtitle}>Đăng nhập để tiếp tục</Text>
+
+        <Text style={styles.title}>Đăng nhập</Text>
+
+        <Text style={styles.subtitle}>
+          Chào mừng đến với ứng dụng đỗ xe thông minh
+        </Text>
+
+        <Input
+          label="Email"
+          placeholder="Nhập email"
+          value={email}
+          onChangeText={setEmail}
+          keyboardType="email-address"
+          error={errors.email}
+        />
+
+        <Input
+          label="Mật khẩu"
+          placeholder="Nhập mật khẩu"
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry
+          error={errors.password}
+        />
+
+        <TouchableOpacity style={styles.forgotPassword}>
+          <Text style={styles.forgotPasswordText}>Quên mật khẩu</Text>
+        </TouchableOpacity>
+
+        <Button
+          title="Đăng nhập"
+          onPress={handleLogin}
+          loading={isLoading}
+          fullWidth
+          style={styles.loginButton}
+        />
+
+        {/* Divider */}
+        <View style={styles.divider}>
+          <View style={styles.line} />
+          <Text style={styles.dividerText}>Hoặc đăng nhập với</Text>
+          <View style={styles.line} />
         </View>
 
-        <View style={styles.form}>
-          <Input
-            label="Email"
-            placeholder="Nhập email"
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            leftIcon="mail-outline"
-            error={errors.email}
-            autoCapitalize="none"
-          />
-
-          <Input
-            label="Mật khẩu"
-            placeholder="Nhập mật khẩu"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-            leftIcon="lock-closed-outline"
-            error={errors.password}
-          />
-
-          <TouchableOpacity style={styles.forgotPassword}>
-            <Text style={styles.forgotPasswordText}>Quên mật khẩu?</Text>
+        {/* Social */}
+        <View style={styles.socialContainer}>
+          <TouchableOpacity style={styles.socialButton}>
+            <Icon name="logo-apple" size={28} />
           </TouchableOpacity>
 
-          <Button
-            title="Đăng nhập"
-            onPress={handleLogin}
-            loading={isLoading}
-            fullWidth
-            style={styles.loginButton}
-          />
+          <TouchableOpacity style={styles.socialButton}>
+            <Icon name="logo-google" size={28} color="#DB4437" />
+          </TouchableOpacity>
 
-          <View style={styles.divider}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>Hoặc</Text>
-            <View style={styles.dividerLine} />
-          </View>
-
-          <View style={styles.socialButtons}>
-            <TouchableOpacity style={styles.socialButton}>
-              <Icon name="logo-google" size={24} color={COLORS.error} />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.socialButton}>
-              <Icon name="logo-facebook" size={24} color="#1877F2" />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.socialButton}>
-              <Icon name="logo-apple" size={24} color={COLORS.textPrimary} />
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.footer}>
-            <Text style={styles.footerText}>Chưa có tài khoản? </Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-              <Text style={styles.footerLink}>Đăng ký ngay</Text>
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity style={styles.socialButton}>
+            <Icon name="logo-facebook" size={28} color="#1877F2" />
+          </TouchableOpacity>
         </View>
+
+        <View style={styles.footer}>
+          <Text>Bạn chưa có tài khoản? </Text>
+          <TouchableOpacity onPress={() => navigation.navigate('Register')}>
+            <Text style={styles.register}>Đăng ký</Text>
+          </TouchableOpacity>
+        </View>
+
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -147,66 +148,70 @@ const LoginScreen: React.FC = () => {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  scrollContent: {
     flexGrow: 1,
-    justifyContent: 'center',
-    padding: SPACING.xl,
+    backgroundColor: COLORS.background,
+    paddingHorizontal: SPACING.lg,
+    paddingTop: SPACING.xxl,
   },
-  header: {
-    alignItems: 'center',
-    marginBottom: SPACING.xl,
-  },
+
   title: {
     fontSize: TYPOGRAPHY.fontSize.xxxl,
     fontWeight: TYPOGRAPHY.fontWeight.bold,
     color: COLORS.textPrimary,
-    marginTop: SPACING.md,
+    textAlign: 'center',
+    marginBottom: SPACING.sm,
   },
+
   subtitle: {
     fontSize: TYPOGRAPHY.fontSize.md,
     color: COLORS.textSecondary,
-    marginTop: SPACING.xs,
+    textAlign: 'center',
+    marginBottom: SPACING.xl,
   },
-  form: {
-    width: '100%',
-  },
+
   forgotPassword: {
     alignSelf: 'flex-end',
-    marginTop: -SPACING.sm,
+    marginTop: SPACING.xs,
     marginBottom: SPACING.lg,
   },
+
   forgotPasswordText: {
     fontSize: TYPOGRAPHY.fontSize.sm,
-    color: COLORS.primary,
-    fontWeight: TYPOGRAPHY.fontWeight.medium,
+    color: COLORS.textSecondary,
   },
+
   loginButton: {
+    backgroundColor: COLORS.accent, // cam giống ảnh
+    borderRadius: SPACING.sm,
+    height: 48,
+    justifyContent: 'center',
     marginBottom: SPACING.lg,
   },
+
   divider: {
     flexDirection: 'row',
     alignItems: 'center',
     marginVertical: SPACING.lg,
   },
-  dividerLine: {
+
+  line: {
     flex: 1,
     height: 1,
-    backgroundColor: COLORS.border,
+    backgroundColor: COLORS.borderLight,
   },
+
   dividerText: {
     marginHorizontal: SPACING.md,
     fontSize: TYPOGRAPHY.fontSize.sm,
     color: COLORS.textSecondary,
   },
-  socialButtons: {
+
+  socialContainer: {
     flexDirection: 'row',
-    justifyContent: 'center',
-    gap: SPACING.md,
-    marginBottom: SPACING.lg,
+    justifyContent: 'space-evenly',
+    marginBottom: SPACING.xl,
   },
+
   socialButton: {
     width: 56,
     height: 56,
@@ -215,20 +220,22 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: COLORS.borderLight,
   },
+
   footer: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginTop: SPACING.md,
   },
+
   footerText: {
     fontSize: TYPOGRAPHY.fontSize.md,
     color: COLORS.textSecondary,
   },
-  footerLink: {
+
+  register: {
     fontSize: TYPOGRAPHY.fontSize.md,
-    color: COLORS.primary,
+    color: COLORS.accent,
     fontWeight: TYPOGRAPHY.fontWeight.semibold,
   },
 });

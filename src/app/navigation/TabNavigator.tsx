@@ -1,8 +1,8 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { View, StyleSheet, Platform } from 'react-native';
+import { View, StyleSheet, Platform, Text } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
-import { COLORS, } from '../../shared/constants/colors';
+import { COLORS } from '../../shared/constants/colors';
 import { TabParamList } from '../../types/navigation.types';
 
 // Screens
@@ -13,119 +13,118 @@ import ProfileScreen from '../../features/profile/screens/ProfileScreen';
 
 const Tab = createBottomTabNavigator<TabParamList>();
 
+type TabRouteName = keyof TabParamList;
+
+const TAB_CONFIG: Record<
+  TabRouteName,
+  { label: string; activeIcon: string; inactiveIcon: string }
+> = {
+  Home: {
+    label: 'Trang chủ',
+    activeIcon: 'home',
+    inactiveIcon: 'home',
+  },
+  Search: {
+    label: 'Tìm kiếm',
+    activeIcon: 'search',
+    inactiveIcon: 'search-outline',
+  },
+  Booking: {
+    label: 'Đặt lịch',
+    activeIcon: 'calendar',
+    inactiveIcon: 'calendar-outline',
+  },
+  Profile: {
+    label: 'Cài đặt',
+    activeIcon: 'settings',
+    inactiveIcon: 'settings',
+  },
+};
+
+const renderTabIcon = (routeName: TabRouteName, focused: boolean) => {
+  const tabConfig = TAB_CONFIG[routeName];
+
+  return (
+    <View style={styles.tabItemContent}>
+      <View style={[styles.iconContainer, focused && styles.iconContainerActive]}>
+        <Icon
+          name={focused ? tabConfig.activeIcon : tabConfig.inactiveIcon}
+          size={24}
+          color={focused ? COLORS.accent : COLORS.black}
+        />
+      </View>
+      <Text numberOfLines={1} style={[styles.tabLabel, !focused && styles.hiddenLabel]}>{tabConfig.label}</Text>
+    </View>
+  );
+};
+
 export const TabNavigator: React.FC = () => {
   return (
     <Tab.Navigator
-      screenOptions={{
+      screenOptions={({ route }) => ({
         headerShown: false,
+        tabBarShowLabel: false,
         tabBarStyle: styles.tabBar,
-        tabBarActiveTintColor: COLORS.primary,
-        tabBarInactiveTintColor: COLORS.textSecondary,
-        tabBarLabelStyle: styles.tabBarLabel,
         tabBarItemStyle: styles.tabBarItem,
-      }}
+        tabBarIcon: ({ focused }: { focused: boolean }) =>
+          renderTabIcon(route.name as TabRouteName, focused),
+      })}
     >
-      <Tab.Screen
-        name="Home"
-        component={HomeScreen}
-        options={{
-          tabBarLabel: 'Trang chủ',
-          tabBarIcon: ({ color, focused }: { color: string; focused: boolean }) => (
-            <View style={[styles.iconContainer, focused && styles.iconContainerActive]}>
-              <Icon
-                name={focused ? 'home' : 'home-outline'}
-                size={24}
-                color={focused ? COLORS.white : color}
-              />
-            </View>
-          ),
-        }}
-      />
-      <Tab.Screen
-        name="Search"
-        component={SearchScreen}
-        options={{
-          tabBarLabel: 'Tìm kiếm',
-          tabBarIcon: ({ color, focused }: { color: string; focused: boolean }) => (
-            <View style={styles.iconContainer}>
-              <Icon
-                name={focused ? 'search' : 'search-outline'}
-                size={24}
-                color={color}
-              />
-            </View>
-          ),
-        }}
-      />
-      <Tab.Screen
-        name="Booking"
-        component={BookingScreen}
-        options={{
-          tabBarLabel: 'Đặt lịch',
-          tabBarIcon: ({ color, focused }: { color: string; focused: boolean }) => (
-            <View style={styles.iconContainer}>
-              <Icon
-                name={focused ? 'calendar' : 'calendar-outline'}
-                size={24}
-                color={color}
-              />
-            </View>
-          ),
-        }}
-      />
-      <Tab.Screen
-        name="Profile"
-        component={ProfileScreen}
-        options={{
-          tabBarLabel: 'Cài đặt',
-          tabBarIcon: ({ color, focused }: { color: string; focused: boolean }) => (
-            <View style={styles.iconContainer}>
-              <Icon
-                name={focused ? 'settings' : 'settings-outline'}
-                size={24}
-                color={color}
-              />
-            </View>
-          ),
-        }}
-      />
+      <Tab.Screen name="Home" component={HomeScreen} />
+      <Tab.Screen name="Search" component={SearchScreen} />
+      <Tab.Screen name="Booking" component={BookingScreen} />
+      <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>
   );
 };
 
 const styles = StyleSheet.create({
   tabBar: {
-    backgroundColor: COLORS.backgroundSecondary,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
-    height: Platform.OS === 'ios' ? 88 : 60,
-    paddingBottom: Platform.OS === 'ios' ? 24 : 8,
-    paddingTop: 8,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    backgroundColor: '#F7F7F7',
+    borderWidth: 1.5,
+    borderColor: COLORS.accent,
+    height: Platform.OS === 'ios' ? 96 : 88,
+    paddingBottom: Platform.OS === 'ios' ? 18 : 10,
+    paddingTop: 20,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
     position: 'absolute',
+    alignItems: 'center',
+    left: 0,
+    right: 0,
+    bottom: 0,
     elevation: 0,
-    shadowColor: COLORS.shadow,
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-  },
-  tabBarLabel: {
-    fontSize: 12,
-    fontWeight: '500',
-    marginTop: 4,
+    shadowOpacity: 0,
   },
   tabBarItem: {
-    paddingTop: 4,
+    justifyContent: 'flex-start',
+  },
+  tabItemContent: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   iconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
   },
   iconContainerActive: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: '#D8D8D8',
+  },
+  tabLabel: {
+    textAlign: 'center',
+    minWidth: 60,
+    marginTop: 2,
+    fontSize: 12,
+    fontWeight: '700',
+    color: COLORS.black,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  hiddenLabel: {
+    opacity: 0,
+    height: 0,
   },
 });

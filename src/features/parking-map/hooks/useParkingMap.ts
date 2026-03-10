@@ -91,8 +91,14 @@ export const useParkingMap = (parkingCode: string) => {
   }, []);
 
   useEffect(() => {
+  loadParkingMap();
+
+  const interval = setInterval(() => {
     loadParkingMap();
-  }, [loadParkingMap]);
+  }, 5000);
+
+  return () => clearInterval(interval);
+}, [loadParkingMap]);
 
   return {
     parkingMap,

@@ -17,6 +17,7 @@ import { EnhancedParkingGrid } from '../components/EnhancedParkingGrid';
 import { FloorSelector } from '../components/FloorSelector';
 import { NavigationPanel } from '../components/NavigationPanel';
 import { SlotLegend } from '../components/SlotLegend';
+import { SlotActionModal } from '../components/SlotActionModal';
 import { useParkingMap } from '../hooks/useParkingMap';
 import { useMQTT } from '../hooks/useMQTT';
 import { ParkingNavigator } from '../ultils/navigationHelper';
@@ -38,6 +39,7 @@ const ParkingMapScreen: React.FC = () => {
   const [selectedSlot, setSelectedSlot] = useState<ParkingSlot | null>(null);
   const [navRoute, setNavRoute] = useState<NavigationRoute | null>(null);
   const [showEntryModal, setShowEntryModal] = useState(false);
+  const [showSlotActionModal, setShowSlotActionModal] = useState(false);
 
   // MQTT
   const mqttTopic = currentLayout
@@ -76,20 +78,19 @@ const ParkingMapScreen: React.FC = () => {
   const handleSlotPress = useCallback((slot: ParkingSlot) => {
     setSelectedSlot(slot);
     setNavRoute(null);
-    if (slot.status === SlotStatus.AVAILABLE) {
-      Alert.alert(
-        `${slot.name} (${slot.code})`,
-        `Khu: ${slot.zone}\nTrạng thái: ${slot.statusName}`,
-        [
-          { text: 'Hủy', style: 'cancel' },
-          { text: 'Tìm đường', onPress: () => setShowEntryModal(true) },
-          { text: 'Đặt chỗ', onPress: () => (navigation as any).navigate('Booking', { slotId: slot.id }) },
-        ],
-      );
-    } else {
-      Alert.alert('Thông báo', `Chỗ này ${slot.statusName.toLowerCase()}`);
-    }
-  }, [navigation]);
+    setShowSlotActionModal(true);
+  }, []);
+
+  const handleOpenEntrySelector = useCallback(() => {
+    setShowSlotActionModal(false);
+    setShowEntryModal(true);
+  }, []);
+
+  const handleBookSlot = useCallback(() => {
+    if (!selectedSlot) return;
+    setShowSlotActionModal(false);
+    (navigation as any).navigate('Booking', { slotId: selectedSlot.id });
+  }, [navigation, selectedSlot]);
 
   const handleFindRoute = useCallback((entryIdx = 0) => {
     if (!selectedSlot || !currentLayout) return;
@@ -114,6 +115,7 @@ const ParkingMapScreen: React.FC = () => {
   const handleClearRoute = useCallback(() => {
     setNavRoute(null);
     setSelectedSlot(null);
+    setShowSlotActionModal(false);
   }, []);
 
   // ✅ FIX: parseInt("F001") = NaN — phải tìm floor bằng id rồi lấy level
@@ -122,6 +124,7 @@ const ParkingMapScreen: React.FC = () => {
     switchFloor(floorId);
     setSelectedSlot(null);
     setNavRoute(null);
+    setShowSlotActionModal(false);
   }, [parkingMap, switchFloor]);
 
   // ── Loading / Error states ──────────────────────────────────────────────────
@@ -214,14 +217,6 @@ const ParkingMapScreen: React.FC = () => {
             text={`${selectedSlot.name} (${selectedSlot.code})`} />
           <InfoRow icon="business" color={COLORS.textSecondary}
             text={`Khu: ${selectedSlot.zone}`} />
-          {navRoute && (
-            <>
-              <InfoRow icon="navigate" color={COLORS.success}
-                text={`Khoảng cách: ${navRoute.distance} m`} />
-              <InfoRow icon="time" color={COLORS.warning}
-                text={`Thời gian: ${navRoute.estimatedTime} s`} />
-            </>
-          )}
         </Card>
       )}
 
@@ -249,6 +244,14 @@ const ParkingMapScreen: React.FC = () => {
       <View style={styles.legendBar}>
         <SlotLegend />
       </View>
+
+      <SlotActionModal
+        visible={showSlotActionModal}
+        slot={selectedSlot}
+        onClose={() => setShowSlotActionModal(false)}
+        onFindRoute={handleOpenEntrySelector}
+        onBookSlot={handleBookSlot}
+      />
 
       {/* Entry selector modal */}
       <Modal visible={showEntryModal} transparent animationType="slide"

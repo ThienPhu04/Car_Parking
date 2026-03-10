@@ -199,12 +199,12 @@ export interface RawSlotDTO {
   code: string;
   nameSlot: string;
   groupSlotCode: string;
-  status: number;         // 0=trống, 1=đã đặt, 2=đang dùng
+  status: number;         // trạng thái record slot (vd: chỉnh sửa/hoạt động), không dùng cho trạng thái đỗ xe
   statusName: string;
   isSensorReal: boolean;
   sensorId: string | null;
   isActive: boolean;
-  sensorStatus?: boolean;
+  sensorStatus?: boolean; // trạng thái đỗ xe: true=có xe, false=trống
   // Không có positionX/Y (bị comment out trong Slot.model)
   // Tọa độ render lấy từ GroupSlot.positionX/Y
 }

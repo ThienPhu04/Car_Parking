@@ -128,142 +128,181 @@ const RegisterScreen: React.FC = () => {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={styles.container}
         keyboardShouldPersistTaps="handled"
       >
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-        >
-          <Icon name="arrow-back" size={24} color={COLORS.textPrimary} />
-        </TouchableOpacity>
 
-        <View style={styles.header}>
-          <Text style={styles.title}>Đăng ký tài khoản</Text>
-          <Text style={styles.subtitle}>Tạo tài khoản mới để bắt đầu</Text>
+        <Text style={styles.title}>Đăng ký tài khoản</Text>
+
+        <Text style={styles.subtitle}>
+          Chào mừng đến với ứng dụng đỗ xe thông minh
+        </Text>
+
+        <Input
+          label="Họ và tên"
+          placeholder="Nhập họ và tên"
+          value={formData.name}
+          onChangeText={(text) => setFormData({ ...formData, name: text })}
+          error={errors.name}
+        />
+
+        <Input
+          label="Email"
+          placeholder="Nhập email"
+          value={formData.email}
+          onChangeText={(text) => setFormData({ ...formData, email: text })}
+          keyboardType="email-address"
+          autoCapitalize="none"
+          error={errors.email}
+        />
+
+        <Input
+          label="Mật khẩu"
+          placeholder="Nhập mật khẩu"
+          value={formData.password}
+          onChangeText={(text) => setFormData({ ...formData, password: text })}
+          secureTextEntry
+          error={errors.password}
+        />
+
+        <Input
+          label="Xác nhận mật khẩu"
+          placeholder="Nhập xác nhận mật khẩu"
+          value={formData.confirmPassword}
+          onChangeText={(text) =>
+            setFormData({ ...formData, confirmPassword: text })
+          }
+          secureTextEntry
+          error={errors.confirmPassword}
+        />
+
+        <Button
+          title="Đăng ký"
+          onPress={handleRegister}
+          loading={isLoading}
+          fullWidth
+          style={styles.registerButton}
+        />
+
+        {/* Divider */}
+        <View style={styles.divider}>
+          <View style={styles.line} />
+          <Text style={styles.dividerText}>Hoặc đăng ký với</Text>
+          <View style={styles.line} />
         </View>
 
-        <View style={styles.form}>
-          <Input
-            label="Họ và tên"
-            placeholder="Nhập họ và tên"
-            value={formData.name}
-            onChangeText={(text) => setFormData({ ...formData, name: text })}
-            leftIcon="person-outline"
-            error={errors.name}
-          />
+        {/* Social login */}
+        <View style={styles.socialContainer}>
+          <TouchableOpacity style={styles.socialButton}>
+            <Icon name="logo-apple" size={28} color={COLORS.textPrimary} />
+          </TouchableOpacity>
 
-          <Input
-            label="Email"
-            placeholder="Nhập email"
-            value={formData.email}
-            onChangeText={(text) => setFormData({ ...formData, email: text })}
-            keyboardType="email-address"
-            leftIcon="mail-outline"
-            error={errors.email}
-            autoCapitalize="none"
-          />
+          <TouchableOpacity style={styles.socialButton}>
+            <Icon name="logo-google" size={28} color="#DB4437" />
+          </TouchableOpacity>
 
-          <Input
-            label="Số điện thoại"
-            placeholder="Nhập số điện thoại"
-            value={formData.phone}
-            onChangeText={(text) => setFormData({ ...formData, phone: text })}
-            keyboardType="phone-pad"
-            leftIcon="call-outline"
-            error={errors.phone}
-          />
-
-          <Input
-            label="Mật khẩu"
-            placeholder="Nhập mật khẩu"
-            value={formData.password}
-            onChangeText={(text) => setFormData({ ...formData, password: text })}
-            secureTextEntry
-            leftIcon="lock-closed-outline"
-            error={errors.password}
-          />
-
-          <Input
-            label="Xác nhận mật khẩu"
-            placeholder="Nhập lại mật khẩu"
-            value={formData.confirmPassword}
-            onChangeText={(text) => setFormData({ ...formData, confirmPassword: text })}
-            secureTextEntry
-            leftIcon="lock-closed-outline"
-            error={errors.confirmPassword}
-          />
-
-          <Button
-            title="Đăng ký"
-            onPress={handleRegister}
-            loading={isLoading}
-            fullWidth
-            style={styles.registerButton}
-          />
-
-          <View style={styles.footer}>
-            <Text style={styles.footerText}>Đã có tài khoản? </Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-              <Text style={styles.footerLink}>Đăng nhập ngay</Text>
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity style={styles.socialButton}>
+            <Icon name="logo-facebook" size={28} color="#1877F2" />
+          </TouchableOpacity>
         </View>
+
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>Bạn đã có tài khoản? </Text>
+
+          <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+            <Text style={styles.footerLink}>Đăng nhập</Text>
+          </TouchableOpacity>
+        </View>
+
       </ScrollView>
     </KeyboardAvoidingView>
   );
 };
 
 const styles = StyleSheet.create({
+
   container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  scrollContent: {
     flexGrow: 1,
-    padding: SPACING.xl,
-    paddingTop: SPACING.xxl,
+    backgroundColor: COLORS.background,
+    paddingHorizontal: SPACING.lg,
+    paddingTop: SPACING.xxl
   },
-  backButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    marginBottom: SPACING.lg,
-  },
-  header: {
-    marginBottom: SPACING.xl,
-  },
+
   title: {
     fontSize: TYPOGRAPHY.fontSize.xxxl,
     fontWeight: TYPOGRAPHY.fontWeight.bold,
+    textAlign: 'center',
     color: COLORS.textPrimary,
+    marginBottom: SPACING.sm
   },
+
   subtitle: {
     fontSize: TYPOGRAPHY.fontSize.md,
     color: COLORS.textSecondary,
-    marginTop: SPACING.xs,
+    textAlign: 'center',
+    marginBottom: SPACING.xl
   },
-  form: {
-    width: '100%',
-  },
+
   registerButton: {
     marginTop: SPACING.md,
     marginBottom: SPACING.lg,
+    backgroundColor: COLORS.accent,
+    borderRadius: SPACING.sm,
+    height: 48,
+    justifyContent: 'center'
   },
+
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: SPACING.lg
+  },
+
+  line: {
+    flex: 1,
+    height: 1,
+    backgroundColor: COLORS.borderLight
+  },
+
+  dividerText: {
+    marginHorizontal: SPACING.md,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    color: COLORS.textSecondary
+  },
+
+  socialContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-evenly',
+    marginBottom: SPACING.xl
+  },
+
+  socialButton: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: COLORS.backgroundSecondary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.borderLight
+  },
+
   footer: {
     flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: SPACING.md,
+    justifyContent: 'center'
   },
+
   footerText: {
     fontSize: TYPOGRAPHY.fontSize.md,
-    color: COLORS.textSecondary,
+    color: COLORS.textSecondary
   },
+
   footerLink: {
     fontSize: TYPOGRAPHY.fontSize.md,
-    color: COLORS.primary,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold,
-  },
-});
+    color: COLORS.accent,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold
+  }
+
+})
 
 export default RegisterScreen;

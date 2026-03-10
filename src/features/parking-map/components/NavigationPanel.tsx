@@ -42,9 +42,6 @@ export const NavigationPanel: React.FC<NavigationPanelProps> = ({ route, onClose
           <Text style={styles.headerTitle}>Hướng dẫn đi</Text>
         </View>
         <View style={styles.headerRight}>
-          <Text style={styles.headerMeta}>
-            {route.distance}m · {route.estimatedTime}s
-          </Text>
           <Icon
             name={expanded ? 'chevron-down' : 'chevron-up'}
             size={18}
@@ -78,12 +75,6 @@ export const NavigationPanel: React.FC<NavigationPanelProps> = ({ route, onClose
           </View>
         </ScrollView>
       )}
-
-      {/* Close button */}
-      <TouchableOpacity style={styles.closeBtn} onPress={onClose} activeOpacity={0.8}>
-        <Icon name="close-circle" size={18} color={COLORS.error} />
-        <Text style={styles.closeText}>Đóng</Text>
-      </TouchableOpacity>
     </View>
   );
 };
