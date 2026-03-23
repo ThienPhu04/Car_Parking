@@ -128,8 +128,9 @@ export const EnhancedParkingGrid: React.FC<EnhancedParkingGridProps> = ({
       (viewport.height - PAD * 2) / svgH,
     );
     if (!Number.isFinite(fitScale) || fitScale <= 0) return;
-    const initialScale = clampJS(fitScale, MIN_ZOOM, MAX_ZOOM);
-    minZoom.value = MIN_ZOOM;
+    const actualMinZoom = Math.min(MIN_ZOOM, fitScale);
+    const initialScale = clampJS(fitScale, actualMinZoom, MAX_ZOOM);
+    minZoom.value = actualMinZoom;
     const centeredX = (viewport.width - svgW * initialScale) / 2;
     const centeredY = (viewport.height - svgH * initialScale) / 2;
     scale.value = initialScale;
@@ -187,6 +188,7 @@ export const EnhancedParkingGrid: React.FC<EnhancedParkingGridProps> = ({
       { translateY: translateY.value },
       { scale: scale.value },
     ],
+    transformOrigin: 'top left',
   }));
 
   // Pre-compute zone bounding boxes once
@@ -547,15 +549,16 @@ export const EnhancedParkingGrid: React.FC<EnhancedParkingGridProps> = ({
   };
 
   return (
-    <View
-      style={styles.container}
-      onLayout={event => {
-        const { width, height } = event.nativeEvent.layout;
-        if (width === viewport.width && height === viewport.height) return;
-        setViewport({ width, height });
-      }}
-    >
-      <GestureDetector gesture={composedGesture}>
+    <GestureDetector gesture={composedGesture}>
+      <View
+        style={styles.container}
+        collapsable={false}
+        onLayout={event => {
+          const { width, height } = event.nativeEvent.layout;
+          if (width === viewport.width && height === viewport.height) return;
+          setViewport({ width, height });
+        }}
+      >
         <Animated.View style={[styles.svgContainer, { width: svgW, height: svgH }, mapStyle]}>
           <Svg width={svgW} height={svgH}>
           {/* 1. Road cells first (below everything) */}
@@ -643,8 +646,8 @@ export const EnhancedParkingGrid: React.FC<EnhancedParkingGridProps> = ({
           {renderCornerDots()}
           </Svg>
         </Animated.View>
-      </GestureDetector>
-    </View>
+      </View>
+    </GestureDetector>
   );
 };
 
