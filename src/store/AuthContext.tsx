@@ -61,9 +61,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const response = await authService.login({ email, password });
       console.log('LOGIN RESPONSE:', response);
 
-      // Handle cả 2 format response từ server:
-      // Format 1: { user: {...}, tokens: {...} }
-      // Format 2: { data: {...}, user: {...}, tokens: {...} }
       const responseData = response?.data;
       
       // Lấy user từ response - xử lý cả 2 format

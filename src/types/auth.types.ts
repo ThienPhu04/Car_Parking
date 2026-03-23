@@ -1,5 +1,6 @@
 export interface User {
   id?: string;
+  code?: string; // Mã người dùng backend cần
   name?: string;
   role: string;
   email: string;
@@ -19,10 +20,12 @@ export interface LoginRequest {
 }
 
 export interface RegisterRequest {
-  name: string;
+  code?: string;
+  userName: string;
   email: string;
-  phone: string;
+  phone?: string;
   password: string;
+  confirmPassword: string;
 }
 
 export interface OTPVerificationRequest {

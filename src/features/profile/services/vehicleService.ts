@@ -5,20 +5,26 @@ import { ApiResponse } from '../../../types/api.types';
 
 
 export const vehicleService = {
-  async getVehicles(): Promise<ApiResponse<Vehicle[]>> {
-    return apiClient.get(ENDPOINTS.GET_VEHICLES);
+  async getVehicles(payload?: any): Promise<ApiResponse<Vehicle[]>> {
+    return apiClient.post(ENDPOINTS.GET_VEHICLES, payload || {});
+  },
+
+  async getVehicleDetail(payload: any): Promise<ApiResponse<Vehicle>> {
+    return apiClient.post(ENDPOINTS.GET_VEHICLE_DETAIL, payload);
   },
 
   async createVehicle(data: Omit<Vehicle, 'id' | 'userId'>): Promise<ApiResponse<Vehicle>> {
     return apiClient.post(ENDPOINTS.CREATE_VEHICLE, data);
   },
 
-  async updateVehicle(id: string, data: Partial<Vehicle>): Promise<ApiResponse<Vehicle>> {
-    return apiClient.put(ENDPOINTS.UPDATE_VEHICLE(id), data);
+  async updateVehicle(id: string, data: any): Promise<ApiResponse<Vehicle>> {
+    // Backend updateVehicles API expects "code" identifier inside the payload
+    return apiClient.post(ENDPOINTS.UPDATE_VEHICLE, { code: id, ...data });
   },
 
   async deleteVehicle(id: string): Promise<ApiResponse<void>> {
-    return apiClient.delete(ENDPOINTS.DELETE_VEHICLE(id));
+    // Backend deleteVehilces API expects { items: [{ code: "..." }] }
+    return apiClient.delete(ENDPOINTS.DELETE_VEHICLE, { data: { items: [{ code: id }] } });
   },
 
   async setDefaultVehicle(id: string): Promise<ApiResponse<Vehicle>> {

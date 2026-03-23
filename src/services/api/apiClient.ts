@@ -44,8 +44,16 @@ class ApiClient {
       async (error: AxiosError) => {
         const originalRequest: any = error.config;
 
+        const isAuthEndpoint = [
+          ENDPOINTS.LOGIN,
+          ENDPOINTS.REGISTER,
+          ENDPOINTS.REFRESH_TOKEN,
+          ENDPOINTS.VERIFY_OTP,
+          ENDPOINTS.FORGOT_PASSWORD,
+        ].includes(originalRequest.url);
+
         // Handle 401 Unauthorized
-        if (error.response?.status === 401 && !originalRequest._retry) {
+        if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint) {
           if (this.isRefreshing) {
             return new Promise((resolve, reject) => {
               this.failedQueue.push({ resolve, reject });

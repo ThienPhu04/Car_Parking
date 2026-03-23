@@ -94,16 +94,29 @@ const RegisterScreen: React.FC = () => {
   };
 
   const handleRegister = async () => {
-    if (!validateForm()) return;
+    console.log('🔄 [RegisterScreen] Bắt đầu xử lý đăng ký...');
+
+    if (!validateForm()) {
+      console.log('❌ [RegisterScreen] Validate form không hợp lệ. Lỗi hiện tại:', errors);
+      return;
+    }
+
+    const payload = {
+      code: `US${Math.floor(Date.now() / 1000).toString().slice(-6)}`,
+      userName: formData.name,
+      email: formData.email,
+      phone: formData.phone,
+      password: formData.password,
+      confirmPassword: formData.confirmPassword,
+    };
+
+    console.log('📤 [RegisterScreen] Dữ liệu chuẩn bị gửi (Payload):', JSON.stringify(payload, null, 2));
 
     try {
       setIsLoading(true);
-      await authService.register({
-        name: formData.name,
-        email: formData.email,
-        phone: formData.phone,
-        password: formData.password,
-      });
+      const response = await authService.register(payload);
+
+      console.log('✅ [RegisterScreen] Server phản hồi thành công:', response);
 
       Alert.alert(
         'Đăng ký thành công',
@@ -116,9 +129,11 @@ const RegisterScreen: React.FC = () => {
         ]
       );
     } catch (error: any) {
+      console.error('❌ [RegisterScreen] Lỗi khi nhận phản hồi từ Backend:', error);
       Alert.alert('Lỗi đăng ký', error.message || MESSAGES.ERROR.UNKNOWN);
     } finally {
       setIsLoading(false);
+      console.log('🛑 [RegisterScreen] Hoàn tất quá trình đăng ký (End Function).');
     }
   };
 
@@ -154,6 +169,15 @@ const RegisterScreen: React.FC = () => {
           keyboardType="email-address"
           autoCapitalize="none"
           error={errors.email}
+        />
+
+        <Input
+          label="Số điện thoại"
+          placeholder="Nhập số điện thoại"
+          value={formData.phone}
+          onChangeText={(text) => setFormData({ ...formData, phone: text })}
+          keyboardType="phone-pad"
+          error={errors.phone}
         />
 
         <Input

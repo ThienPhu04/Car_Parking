@@ -6,7 +6,7 @@ import { ApiResponse, PaginatedResponse } from '../../../types/api.types';
 
 export const bookingService = {
   async getBookings(page = 1, pageSize = 20): Promise<ApiResponse<PaginatedResponse<Booking>>> {
-    return apiClient.get(`${ENDPOINTS.GET_BOOKINGS}?page=${page}&pageSize=${pageSize}`);
+    return apiClient.post(ENDPOINTS.GET_BOOKINGS, { page, pageSize });
   },
 
   async createBooking(data: CreateBookingRequest): Promise<ApiResponse<Booking>> {

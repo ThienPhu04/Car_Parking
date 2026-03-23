@@ -44,7 +44,7 @@ export const ParkingSlot: React.FC<ParkingSlotProps> = ({
         styles.container,
         {
           width: size,
-          height: size * 1.2,
+          height: size * 1.5,
           backgroundColor: getSlotColor(),
           borderWidth: isSelected ? 3 : 1,
           borderColor: isSelected ? COLORS.primary : COLORS.border,

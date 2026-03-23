@@ -221,23 +221,25 @@ const ParkingMapScreen: React.FC = () => {
       )}
 
       {/* Grid */}
-      {currentLayout ? (
-        <EnhancedParkingGrid
-          layout={currentLayout}
-          selectedSlot={selectedSlot}
-          navigationPath={navRoute?.path ?? null}
-          onSlotPress={handleSlotPress}
-        />
-      ) : isLoading ? (
-        <View style={styles.center}>
-          <ActivityIndicator size="small" color={COLORS.primary} />
-        </View>
-      ) : (
-        <View style={styles.center}>
-          <Icon name="map-outline" size={48} color={COLORS.textSecondary} />
-          <Text style={styles.loadingText}>Bai xe chua co so do tang</Text>
-        </View>
-      )}
+      <View style={styles.gridContainer}>
+        {currentLayout ? (
+          <EnhancedParkingGrid
+            layout={currentLayout}
+            selectedSlot={selectedSlot}
+            navigationPath={navRoute?.path ?? null}
+            onSlotPress={handleSlotPress}
+          />
+        ) : isLoading ? (
+          <View style={styles.center}>
+            <ActivityIndicator size="small" color={COLORS.primary} />
+          </View>
+        ) : (
+          <View style={styles.center}>
+            <Icon name="map-outline" size={48} color={COLORS.textSecondary} />
+            <Text style={styles.loadingText}>Bai xe chua co so do tang</Text>
+          </View>
+        )}
+      </View>
 
       {navRoute && <NavigationPanel route={navRoute} onClose={handleClearRoute} />}
 
@@ -344,6 +346,16 @@ const styles = StyleSheet.create({
   },
   statsRow: { flexDirection: 'row', justifyContent: 'space-around' },
   infoCard: { marginHorizontal: SPACING.md, marginTop: SPACING.sm, padding: SPACING.md },
+  gridContainer: {
+    flex: 1,
+    width: '100%',
+    minHeight: 0,
+    marginTop: SPACING.sm,
+    marginHorizontal: SPACING.md,
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: COLORS.backgroundSecondary,
+  },
   legendBar: {
     padding: SPACING.md, backgroundColor: COLORS.backgroundSecondary,
     borderTopWidth: 1, borderTopColor: COLORS.border

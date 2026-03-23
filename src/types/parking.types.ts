@@ -72,6 +72,7 @@ export interface FloorLayout {
   slots: ParkingSlot[];
   entries: EntryPoint[];
   exits: ExitPoint[];
+  lanes?: LaneLayout[];
   zones?: ZoneLayout[];
 }
 
@@ -79,6 +80,12 @@ export interface ZoneLayout {
   code: string;
   name: string;
   points: Position[];
+}
+
+export interface LaneLayout {
+  code: string;
+  points: Position[];
+  laneWidth?: number; // canvas px (converted to stroke width when rendering)
 }
 
 export interface ParkingMap {
@@ -164,6 +171,10 @@ export interface LaneDTO {
   rotation: number;
   status: number;
   statusName: string;
+  points?: number[];
+  laneWidth?: number;
+  fromNodeId?: string;
+  toNodeId?: string;
 }
 
 export interface ZoneDTO {

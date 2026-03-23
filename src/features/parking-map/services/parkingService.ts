@@ -5,7 +5,7 @@ import { apiClient } from '@services/api/apiClient';
 export const parkingService = {
 
   async getParkingMap(parkingCode: string): Promise<ApiResponse<ParkingMapResponseDTO>> {
-    return apiClient.post('/api/ad/getListMap', { parkingCode });
+    return apiClient.post('/api/us/getParkingMap', { parkingCode });
   },
 
   async getFloor(parkingCode: string, floorLevel: number): Promise<ApiResponse<FloorDTO>> {

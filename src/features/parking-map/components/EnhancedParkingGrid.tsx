@@ -1,5 +1,7 @@
-import React, { useMemo } from 'react';
-import { ScrollView, StyleSheet } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { StyleSheet, View } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, { useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
 import Svg, {
   Circle,
   G,
@@ -22,8 +24,17 @@ import { SPACING } from '../../../shared/constants/spacing';
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 
-const CELL  = 28;          // px per grid cell
-const PAD   = SPACING.md;  // scroll container padding
+const CELL  = 15;          // px per grid cell (slot size)
+const PAD   = SPACING.sm;  // padding used for fit-to-screen calculation
+const MIN_ZOOM = 1;
+const MAX_ZOOM = 6;
+
+const clamp = (value: number, min: number, max: number) => {
+  'worklet';
+  return Math.min(Math.max(value, min), max);
+};
+
+const clampJS = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
 
 // ─── ZONE COLOUR PALETTE ─────────────────────────────────────────────────────
 // Colours are keyed by nameZone coming from the API.
@@ -101,8 +112,116 @@ export const EnhancedParkingGrid: React.FC<EnhancedParkingGridProps> = ({
   const svgW = layout.width  * CELL;
   const svgH = layout.height * CELL;
 
+  const [viewport, setViewport] = useState({ width: 0, height: 0 });
+  const minZoom = useSharedValue(MIN_ZOOM);
+  const scale = useSharedValue(1);
+  const startScale = useSharedValue(1);
+  const translateX = useSharedValue(0);
+  const translateY = useSharedValue(0);
+  const startTranslateX = useSharedValue(0);
+  const startTranslateY = useSharedValue(0);
+
+  useEffect(() => {
+    if (!viewport.width || !viewport.height) return;
+    const fitScale = Math.min(
+      (viewport.width - PAD * 2) / svgW,
+      (viewport.height - PAD * 2) / svgH,
+    );
+    if (!Number.isFinite(fitScale) || fitScale <= 0) return;
+    const initialScale = clampJS(fitScale, MIN_ZOOM, MAX_ZOOM);
+    minZoom.value = MIN_ZOOM;
+    const centeredX = (viewport.width - svgW * initialScale) / 2;
+    const centeredY = (viewport.height - svgH * initialScale) / 2;
+    scale.value = initialScale;
+    startScale.value = initialScale;
+    translateX.value = centeredX;
+    translateY.value = centeredY;
+    startTranslateX.value = centeredX;
+    startTranslateY.value = centeredY;
+  }, [
+    viewport.width,
+    viewport.height,
+    svgW,
+    svgH,
+    minZoom,
+    scale,
+    startScale,
+    translateX,
+    translateY,
+    startTranslateX,
+    startTranslateY,
+  ]);
+
+  const pinchGesture = Gesture.Pinch()
+    .onBegin(() => {
+      startScale.value = scale.value;
+      startTranslateX.value = translateX.value;
+      startTranslateY.value = translateY.value;
+    })
+    .onUpdate(e => {
+      const nextScale = clamp(startScale.value * e.scale, minZoom.value, MAX_ZOOM);
+      const ratio = nextScale / startScale.value;
+      scale.value = nextScale;
+      translateX.value = (1 - ratio) * e.focalX + ratio * startTranslateX.value;
+      translateY.value = (1 - ratio) * e.focalY + ratio * startTranslateY.value;
+    })
+    .onEnd(() => {
+      startScale.value = scale.value;
+    });
+
+  const panGesture = Gesture.Pan()
+    .onBegin(() => {
+      startTranslateX.value = translateX.value;
+      startTranslateY.value = translateY.value;
+    })
+    .onUpdate(e => {
+      translateX.value = startTranslateX.value + e.translationX;
+      translateY.value = startTranslateY.value + e.translationY;
+    });
+
+  const composedGesture = Gesture.Simultaneous(pinchGesture, panGesture);
+
+  const mapStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: translateX.value },
+      { translateY: translateY.value },
+      { scale: scale.value },
+    ],
+  }));
+
   // Pre-compute zone bounding boxes once
   const zoneMeta = useMemo(() => collectZoneMeta(layout.cells), [layout.cells]);
+
+  // ─── Lanes (actual road paths from API) ──────────────────────────────────────
+  const renderLanes = () => {
+    if (!layout.lanes || layout.lanes.length === 0) return null;
+
+    return layout.lanes.map((lane, idx) => {
+      if (!lane.points || lane.points.length < 2) return null;
+
+      const d = lane.points
+        .map((p, i) => {
+          const px = p.x * CELL + CELL / 2;
+          const py = p.y * CELL + CELL / 2;
+          return `${i === 0 ? 'M' : 'L'} ${px} ${py}`;
+        })
+        .join(' ');
+
+      const strokeWidth = Math.max(2, lane.laneWidth ?? CELL);
+
+      return (
+        <Path
+          key={`lane-${lane.code ?? idx}`}
+          d={d}
+          stroke="rgba(148, 163, 184, 0.65)"
+          strokeWidth={strokeWidth}
+          fill="none"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      );
+    });
+  };
 
   // ── Zone background rectangles + border + label ──────────────────────────
   const renderZones = () => {
@@ -428,23 +547,27 @@ export const EnhancedParkingGrid: React.FC<EnhancedParkingGridProps> = ({
   };
 
   return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      contentContainerStyle={styles.hScroll}
+    <View
+      style={styles.container}
+      onLayout={event => {
+        const { width, height } = event.nativeEvent.layout;
+        if (width === viewport.width && height === viewport.height) return;
+        setViewport({ width, height });
+      }}
     >
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.vScroll}
-      >
-        <Svg width={svgW} height={svgH}>
+      <GestureDetector gesture={composedGesture}>
+        <Animated.View style={[styles.svgContainer, { width: svgW, height: svgH }, mapStyle]}>
+          <Svg width={svgW} height={svgH}>
           {/* 1. Road cells first (below everything) */}
           {renderCells()}
 
-          {/* 2. Zone coloured backgrounds + borders + labels */}
+          {/* 2. Lanes (road paths) */}
+          {renderLanes()}
+
+          {/* 3. Zone coloured backgrounds + borders + labels */}
           {renderZones()}
 
-          {/* 3. Re-render slot cells ON TOP of zone backgrounds */}
+          {/* 4. Re-render slot cells ON TOP of zone backgrounds */}
           {layout.cells.flatMap((row, y) =>
             row.map((cell, x) => {
               if (cell.type !== CellType.SLOT) return null;
@@ -499,7 +622,7 @@ export const EnhancedParkingGrid: React.FC<EnhancedParkingGridProps> = ({
             })
           )}
 
-          {/* 4. Entry / Exit markers on top */}
+          {/* 5. Entry / Exit markers on top */}
           {layout.entries.map(e => (
             <G key={`entry-top-${e.id}`}>
               <Rect x={e.x * CELL} y={e.y * CELL} width={CELL} height={CELL} fill="#4ade80" rx={3} />
@@ -513,25 +636,28 @@ export const EnhancedParkingGrid: React.FC<EnhancedParkingGridProps> = ({
             </G>
           ))}
 
-          {/* 5. Navigation path on very top */}
+          {/* 6. Navigation path on very top */}
           {renderNavPath()}
 
-          {/* 6. Corner dots */}
+          {/* 7. Corner dots */}
           {renderCornerDots()}
-        </Svg>
-      </ScrollView>
-    </ScrollView>
+          </Svg>
+        </Animated.View>
+      </GestureDetector>
+    </View>
   );
 };
 
 // ─── STYLES ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  hScroll: {
-    padding: PAD,
+  container: {
+    flex: 1,
+    overflow: 'hidden',
   },
-  vScroll: {
-    paddingBottom: SPACING.xl,
+  svgContainer: {
+    alignItems: 'flex-start',
+    justifyContent: 'flex-start',
   },
 });
 

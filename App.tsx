@@ -28,7 +28,7 @@ const App: React.FC = () => {
   // };
 
   return (
-    <GestureHandlerRootView>
+    <GestureHandlerRootView >
       <SafeAreaProvider>
         <StatusBar
           barStyle="dark-content"

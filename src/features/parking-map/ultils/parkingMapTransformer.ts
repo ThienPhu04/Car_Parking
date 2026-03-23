@@ -1,9 +1,9 @@
 import {
-  ParkingMapDTO, FloorDTO, ZoneDTO,
+  ParkingMapDTO, FloorDTO, ZoneDTO, GroupSlotDTO,
   LaneDTO, RawSlotDTO,
   ParkingMap, Floor, FloorLayout, ParkingSlot,
   EntryPoint, ExitPoint, ParkingCell, ZoneCell,
-  CellType, Position, SlotStatus, ZoneLayout,
+  CellType, Position, SlotStatus, ZoneLayout, LaneLayout,
 } from '../../../types/parking.types';
 
 // ─── Hằng số convert canvas → grid ───────────────────────────────────────────
@@ -41,6 +41,34 @@ function normalizeRectByRotation(
 }
 
 function getLaneCanvasBounds(lane: LaneDTO): { left: number; top: number; right: number; bottom: number } {
+  if (Array.isArray(lane.points) && lane.points.length >= 4) {
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    for (let i = 0; i < lane.points.length; i += 2) {
+      const x = Number(lane.points[i]);
+      const y = Number(lane.points[i + 1]);
+      if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+      minX = Math.min(minX, x);
+      minY = Math.min(minY, y);
+      maxX = Math.max(maxX, x);
+      maxY = Math.max(maxY, y);
+    }
+    if (Number.isFinite(minX) && Number.isFinite(minY) && Number.isFinite(maxX) && Number.isFinite(maxY)) {
+      const thickness = typeof lane.laneWidth === 'number'
+        ? lane.laneWidth
+        : (typeof lane.witdh === 'number' ? lane.witdh : CELL_SIZE);
+      const pad = Math.max(thickness, CELL_SIZE) / 2;
+      return {
+        left:   minX - pad,
+        top:    minY - pad,
+        right:  maxX + pad,
+        bottom: maxY + pad,
+      };
+    }
+  }
+
   const rawWidth = Math.max(lane.witdh ?? CELL_SIZE, CELL_SIZE);
   const rawHeight = Math.max(lane.height ?? CELL_SIZE, CELL_SIZE);
   const normalized = normalizeRectByRotation(rawWidth, rawHeight, lane.rotation ?? 0);
@@ -75,6 +103,25 @@ function rotateAround(
   };
 }
 
+
+function getGroupSlotCorners(group: GroupSlotDTO): Array<{ x: number; y: number }> {
+  const width = group.width ?? CELL_SIZE;
+  const height = group.height ?? CELL_SIZE;
+  const centerX = group.positionX;
+  const centerY = group.positionY;
+  const halfW = width / 2;
+  const halfH = height / 2;
+  const corners = [
+    { x: centerX - halfW, y: centerY - halfH },
+    { x: centerX + halfW, y: centerY - halfH },
+    { x: centerX + halfW, y: centerY + halfH },
+    { x: centerX - halfW, y: centerY + halfH },
+  ];
+
+  return corners.map(c => rotateAround(c.x, c.y, centerX, centerY, group.rotation ?? 0));
+}
+
+
 // ─── Tính offset để shift tọa độ âm về ≥ 0 ──────────────────────────────────
 
 function calcFloorOffset(dto: FloorDTO): { ox: number; oy: number } {
@@ -96,8 +143,11 @@ function calcFloorOffset(dto: FloorDTO): { ox: number; oy: number } {
     }
     // GroupSlot positions
     for (const g of z.groupSlots ?? []) {
-      minX = Math.min(minX, g.positionX);
-      minY = Math.min(minY, g.positionY);
+      const corners = getGroupSlotCorners(g);
+      for (const c of corners) {
+        minX = Math.min(minX, c.x);
+        minY = Math.min(minY, c.y);
+      }
     }
   }
   // Entrances / Exits / Lanes
@@ -133,8 +183,11 @@ function calcGridSize(dto: FloorDTO, ox: number, oy: number): { width: number; h
       maxGY = Math.max(maxGY, toGrid(z.points[i + 1], oy));
     }
     for (const g of z.groupSlots ?? []) {
-      maxGX = Math.max(maxGX, toGrid(g.positionX + g.width,  ox));
-      maxGY = Math.max(maxGY, toGrid(g.positionY + g.height, oy));
+      const corners = getGroupSlotCorners(g);
+      for (const c of corners) {
+        maxGX = Math.max(maxGX, toGridMax(c.x, ox));
+        maxGY = Math.max(maxGY, toGridMax(c.y, oy));
+      }
     }
   }
   for (const e of dto.entrances ?? []) { maxGX = Math.max(maxGX, toGrid(e.positionX + e.witdh, ox)); maxGY = Math.max(maxGY, toGrid(e.positionY + e.height, oy)); }
@@ -224,6 +277,7 @@ export class ParkingMapTransformer {
     const { ox, oy }    = calcFloorOffset(dto);
     const { width, height } = calcGridSize(dto, ox, oy);
     const zones = this.buildZoneLayouts(dto, ox, oy);
+    const lanes = this.buildLaneLayouts(dto, ox, oy);
 
     // 1. Init grid — toàn bộ WALL
     const cells: ParkingCell[][] = Array.from({ length: height }, () =>
@@ -267,7 +321,7 @@ export class ParkingMapTransformer {
       floorLevel: dto.level,
       floorName:  dto.nameFloor,
       width, height, cells,
-      slots: allSlots, entries, exits, zones,
+      slots: allSlots, entries, exits, zones, lanes,
     };
   }
 
@@ -288,6 +342,34 @@ export class ParkingMapTransformer {
       .filter((zone): zone is ZoneLayout => zone !== null);
   }
 
+  static buildLaneLayouts(dto: FloorDTO, ox: number, oy: number): LaneLayout[] {
+    return (dto.lanes ?? [])
+      .map((lane, idx) => {
+        const hasRawPoints = Array.isArray(lane.points) && lane.points.length >= 4;
+        const rawPoints = hasRawPoints ? lane.points : [];
+        const points: Position[] = [];
+        for (let i = 0; i < rawPoints.length; i += 2) {
+          const x = Number(rawPoints[i]);
+          const y = Number(rawPoints[i + 1]);
+          if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+          points.push({ x: toGrid(x, ox), y: toGrid(y, oy) });
+        }
+
+        if (points.length < 2) return null;
+
+        const laneWidth = typeof lane.laneWidth === 'number'
+          ? lane.laneWidth
+          : (hasRawPoints ? CELL_SIZE : (typeof lane.witdh === 'number' ? lane.witdh : CELL_SIZE));
+
+        return {
+          code: lane.code ?? lane._id ?? `lane-${idx}`,
+          points,
+          laneWidth,
+        };
+      })
+      .filter((lane): lane is LaneLayout => lane !== null);
+  }
+
   // ─── Build slots từ zones → groupSlots → slots ───────────────────────────────
   //
   // Mỗi GroupSlot là 1 dãy xe (có positionX/Y + direction + width + height).
@@ -306,19 +388,21 @@ export class ParkingMapTransformer {
         const isHorizontal = (group.direction ?? 'horizontal') !== 'vertical';
         const slotCanvasW  = isHorizontal ? group.width / count : group.width;
         const slotCanvasH  = isHorizontal ? group.height : group.height / count;
-        const centerX = group.positionX + group.width / 2;
-        const centerY = group.positionY + group.height / 2;
+        const centerX = group.positionX;
+        const centerY = group.positionY;
+        const originX = centerX - group.width / 2;
+        const originY = centerY - group.height / 2;
 
         rawSlots.forEach((raw, idx) => {
           const mappedStatus = this.getSlotStatusFromSensor(raw);
 
           // Tọa độ tâm ô slot trong canvas
           const rawX = isHorizontal
-            ? group.positionX + slotCanvasW * idx + slotCanvasW / 2
-            : group.positionX + slotCanvasW / 2;
+            ? originX + slotCanvasW * idx + slotCanvasW / 2
+            : originX + slotCanvasW / 2;
           const rawY = isHorizontal
-            ? group.positionY + slotCanvasH / 2
-            : group.positionY + slotCanvasH * idx + slotCanvasH / 2;
+            ? originY + slotCanvasH / 2
+            : originY + slotCanvasH * idx + slotCanvasH / 2;
           const rotated = rotateAround(rawX, rawY, centerX, centerY, group.rotation ?? 0);
 
           result.push({

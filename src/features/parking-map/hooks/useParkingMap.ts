@@ -23,6 +23,64 @@ const resolveParkingFromResponse = (
   );
 };
 
+const normalizeParkingDto = (dto: ParkingMapDTO): ParkingMapDTO => {
+  const floors = (dto.floors ?? []).map(floor => {
+    const lanes = (floor.lanes ?? [])
+      .map((lane: any) => {
+        if (typeof lane?.positionX === 'number' && typeof lane?.positionY === 'number') {
+          return {
+            ...lane,
+            witdh: typeof lane?.witdh === 'number'
+              ? lane.witdh
+              : (typeof lane?.laneWidth === 'number' ? lane.laneWidth : 40),
+            height: typeof lane?.height === 'number'
+              ? lane.height
+              : (typeof lane?.laneWidth === 'number' ? lane.laneWidth : 40),
+          };
+        }
+
+        const pts = lane?.points;
+        if (!Array.isArray(pts) || pts.length < 4) return null;
+
+        let minX = Infinity;
+        let minY = Infinity;
+        let maxX = -Infinity;
+        let maxY = -Infinity;
+
+        for (let i = 0; i < pts.length; i += 2) {
+          const x = Number(pts[i]);
+          const y = Number(pts[i + 1]);
+          if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+          minX = Math.min(minX, x);
+          minY = Math.min(minY, y);
+          maxX = Math.max(maxX, x);
+          maxY = Math.max(maxY, y);
+        }
+
+        if (!Number.isFinite(minX) || !Number.isFinite(minY)) return null;
+
+        const thickness = typeof lane?.laneWidth === 'number'
+          ? lane.laneWidth
+          : (typeof lane?.witdh === 'number' ? lane.witdh : 40);
+        const expand = Math.max(thickness, 10);
+
+        return {
+          ...lane,
+          positionX: minX - expand / 2,
+          positionY: minY - expand / 2,
+          witdh: Math.max(maxX - minX, 1) + expand,
+          height: Math.max(maxY - minY, 1) + expand,
+          rotation: typeof lane?.rotation === 'number' ? lane.rotation : 0,
+        };
+      })
+      .filter(Boolean);
+
+    return { ...floor, lanes };
+  });
+
+  return { ...dto, floors };
+};
+
 export const useParkingMap = (parkingCode: string) => {
   const [parkingMap, setParkingMap] = useState<ParkingMap | null>(null);
   const [currentLayout, setCurrentLayout] = useState<FloorLayout | null>(null);
@@ -38,7 +96,9 @@ export const useParkingMap = (parkingCode: string) => {
       setError(null);
 
       const response = await parkingService.getParkingMap(parkingCode);
-      const parkingDto = resolveParkingFromResponse(response.data, parkingCode);
+      const rawPayload: any = response?.data;
+      const payload: any = rawPayload?.data ?? rawPayload;
+      const parkingDto = resolveParkingFromResponse(payload, parkingCode);
       if (!parkingDto) {
         throw new Error('Khong co du lieu bai xe tu API');
       }
@@ -46,7 +106,8 @@ export const useParkingMap = (parkingCode: string) => {
         '[useParkingMap] Fetched parking DTO:\n',
         JSON.stringify(parkingDto, null, 2)
       );
-      const map = ParkingMapTransformer.transformParkingMap(parkingDto);
+      const normalized = normalizeParkingDto(parkingDto);
+      const map = ParkingMapTransformer.transformParkingMap(normalized);
       setParkingMap(map);
 
 
@@ -91,14 +152,8 @@ export const useParkingMap = (parkingCode: string) => {
   }, []);
 
   useEffect(() => {
-  loadParkingMap();
-
-  const interval = setInterval(() => {
     loadParkingMap();
-  }, 5000);
-
-  return () => clearInterval(interval);
-}, [loadParkingMap]);
+  }, [loadParkingMap]);
 
   return {
     parkingMap,
