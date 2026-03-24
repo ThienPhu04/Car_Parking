@@ -6,8 +6,20 @@ import {
   ParkingMapResponseDTO,
   SlotStatus,
 } from '@app-types/parking.types';
-import { parkingService } from '../services/parkingService';
+import { parkingService, type GetParkingMapParams } from '../services/parkingService';
 import { ParkingMapTransformer } from '../ultils/parkingMapTransformer';
+
+const toError = (err: unknown): Error => {
+  if (err instanceof Error) {
+    return err;
+  }
+
+  if (typeof err === 'object' && err !== null && 'message' in err) {
+    return new Error(String((err as { message?: unknown }).message ?? 'Unknown error'));
+  }
+
+  return new Error(String(err));
+};
 
 const resolveParkingFromResponse = (
   payload: ParkingMapResponseDTO,
@@ -81,7 +93,17 @@ const normalizeParkingDto = (dto: ParkingMapDTO): ParkingMapDTO => {
   return { ...dto, floors };
 };
 
-export const useParkingMap = (parkingCode: string) => {
+type UseParkingMapFilters = Omit<GetParkingMapParams, 'parkingCode'>;
+
+export const useParkingMap = (
+  parkingCode: string,
+  filters: UseParkingMapFilters = {},
+) => {
+  const {
+    status,
+    expectedArrivalTime,
+    expectedLeaveTime,
+  } = filters;
   const [parkingMap, setParkingMap] = useState<ParkingMap | null>(null);
   const [currentLayout, setCurrentLayout] = useState<FloorLayout | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -95,7 +117,12 @@ export const useParkingMap = (parkingCode: string) => {
       setIsLoading(true);
       setError(null);
 
-      const response = await parkingService.getParkingMap(parkingCode);
+      const response = await parkingService.getParkingMap({
+        parkingCode,
+        status,
+        expectedArrivalTime,
+        expectedLeaveTime,
+      });
       const rawPayload: any = response?.data;
       const payload: any = rawPayload?.data ?? rawPayload;
       const parkingDto = resolveParkingFromResponse(payload, parkingCode);
@@ -118,11 +145,11 @@ export const useParkingMap = (parkingCode: string) => {
       setCurrentLayout(defaultLayout);
     } catch (err) {
       console.error('[useParkingMap] Error:', err);
-      setError(err instanceof Error ? err : new Error(String(err)));
+      setError(toError(err));
     } finally {
       setIsLoading(false);
     }
-  }, [parkingCode]);
+  }, [expectedArrivalTime, expectedLeaveTime, parkingCode, status]);
 
   const switchFloor = useCallback((floorId: string) => {
     const map = mapRef.current;

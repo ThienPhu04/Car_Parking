@@ -18,6 +18,10 @@ class ApiClient {
       },
     });
 
+    if (__DEV__) {
+      console.log('[apiClient] Base URL:', CONFIG.API_BASE_URL);
+    }
+
     this.setupInterceptors();
   }
 

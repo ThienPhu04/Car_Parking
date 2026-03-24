@@ -1,13 +1,39 @@
+import { NativeModules, Platform } from 'react-native';
+
+const resolveDevHost = () => {
+  const bundleUrl = NativeModules.SourceCode?.scriptURL;
+
+  if (typeof bundleUrl === 'string') {
+    const match = bundleUrl.match(/^https?:\/\/([^/:]+)(?::\d+)?/i);
+    const host = match?.[1];
+
+    if (host) {
+      if (Platform.OS === 'android' && (host === 'localhost' || host === '127.0.0.1')) {
+        return '10.0.2.2';
+      }
+
+      return host;
+    }
+  }
+
+  return Platform.OS === 'android' ? '10.0.2.2' : 'localhost';
+};
+
+const DEV_HOST = resolveDevHost();
+const DEV_API_BASE_URL = `http://${DEV_HOST}:3000/`;
+const DEV_MQTT_BROKER_URL = `mqtt://${DEV_HOST}:1883`;
+const PROD_API_BASE_URL = 'https://be-smartparking.onrender.com/';
+
 export const CONFIG = {
   // API Configuration
-  API_BASE_URL: __DEV__ 
-    ? 'https://be-smartparking.onrender.com/' 
-    : 'https://be-smartparking.onrender.com/',
+  API_BASE_URL: __DEV__
+    ? DEV_API_BASE_URL
+    : PROD_API_BASE_URL,
   API_TIMEOUT: 30000, // 30 seconds
   
   // MQTT Configuration
   MQTT_BROKER_URL: __DEV__
-    ? 'mqtt://localhost:1883'
+    ? DEV_MQTT_BROKER_URL
     : 'mqtt://broker.smartparking.com:1883',
   MQTT_USERNAME: 'smartparking',
   MQTT_PASSWORD: 'secure_password',

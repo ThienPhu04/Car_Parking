@@ -227,6 +227,32 @@ export class ParkingMapTransformer {
     }
   }
 
+  private static mapApiSlotStatus(raw: RawSlotDTO): {
+    status: SlotStatus;
+    statusName: string;
+  } {
+    if (raw.status === 2) {
+      return { status: SlotStatus.RESERVED, statusName: 'Da dat' };
+    }
+
+    if (typeof raw.sensorStatus === 'boolean') {
+      return raw.sensorStatus
+        ? { status: SlotStatus.OCCUPIED, statusName: 'Da co xe' }
+        : { status: SlotStatus.AVAILABLE, statusName: 'Trong' };
+    }
+
+    switch (raw.status) {
+      case 0:
+        return { status: SlotStatus.AVAILABLE, statusName: 'Trong' };
+      case 1:
+        return { status: SlotStatus.OCCUPIED, statusName: 'Da co xe' };
+      case 2:
+        return { status: SlotStatus.RESERVED, statusName: 'Da dat' };
+      default:
+        return { status: SlotStatus.AVAILABLE, statusName: raw.statusName || 'Trong' };
+    }
+  }
+
   static transformParkingMap(dto: ParkingMapDTO): ParkingMap {
     const floorDtos = Array.isArray(dto.floors) ? dto.floors : [];
     const floors    = floorDtos.map(f => this.buildFloor(f));
@@ -247,11 +273,19 @@ export class ParkingMapTransformer {
 
   static buildFloor(dto: FloorDTO): Floor {
     const floorId = dto._id ?? dto.code;
-    const allGroupSlots = (dto.zones ?? []).flatMap(z => z.groupSlots ?? []);
-    const totalSlots    = allGroupSlots.reduce((s, g) => s + (g.slots?.length ?? 0), 0);
-    const available     = allGroupSlots.reduce((s, g) => s + (g.availableSlots ?? 0), 0);
-    const occupied      = allGroupSlots.reduce((s, g) => s + (g.occupiedSlots  ?? 0), 0);
-    const reserved      = allGroupSlots.reduce((s, g) => s + (g.reservedSlots  ?? 0), 0);
+    const allSlots = (dto.zones ?? []).flatMap(zone =>
+      (zone.groupSlots ?? []).flatMap(group => group.slots ?? []),
+    );
+    const totalSlots = allSlots.length;
+    const available = allSlots.filter(slot =>
+      this.mapApiSlotStatus(slot).status === SlotStatus.AVAILABLE,
+    ).length;
+    const occupied = allSlots.filter(slot =>
+      this.mapApiSlotStatus(slot).status === SlotStatus.OCCUPIED,
+    ).length;
+    const reserved = allSlots.filter(slot =>
+      this.mapApiSlotStatus(slot).status === SlotStatus.RESERVED,
+    ).length;
 
     return {
       id:             floorId,
@@ -394,7 +428,7 @@ export class ParkingMapTransformer {
         const originY = centerY - group.height / 2;
 
         rawSlots.forEach((raw, idx) => {
-          const mappedStatus = this.getSlotStatusFromSensor(raw);
+          const mappedStatus = this.mapApiSlotStatus(raw);
 
           // Tọa độ tâm ô slot trong canvas
           const rawX = isHorizontal
