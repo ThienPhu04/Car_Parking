@@ -13,7 +13,7 @@ export const vehicleService = {
     return apiClient.post(ENDPOINTS.GET_VEHICLE_DETAIL, payload);
   },
 
-  async createVehicle(data: Omit<Vehicle, 'id' | 'userId'>): Promise<ApiResponse<Vehicle>> {
+  async createVehicle(data: any): Promise<ApiResponse<Vehicle>> {
     return apiClient.post(ENDPOINTS.CREATE_VEHICLE, data);
   },
 

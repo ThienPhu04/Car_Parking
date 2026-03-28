@@ -11,14 +11,17 @@ export enum BookingStatus {
 
 export interface Booking {
   id: string;
+  code?: string;
   userId: string;
   slotId: string;
-  slot?: ParkingSlot;
+  slot?: Partial<ParkingSlot>;
   vehicleId: string;
-  vehicle?: Vehicle;
+  vehicle?: Partial<Vehicle>;
   startTime: string;
   endTime: string;
   status: BookingStatus;
+  statusName?: string;
+  licensePlate?: string;
   createdAt: string;
   qrCode?: string;
 }
@@ -26,6 +29,13 @@ export interface Booking {
 export interface CreateBookingRequest {
   slotId: string;
   vehicleId: string;
-  startTime: string;
-  duration: number; // minutes
+  expectedArrivalTime: string;
+  expectedLeaveTime: string;
+  status?: number;
+}
+
+export interface GetBookingsRequest {
+  userId: string;
+  status?: number | string;
+  keyword?: string;
 }

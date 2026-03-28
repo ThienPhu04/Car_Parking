@@ -43,6 +43,11 @@ export interface ParkingSlot extends ParkingCell {
   isSensorReal?: boolean;
   sensorId?: string;
   features?: SlotFeature[];
+  rotation?: number;       // canvas degrees from GroupSlot
+  canvasX?: number;        // original canvas pixel X (không normalize)
+  canvasY?: number;        // original canvas pixel Y (không normalize)
+  slotWidth?: number;      // canvas pixel width of individual slot
+  slotHeight?: number;     // canvas pixel height of individual slot
 }
 
 export interface EntryPoint extends ParkingCell {
@@ -74,12 +79,14 @@ export interface FloorLayout {
   exits: ExitPoint[];
   lanes?: LaneLayout[];
   zones?: ZoneLayout[];
+  boundary?: Position[];
 }
 
 export interface ZoneLayout {
   code: string;
   name: string;
   points: Position[];
+  color?: string;
 }
 
 export interface LaneLayout {
@@ -218,4 +225,19 @@ export interface RawSlotDTO {
   sensorStatus?: boolean; // trạng thái đỗ xe: true=có xe, false=trống
   // Không có positionX/Y (bị comment out trong Slot.model)
   // Tọa độ render lấy từ GroupSlot.positionX/Y
+}
+
+// SlotDTO for mock data compatibility
+export interface SlotDTO {
+  code: string;
+  nameSlot: string;
+  x: number;
+  y: number;
+  status: SlotStatus;
+  statusName: string;
+  zone?: string;
+  nameZone?: string;
+  isActive?: boolean;
+  isSensorReal?: boolean;
+  sensorId?: string | null;
 }

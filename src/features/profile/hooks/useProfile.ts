@@ -1,8 +1,13 @@
 import { useState, useCallback } from 'react';
 import { Alert } from 'react-native';
 import { Vehicle } from '../../../types/vehicle.types';
-import { vehicleService } from '../services/vehicleService';
 import { useAuth } from '../../../store/AuthContext';
+import { vehicleService } from '../services/vehicleService';
+import {
+  buildVehicleName,
+  normalizeVehicleList,
+  normalizeVehicleResponse,
+} from '../utils/vehicleAdapters';
 
 export const useProfile = () => {
   const { user, updateUser, refreshUser } = useAuth();
@@ -13,98 +18,128 @@ export const useProfile = () => {
   const fetchVehicles = useCallback(async () => {
     try {
       if (!user?.code) {
-        console.error('🚨 [useProfile] Không lấy được `user.code` từ Auth Context! Backend bắt buộc sửa API Login để trả về `code`!');
+        console.error('[useProfile] Missing user.code in Auth Context');
         Alert.alert(
-          'Lỗi dữ liệu User',
-          'Tài khoản đang đăng nhập không có "Mã người dùng" (code). Vui lòng báo dev Backend thêm trường "code" vào API Login!'
+          'Loi du lieu User',
+          'Tai khoan dang dang nhap khong co ma nguoi dung (code). Vui long kiem tra du lieu dang nhap.',
         );
       }
 
       setIsLoading(true);
       setError(null);
 
-      // Nếu user.code bị undefined, ta tạm mượn chuỗi 'US000' để xem server phản hồi sao (ít nhất là ko lỗi 500)
-      const payloadUserId = user?.code || '';
-
-      console.log('📤 [useProfile] API getVehicles Payload:', { userId: payloadUserId });
-
-      const response = await vehicleService.getVehicles({ userId: payloadUserId });
-      setVehicles(response.data);
+      const response = await vehicleService.getVehicles({ userId: user?.code || '' });
+      setVehicles(normalizeVehicleList(response.data));
     } catch (err) {
       setError(err as Error);
-      console.error('❌ [useProfile] Lỗi fetch vehicles:', err);
+      console.error('[useProfile] Error fetching vehicles:', err);
     } finally {
       setIsLoading(false);
     }
-  }, [user]);
+  }, [user?.code]);
 
   const addVehicle = useCallback(async (vehicle: Omit<Vehicle, 'id' | 'userId'>) => {
     try {
       if (!user?.code) {
-        Alert.alert('Lỗi', 'Không có userId tĩnh để gửi! Vui lòng cập nhật API Login trả về code.');
-        throw new Error('Thiếu userId');
+        Alert.alert('Loi', 'Khong tim thay ma nguoi dung de gui len server.');
+        throw new Error('Missing user code');
       }
 
       setIsLoading(true);
       setError(null);
-      
-      const payload: any = {
-        userId: user.code, 
-        nameVehicles: (vehicle.brand || vehicle.model) ? `${vehicle.brand || ''} ${vehicle.model || ''}`.trim() : 'Bãi xe mặc định',
+
+      const payload = {
+        userId: user.code,
+        nameVehicles: buildVehicleName(vehicle.brand, vehicle.model),
         licensePlate: vehicle.licensePlate,
-        status: 1
+        brand: vehicle.brand,
+        model: vehicle.model,
+        color: vehicle.color,
+        type: vehicle.type,
+        status: 1,
       };
 
-      console.log('📤 [useProfile] API createVehicle Payload:', payload);
-
       const response = await vehicleService.createVehicle(payload);
-      setVehicles(prev => [...prev, response.data]);
-      return response.data;
+      const createdVehicle = normalizeVehicleResponse(response.data, {
+        ...vehicle,
+        id: '',
+        userId: user.code,
+      });
+
+      if (createdVehicle?.id) {
+        setVehicles(prevVehicles => {
+          const existingVehicleIndex = prevVehicles.findIndex(
+            currentVehicle => currentVehicle.id === createdVehicle.id,
+          );
+
+          if (existingVehicleIndex >= 0) {
+            return prevVehicles.map(currentVehicle =>
+              currentVehicle.id === createdVehicle.id ? createdVehicle : currentVehicle,
+            );
+          }
+
+          return [...prevVehicles, createdVehicle];
+        });
+      } else {
+        await fetchVehicles();
+      }
+
+      return createdVehicle;
     } catch (err) {
       setError(err as Error);
-      console.error('❌ [useProfile] Lỗi thêm xe:', err);
+      console.error('[useProfile] Error creating vehicle:', err);
       throw err;
     } finally {
       setIsLoading(false);
     }
-  }, [user]);
+  }, [fetchVehicles, user?.code]);
 
   const updateVehicle = useCallback(async (id: string, data: Partial<Vehicle>) => {
     try {
       setIsLoading(true);
       setError(null);
 
-      // Map frontend data to backend expected format
-      const payload: any = {
+      const currentVehicle = vehicles.find(vehicle => vehicle.id === id);
+      const payload = {
         licensePlate: data.licensePlate,
+        nameVehicles: buildVehicleName(data.brand, data.model),
+        brand: data.brand,
+        model: data.model,
+        color: data.color,
+        type: data.type,
       };
-      
-      if (data.brand) {
-        payload.nameVehicles = `${data.brand} ${data.model || ''}`.trim();
-      }
-
-      console.log(`📤 [useProfile] API updateVehicle Payload cho xe ${id}:`, payload);
 
       const response = await vehicleService.updateVehicle(id, payload);
-      setVehicles(prev =>
-        prev.map(v => (v.id === id ? response.data : v))
-      );
-      return response.data;
+      const updatedVehicle = normalizeVehicleResponse(response.data, {
+        ...currentVehicle,
+        ...data,
+        id,
+      });
+
+      if (updatedVehicle?.id) {
+        setVehicles(prevVehicles =>
+          prevVehicles.map(vehicle => (vehicle.id === id ? updatedVehicle : vehicle)),
+        );
+      } else {
+        await fetchVehicles();
+      }
+
+      return updatedVehicle;
     } catch (err) {
       setError(err as Error);
-      console.error('❌ [useProfile] Lỗi cập nhật xe:', err);
+      console.error('[useProfile] Error updating vehicle:', err);
       throw err;
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [fetchVehicles, vehicles]);
 
   const deleteVehicle = useCallback(async (id: string) => {
     try {
       setIsLoading(true);
       setError(null);
       await vehicleService.deleteVehicle(id);
-      setVehicles(prev => prev.filter(v => v.id !== id));
+      setVehicles(prevVehicles => prevVehicles.filter(vehicle => vehicle.id !== id));
     } catch (err) {
       setError(err as Error);
       console.error('Error deleting vehicle:', err);
@@ -119,8 +154,8 @@ export const useProfile = () => {
       setIsLoading(true);
       setError(null);
       await vehicleService.setDefaultVehicle(id);
-      setVehicles(prev =>
-        prev.map(v => ({ ...v, isDefault: v.id === id }))
+      setVehicles(prevVehicles =>
+        prevVehicles.map(vehicle => ({ ...vehicle, isDefault: vehicle.id === id })),
       );
     } catch (err) {
       setError(err as Error);

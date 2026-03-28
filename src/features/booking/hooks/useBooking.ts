@@ -1,8 +1,13 @@
-import { useState, useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { Booking, CreateBookingRequest, BookingStatus } from '../../../types/booking.types';
 import { bookingService } from '../services/bookingService';
 import { useNotifications } from '../../../store/NotificationContext';
 import { NotificationType } from '../../../types/notification.types';
+import { useAuth } from '../../../store/AuthContext';
+import {
+  normalizeBookingList,
+  normalizeBookingResponse,
+} from '../utils/bookingAdapters';
 
 export const useBooking = () => {
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -10,41 +15,82 @@ export const useBooking = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const { addNotification } = useNotifications();
+  const { user } = useAuth();
 
   const fetchBookings = useCallback(async () => {
     try {
+      if (!user?.code) {
+        setBookings([]);
+        return [];
+      }
+
       setIsLoading(true);
       setError(null);
-      const response = await bookingService.getBookings();
-      setBookings(response.data.items);
+
+      const response = await bookingService.getBookings({ userId: user.code });
+      const normalizedBookings = normalizeBookingList(response.data);
+      setBookings(normalizedBookings);
+      return normalizedBookings;
     } catch (err) {
       setError(err as Error);
       console.error('Error fetching bookings:', err);
+      return [];
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [user?.code]);
 
   const createBooking = useCallback(async (data: CreateBookingRequest) => {
     try {
+      if (!user?.code) {
+        throw new Error('Khong tim thay ma nguoi dung');
+      }
+
       setIsLoading(true);
       setError(null);
-      const response = await bookingService.createBooking(data);
-      const newBooking = response.data;
-      
-      setBookings(prev => [newBooking, ...prev]);
-      setActiveBooking(newBooking);
 
-      // Schedule reminder notification
-      const reminderTime = new Date(newBooking.startTime);
-      reminderTime.setMinutes(reminderTime.getMinutes() - 5);
+      const payload = {
+        userId: user.code,
+        slotId: data.slotId,
+        vehiclesId: data.vehicleId,
+        expectedArrivalTime: data.expectedArrivalTime,
+        expectedLeaveTime: data.expectedLeaveTime,
+        status: data.status ?? 2,
+      };
 
-      addNotification({
-        type: NotificationType.BOOKING_REMINDER,
-        title: 'Nhắc nhở đặt chỗ',
-        message: `Còn 5 phút nữa đến giờ đặt chỗ của bạn tại ${newBooking.slot?.code}`,
-        data: { bookingId: newBooking.id },
-      });
+      const response = await bookingService.createBooking(payload);
+      let newBooking = normalizeBookingResponse(response.data);
+
+      if (!newBooking) {
+        const normalizedBookings = await fetchBookings();
+        newBooking =
+          normalizedBookings.find(
+            booking =>
+              booking.slotId === data.slotId
+              && booking.vehicleId === data.vehicleId
+              && booking.startTime === data.expectedArrivalTime,
+          )
+          ?? normalizedBookings[0]
+          ?? null;
+      } else {
+        setBookings(prevBookings => {
+          const nextBookings = prevBookings.filter(
+            booking => booking.id !== newBooking?.id,
+          );
+          return [newBooking!, ...nextBookings];
+        });
+      }
+
+      if (newBooking) {
+        setActiveBooking(newBooking);
+
+        addNotification({
+          type: NotificationType.BOOKING_REMINDER,
+          title: 'Nhac nho dat cho',
+          message: `Gan den gio dat cho tai ${newBooking.slot?.code || data.slotId}`,
+          data: { bookingId: newBooking.id },
+        });
+      }
 
       return newBooking;
     } catch (err) {
@@ -54,20 +100,20 @@ export const useBooking = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [addNotification]);
+  }, [addNotification, fetchBookings, user?.code]);
 
   const cancelBooking = useCallback(async (id: string) => {
     try {
       setIsLoading(true);
       setError(null);
       await bookingService.cancelBooking(id);
-      
+
       setBookings(prev =>
         prev.map(booking =>
           booking.id === id
             ? { ...booking, status: BookingStatus.CANCELLED }
-            : booking
-        )
+            : booking,
+        ),
       );
 
       if (activeBooking?.id === id) {
@@ -76,8 +122,8 @@ export const useBooking = () => {
 
       addNotification({
         type: NotificationType.SYSTEM,
-        title: 'Đã hủy đặt chỗ',
-        message: 'Đặt chỗ của bạn đã được hủy thành công',
+        title: 'Da huy dat cho',
+        message: 'Dat cho cua ban da duoc huy thanh cong',
       });
     } catch (err) {
       setError(err as Error);
@@ -92,8 +138,9 @@ export const useBooking = () => {
     try {
       setIsLoading(true);
       const response = await bookingService.getActiveBooking();
-      setActiveBooking(response.data);
-      return response.data;
+      const booking = normalizeBookingResponse(response.data);
+      setActiveBooking(booking);
+      return booking;
     } catch (err) {
       setError(err as Error);
       console.error('Error fetching active booking:', err);

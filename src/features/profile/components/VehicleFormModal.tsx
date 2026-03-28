@@ -1,12 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, Alert } from 'react-native';
-import { Modal } from '../../../shared/components/Modal';
-import { Input } from '../../../shared/components/Input';
+import React, { useEffect, useState } from 'react';
+import { Alert, StyleSheet, View } from 'react-native';
 import { Button } from '../../../shared/components/Button';
-import { validate } from '../../../shared/utils/validation';
-import { useProfile } from '../hooks/useProfile';
-import { Vehicle, VehicleType } from '../../../types/vehicle.types';
+import { Input } from '../../../shared/components/Input';
+import { Modal } from '../../../shared/components/Modal';
 import { SPACING } from '../../../shared/constants/spacing';
+import { validate } from '../../../shared/utils/validation';
+import { Vehicle, VehicleType } from '../../../types/vehicle.types';
+import { useProfile } from '../hooks/useProfile';
 
 interface VehicleFormModalProps {
   visible: boolean;
@@ -15,6 +15,14 @@ interface VehicleFormModalProps {
   onSuccess: () => void;
 }
 
+const initialFormData = {
+  licensePlate: '',
+  brand: '',
+  model: '',
+  color: '',
+  type: VehicleType.CAR,
+};
+
 export const VehicleFormModal: React.FC<VehicleFormModalProps> = ({
   visible,
   vehicle,
@@ -22,13 +30,7 @@ export const VehicleFormModal: React.FC<VehicleFormModalProps> = ({
   onSuccess,
 }) => {
   const { addVehicle, updateVehicle } = useProfile();
-  const [formData, setFormData] = useState({
-    licensePlate: '',
-    brand: '',
-    model: '',
-    color: '',
-    type: VehicleType.CAR,
-  });
+  const [formData, setFormData] = useState(initialFormData);
   const [errors, setErrors] = useState({ licensePlate: '' });
   const [isLoading, setIsLoading] = useState(false);
 
@@ -41,18 +43,24 @@ export const VehicleFormModal: React.FC<VehicleFormModalProps> = ({
         color: vehicle.color || '',
         type: vehicle.type,
       });
+      return;
     }
-  }, [vehicle]);
+
+    if (visible) {
+      setFormData(initialFormData);
+      setErrors({ licensePlate: '' });
+    }
+  }, [vehicle, visible]);
 
   const validateForm = () => {
     const newErrors = { licensePlate: '' };
     let isValid = true;
 
     if (!validate.required(formData.licensePlate)) {
-      newErrors.licensePlate = 'Vui lòng nhập biển số xe';
+      newErrors.licensePlate = 'Vui long nhap bien so xe';
       isValid = false;
     } else if (!validate.licensePlate(formData.licensePlate)) {
-      newErrors.licensePlate = 'Biển số xe không hợp lệ';
+      newErrors.licensePlate = 'Bien so xe khong hop le';
       isValid = false;
     }
 
@@ -61,18 +69,22 @@ export const VehicleFormModal: React.FC<VehicleFormModalProps> = ({
   };
 
   const handleSubmit = async () => {
-    if (!validateForm()) return;
+    if (!validateForm()) {
+      return;
+    }
 
     try {
       setIsLoading(true);
+
       if (vehicle) {
         await updateVehicle(vehicle.id, formData);
       } else {
         await addVehicle({ ...formData, isDefault: false });
       }
+
       onSuccess();
-    } catch (error) {
-      Alert.alert('Lỗi', 'Không thể lưu thông tin xe');
+    } catch (error: any) {
+      Alert.alert('Loi', error?.message || 'Khong the luu thong tin xe');
     } finally {
       setIsLoading(false);
     }
@@ -82,14 +94,14 @@ export const VehicleFormModal: React.FC<VehicleFormModalProps> = ({
     <Modal
       visible={visible}
       onClose={onClose}
-      title={vehicle ? 'Chỉnh sửa xe' : 'Thêm xe mới'}
+      title={vehicle ? 'Chinh sua xe' : 'Them xe moi'}
     >
       <View style={styles.form}>
         <Input
-          label="Biển số xe *"
+          label="Bien so xe *"
           placeholder="VD: 29A-12345"
           value={formData.licensePlate}
-          onChangeText={(text) =>
+          onChangeText={text =>
             setFormData({ ...formData, licensePlate: text.toUpperCase() })
           }
           error={errors.licensePlate}
@@ -97,28 +109,28 @@ export const VehicleFormModal: React.FC<VehicleFormModalProps> = ({
         />
 
         <Input
-          label="Hãng xe"
+          label="Hang xe"
           placeholder="VD: Toyota"
           value={formData.brand}
-          onChangeText={(text) => setFormData({ ...formData, brand: text })}
+          onChangeText={text => setFormData({ ...formData, brand: text })}
         />
 
         <Input
           label="Model"
           placeholder="VD: Camry"
           value={formData.model}
-          onChangeText={(text) => setFormData({ ...formData, model: text })}
+          onChangeText={text => setFormData({ ...formData, model: text })}
         />
 
         <Input
-          label="Màu sắc"
-          placeholder="VD: Trắng"
+          label="Mau sac"
+          placeholder="VD: Trang"
           value={formData.color}
-          onChangeText={(text) => setFormData({ ...formData, color: text })}
+          onChangeText={text => setFormData({ ...formData, color: text })}
         />
 
         <Button
-          title={vehicle ? 'Cập nhật' : 'Thêm xe'}
+          title={vehicle ? 'Cap nhat' : 'Them xe'}
           onPress={handleSubmit}
           loading={isLoading}
           fullWidth

@@ -109,8 +109,7 @@ export const useParkingMap = (
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
-  const mapRef = useRef<ParkingMap | null>(null);
-  mapRef.current = parkingMap;
+  const layoutIndexRef = useRef<Map<string, FloorLayout>>(new Map());
 
   const loadParkingMap = useCallback(async () => {
     try {
@@ -123,26 +122,21 @@ export const useParkingMap = (
         expectedArrivalTime,
         expectedLeaveTime,
       });
+      console.log(
+        '[useParkingMap] API response:',
+        JSON.stringify(response, null, 2)
+      );
       const rawPayload: any = response?.data;
       const payload: any = rawPayload?.data ?? rawPayload;
       const parkingDto = resolveParkingFromResponse(payload, parkingCode);
       if (!parkingDto) {
         throw new Error('Khong co du lieu bai xe tu API');
       }
-      console.log(
-        '[useParkingMap] Fetched parking DTO:\n',
-        JSON.stringify(parkingDto, null, 2)
-      );
       const normalized = normalizeParkingDto(parkingDto);
       const map = ParkingMapTransformer.transformParkingMap(normalized);
       setParkingMap(map);
-
-
-      const firstFloorId = map.floors[0]?.id;
-      const defaultLayout = map.layouts.find(item => item.floorId === firstFloorId)
-        ?? map.layouts[0]
-        ?? null;
-      setCurrentLayout(defaultLayout);
+      layoutIndexRef.current = new Map(map.layouts.map(layout => [layout.floorId, layout]));
+      setCurrentLayout(map.layouts[0] ?? null);
     } catch (err) {
       console.error('[useParkingMap] Error:', err);
       setError(toError(err));
@@ -152,10 +146,7 @@ export const useParkingMap = (
   }, [expectedArrivalTime, expectedLeaveTime, parkingCode, status]);
 
   const switchFloor = useCallback((floorId: string) => {
-    const map = mapRef.current;
-    if (!map) return;
-
-    const layout = map.layouts.find(item => item.floorId === floorId);
+    const layout = layoutIndexRef.current.get(floorId);
     if (layout) setCurrentLayout(layout);
   }, []);
 

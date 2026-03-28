@@ -2,78 +2,102 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import DatePicker from 'react-native-date-picker';
+
 import { Card } from '../../../shared/components/Card';
 import { COLORS } from '../../../shared/constants/colors';
-import { formatters } from '../../../shared/utils/formatters';
 import { SPACING } from '../../../shared/constants/spacing';
 import { TYPOGRAPHY } from '../../../shared/constants/typography';
+import { formatters } from '../../../shared/utils/formatters';
 
 interface TimeSelectorProps {
-  selectedDate: Date;
-  onDateChange: (date: Date) => void;
-  duration: number;
-  onDurationChange: (duration: number) => void;
+  arrivalTime: Date;
+  leaveTime: Date;
+  onArrivalTimeChange: (date: Date) => void;
+  onLeaveTimeChange: (date: Date) => void;
 }
 
 export const TimeSelector: React.FC<TimeSelectorProps> = ({
-  selectedDate,
-  onDateChange,
-  duration,
-  onDurationChange,
+  arrivalTime,
+  leaveTime,
+  onArrivalTimeChange,
+  onLeaveTimeChange,
 }) => {
-  const [showDatePicker, setShowDatePicker] = React.useState(false);
+  const [activePicker, setActivePicker] = React.useState<'arrival' | 'leave' | null>(null);
+  const durations = [30, 60, 120, 180, 240];
 
-  const durations = [30, 60, 120, 180, 240]; // minutes
+  const selectedDuration = Math.round(
+    (leaveTime.getTime() - arrivalTime.getTime()) / (60 * 1000),
+  );
+
+  const applyDuration = (duration: number) => {
+    const nextLeaveTime = new Date(arrivalTime);
+    nextLeaveTime.setMinutes(nextLeaveTime.getMinutes() + duration);
+    onLeaveTimeChange(nextLeaveTime);
+  };
 
   return (
     <View>
       <Card style={styles.card}>
         <TouchableOpacity
           style={styles.dateRow}
-          onPress={() => setShowDatePicker(true)}
+          onPress={() => setActivePicker('arrival')}
         >
           <Icon name="calendar-outline" size={24} color={COLORS.primary} />
           <View style={styles.dateInfo}>
-            <Text style={styles.dateLabel}>Thời gian đến</Text>
-            <Text style={styles.dateValue}>
-              {formatters.dateTime(selectedDate)}
-            </Text>
+            <Text style={styles.dateLabel}>Thời gian vào</Text>
+            <Text style={styles.dateValue}>{formatters.dateTime(arrivalTime)}</Text>
           </View>
           <Icon name="chevron-forward" size={20} color={COLORS.textSecondary} />
         </TouchableOpacity>
       </Card>
 
-      {showDatePicker && (
-        <DatePicker
-          modal
-          open={showDatePicker}
-          date={selectedDate}
-          onConfirm={(date: Date) => {
-            setShowDatePicker(false);
-            onDateChange(date);
-          }}
-          onCancel={() => setShowDatePicker(false)}
-          minimumDate={new Date()}
-          mode="datetime"
-          locale="vi"
-        />
-      )}
+      <Card style={styles.card}>
+        <TouchableOpacity
+          style={styles.dateRow}
+          onPress={() => setActivePicker('leave')}
+        >
+          <Icon name="time-outline" size={24} color={COLORS.primary} />
+          <View style={styles.dateInfo}>
+            <Text style={styles.dateLabel}>Thời gian rời đi</Text>
+            <Text style={styles.dateValue}>{formatters.dateTime(leaveTime)}</Text>
+          </View>
+          <Icon name="chevron-forward" size={20} color={COLORS.textSecondary} />
+        </TouchableOpacity>
+      </Card>
 
-      <Text style={styles.durationLabel}>Thời lượng đỗ xe</Text>
+      <DatePicker
+        modal
+        open={activePicker !== null}
+        date={activePicker === 'leave' ? leaveTime : arrivalTime}
+        onConfirm={(date: Date) => {
+          if (activePicker === 'leave') {
+            onLeaveTimeChange(date);
+          } else {
+            onArrivalTimeChange(date);
+          }
+          setActivePicker(null);
+        }}
+        onCancel={() => setActivePicker(null)}
+        minimumDate={activePicker === 'leave' ? arrivalTime : new Date()}
+        mode="datetime"
+        locale="vi"
+      />
+
+      <Text style={styles.durationLabel}>Chọn nhanh thời lượng</Text>
       <View style={styles.durationGrid}>
         {durations.map((dur) => (
           <TouchableOpacity
             key={dur}
             style={[
               styles.durationChip,
-              duration === dur && styles.durationChipActive,
+              selectedDuration === dur && styles.durationChipActive,
             ]}
-            onPress={() => onDurationChange(dur)}
+            onPress={() => applyDuration(dur)}
           >
             <Text
               style={[
                 styles.durationText,
-                duration === dur && styles.durationTextActive,
+                selectedDuration === dur && styles.durationTextActive,
               ]}
             >
               {formatters.duration(dur)}

@@ -1,32 +1,29 @@
 import React from 'react';
-import { useAuth } from '../../store/AuthContext';
-import { RootStackParamList, AuthStackParamList, MainStackParamList } from '../../types/navigation.types';
+import { NavigationContainer } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
-// Auth Screens
+import { useAuth } from '../../store/AuthContext';
+import { Loading } from '../../shared/components/Loading';
+import { COLORS } from '../../shared/constants/colors';
+import {
+  AuthStackParamList,
+  MainStackParamList,
+  RootStackParamList,
+} from '../../types/navigation.types';
 import LoginScreen from '../../features/auth/screens/LoginScreen';
 import RegisterScreen from '../../features/auth/screens/RegisterScreen';
 import OTPVerificationScreen from '../../features/auth/screens/OTPVerificationScreen';
-
-// Main Navigation
-import { TabNavigator } from './TabNavigator';
-
-// Additional Main Screens
-import ParkingMapScreen from '../../features/parking-map/screens/ParkingMapScreen';
 import BookingConfirmScreen from '../../features/booking/screens/BookingConfirmScreen';
+import MyBookingsScreen from '../../features/booking/screens/MyBookingsScreen';
 import FindCarScreen from '../../features/find-car/screens/FindCarScreen';
 import NotificationsScreen from '../../features/notifications/screens/NotificationsScreen';
+import ParkingMapScreen from '../../features/parking-map/screens/ParkingMapScreen';
 import VehicleManagementScreen from '../../features/profile/screens/VehicleManagementScreen';
-
-// Components
-import { Loading } from '../../shared/components/Loading';
-import { COLORS } from '../../shared/constants/colors';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { NavigationContainer } from '@react-navigation/native';
+import { TabNavigator } from './TabNavigator';
 
 const RootStack = createNativeStackNavigator<RootStackParamList>();
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
 const MainStack = createNativeStackNavigator<MainStackParamList>();
-
 
 const AuthNavigator: React.FC = () => {
   return (
@@ -72,40 +69,48 @@ const MainNavigator: React.FC = () => {
         name="ParkingMap"
         component={ParkingMapScreen}
         options={{
-          title: 'Bản đồ bãi đỗ',
-          headerBackTitle: 'Quay lại',
+          title: 'Ban do bai do',
+          headerBackTitle: 'Quay lai',
         }}
       />
       <MainStack.Screen
         name="BookingConfirm"
         component={BookingConfirmScreen}
         options={{
-          title: 'Xác nhận đặt chỗ',
-          headerBackTitle: 'Quay lại',
+          title: 'Xac nhan dat cho',
+          headerBackTitle: 'Quay lai',
+        }}
+      />
+      <MainStack.Screen
+        name="MyBookings"
+        component={MyBookingsScreen}
+        options={{
+          title: 'Lich su dat cho',
+          headerBackTitle: 'Quay lai',
         }}
       />
       <MainStack.Screen
         name="FindCar"
         component={FindCarScreen}
         options={{
-          title: 'Tìm xe của tôi',
-          headerBackTitle: 'Quay lại',
+          title: 'Tim xe cua toi',
+          headerBackTitle: 'Quay lai',
         }}
       />
       <MainStack.Screen
         name="Notifications"
         component={NotificationsScreen}
         options={{
-          title: 'Thông báo',
-          headerBackTitle: 'Quay lại',
+          title: 'Thong bao',
+          headerBackTitle: 'Quay lai',
         }}
       />
       <MainStack.Screen
         name="VehicleManagement"
         component={VehicleManagementScreen}
         options={{
-          title: 'Quản lý xe',
-          headerBackTitle: 'Quay lại',
+          title: 'Quan ly xe',
+          headerBackTitle: 'Quay lai',
         }}
       />
     </MainStack.Navigator>
@@ -115,9 +120,8 @@ const MainNavigator: React.FC = () => {
 export const AppNavigator: React.FC = () => {
   const { isAuthenticated, isLoading } = useAuth();
 
-
   if (isLoading) {
-    return <Loading fullscreen text="Đang tải..." />;
+    return <Loading fullscreen text="Dang tai..." />;
   }
 
   return (
@@ -128,11 +132,9 @@ export const AppNavigator: React.FC = () => {
         ) : (
           <RootStack.Screen name="Auth" component={AuthNavigator} />
         )}
-        {/* <RootStack.Screen name="Main" component={MainNavigator} /> */}
       </RootStack.Navigator>
     </NavigationContainer>
   );
 };
 
-// Export default
 export default AppNavigator;

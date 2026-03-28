@@ -1,97 +1,97 @@
 import React from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
   Alert,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Ionicons';
-import { COLORS } from '../../../shared/constants/colors';
+
 import { Card } from '../../../shared/components/Card';
-// import { useAuth } from '../../../store/AuthContext';
+import { COLORS } from '../../../shared/constants/colors';
 import { SPACING } from '../../../shared/constants/spacing';
 import { TYPOGRAPHY } from '../../../shared/constants/typography';
 import { useAuth } from '@store/AuthContext';
+
 const ProfileScreen: React.FC = () => {
   const navigation = useNavigation();
   const { user, logout } = useAuth();
 
+  const handleLogout = () => {
+    Alert.alert('Dang xuat', 'Ban co chac muon dang xuat?', [
+      { text: 'Huy', style: 'cancel' },
+      {
+        text: 'Dang xuat',
+        style: 'destructive',
+        onPress: async () => {
+          await logout();
+        },
+      },
+    ]);
+  };
+
   const menuItems = [
     {
       icon: 'car-outline',
-      title: 'Quản lý xe',
-      subtitle: 'Thêm và chỉnh sửa thông tin xe',
-      onPress: () => (navigation as any).navigate('VehicleManagement' as any),
+      title: 'Quan ly xe',
+      subtitle: 'Them va chinh sua thong tin xe',
+      onPress: () => (navigation as any).navigate('VehicleManagement'),
     },
     {
-      icon: 'time-outline',
-      title: 'Lịch sử đỗ xe',
-      subtitle: 'Xem lịch sử các lần đỗ xe',
-      onPress: () => { },
+      icon: 'calendar-outline',
+      title: 'Lich su dat cho',
+      subtitle: 'Xem thong tin dat cho de xe da tao',
+      onPress: () => (navigation as any).navigate('MyBookings'),
     },
     {
       icon: 'notifications-outline',
-      title: 'Thông báo',
-      subtitle: 'Cài đặt thông báo',
-      onPress: () => (navigation as any).navigate('Notifications' as any),
+      title: 'Thong bao',
+      subtitle: 'Cai dat thong bao',
+      onPress: () => (navigation as any).navigate('Notifications'),
     },
     {
       icon: 'language-outline',
-      title: 'Ngôn ngữ',
-      subtitle: 'Tiếng Việt',
-      onPress: () => { },
+      title: 'Ngon ngu',
+      subtitle: 'Tieng Viet',
+      onPress: () => {},
     },
     {
       icon: 'help-circle-outline',
-      title: 'Trợ giúp',
-      subtitle: 'Câu hỏi thường gặp',
-      onPress: () => { },
+      title: 'Tro giup',
+      subtitle: 'Cau hoi thuong gap',
+      onPress: () => {},
     },
     {
       icon: 'document-text-outline',
-      title: 'Điều khoản & Chính sách',
-      subtitle: 'Điều khoản sử dụng và chính sách',
-      onPress: () => { },
+      title: 'Dieu khoan va Chinh sach',
+      subtitle: 'Dieu khoan su dung va chinh sach',
+      onPress: () => {},
     },
-     {
+    {
       icon: 'log-out-outline',
-      title: 'Đăng xuất',
-      subtitle: 'Đăng xuất khỏi tài khoản',
-      onPress: () => { handleLogout(); },
+      title: 'Dang xuat',
+      subtitle: 'Dang xuat khoi tai khoan',
+      onPress: handleLogout,
     },
   ];
-
-    const handleLogout = () => {
-      Alert.alert('Đăng xuất', 'Bạn có chắc muốn đăng xuất?', [
-        { text: 'Hủy', style: 'cancel' },
-        {
-          text: 'Đăng xuất',
-          style: 'destructive',
-          onPress: async () => {
-            await logout();
-          },
-        },
-      ]);
-    };
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
-          <Text style={styles.title}>Cài đặt</Text>
+          <Text style={styles.title}>Cai dat</Text>
         </View>
 
-        {/* Profile Card */}
         <Card style={styles.profileCard}>
           <View style={styles.avatarContainer}>
             <Icon name="person" size={40} color={COLORS.primary} />
           </View>
           <View style={styles.profileInfo}>
-            <Text style={styles.userName}>{user?.name || 'Người dùng'}</Text>
+            <Text style={styles.userName}>{user?.name || 'Nguoi dung'}</Text>
             <Text style={styles.userEmail}>{user?.email || ''}</Text>
             <Text style={styles.userPhone}>{user?.phone || ''}</Text>
           </View>
@@ -100,7 +100,6 @@ const ProfileScreen: React.FC = () => {
           </TouchableOpacity>
         </Card>
 
-        {/* Menu Items */}
         <View style={styles.menuSection}>
           {menuItems.map((item, index) => (
             <TouchableOpacity
@@ -126,13 +125,7 @@ const ProfileScreen: React.FC = () => {
           ))}
         </View>
 
-        {/* Logout Button */}
-        {/* <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <Icon name="log-out-outline" size={24} color={COLORS.error} />
-          <Text style={styles.logoutText}>Đăng xuất</Text>
-        </TouchableOpacity> */}
-
-        <Text style={styles.version}>Phiên bản 1.0.0</Text>
+        <Text style={styles.version}>Phien ban 1.0.0</Text>
       </ScrollView>
     </SafeAreaView>
   );
@@ -218,21 +211,6 @@ const styles = StyleSheet.create({
   menuItemSubtitle: {
     fontSize: TYPOGRAPHY.fontSize.sm,
     color: COLORS.textSecondary,
-  },
-  logoutButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: `${COLORS.error}10`,
-    padding: SPACING.md,
-    borderRadius: 8,
-    marginBottom: SPACING.lg,
-    gap: SPACING.sm,
-  },
-  logoutText: {
-    fontSize: TYPOGRAPHY.fontSize.md,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold,
-    color: COLORS.error,
   },
   version: {
     fontSize: TYPOGRAPHY.fontSize.sm,

@@ -1,15 +1,18 @@
 import { apiClient } from '../../../services/api/apiClient';
 import { ENDPOINTS } from '../../../shared/constants/endpoints';
-import { Booking, CreateBookingRequest } from '../../../types/booking.types';
-import { ApiResponse, PaginatedResponse } from '../../../types/api.types';
+import {
+  Booking,
+  GetBookingsRequest,
+} from '../../../types/booking.types';
+import { ApiResponse } from '../../../types/api.types';
 
 
 export const bookingService = {
-  async getBookings(page = 1, pageSize = 20): Promise<ApiResponse<PaginatedResponse<Booking>>> {
-    return apiClient.post(ENDPOINTS.GET_BOOKINGS, { page, pageSize });
+  async getBookings(payload: GetBookingsRequest): Promise<ApiResponse<any>> {
+    return apiClient.post(ENDPOINTS.GET_BOOKINGS, payload);
   },
 
-  async createBooking(data: CreateBookingRequest): Promise<ApiResponse<Booking>> {
+  async createBooking(data: Record<string, any>): Promise<ApiResponse<any>> {
     return apiClient.post(ENDPOINTS.CREATE_BOOKING, data);
   },
 

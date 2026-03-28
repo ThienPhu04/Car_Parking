@@ -1,96 +1,97 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
   Alert,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Ionicons';
-import { COLORS } from '../../../shared/constants/colors';
-import { Card } from '../../../shared/components/Card';
+
 import { Button } from '../../../shared/components/Button';
-import { CountdownTimer } from '../components/CountdownTimer';
-import { bookingService } from '../services/bookingService';
-import { Booking } from '../../../types/booking.types';
+import { Card } from '../../../shared/components/Card';
 import { Loading } from '../../../shared/components/Loading';
-import { formatters } from '../../../shared/utils/formatters';
+import { COLORS } from '../../../shared/constants/colors';
+import { CONFIG } from '../../../shared/constants/config';
 import { SPACING } from '../../../shared/constants/spacing';
 import { TYPOGRAPHY } from '../../../shared/constants/typography';
+import { formatters } from '../../../shared/utils/formatters';
+import { MainStackParamList } from '../../../types/navigation.types';
+import { Booking } from '../../../types/booking.types';
+import { useAuth } from '../../../store/AuthContext';
+import { bookingService } from '../services/bookingService';
+import { CountdownTimer } from '../components/CountdownTimer';
+import { normalizeBookingList } from '../utils/bookingAdapters';
 
-type BookingConfirmRouteProp = RouteProp<
-  { BookingConfirm: { bookingId: string } },
-  'BookingConfirm'
->;
+type BookingConfirmRouteProp = RouteProp<MainStackParamList, 'BookingConfirm'>;
+
+const buildHoldExpiryTime = (booking: Booking) => {
+  const createdAt = new Date(booking.createdAt || Date.now());
+  const createdAtMs = Number.isNaN(createdAt.getTime()) ? Date.now() : createdAt.getTime();
+
+  return new Date(
+    createdAtMs + CONFIG.BOOKING_TIMEOUT_MINUTES * 60 * 1000,
+  );
+};
 
 const BookingConfirmScreen: React.FC = () => {
   const navigation = useNavigation();
   const route = useRoute<BookingConfirmRouteProp>();
-  const { bookingId } = route.params;
+  const { user } = useAuth();
+  const { bookingId, booking: initialBooking } = route.params;
 
-  const [booking, setBooking] = useState<Booking | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [booking, setBooking] = useState<Booking | null>(initialBooking ?? null);
+  const [isLoading, setIsLoading] = useState(!initialBooking);
 
-  useEffect(() => {
-    loadBooking();
-  }, [bookingId]);
-
-  const loadBooking = async () => {
+  const loadBooking = useCallback(async () => {
     try {
-      const response = await bookingService.getBooking(bookingId);
-      setBooking(response.data);
-    } catch (error) {
-      Alert.alert('Lỗi', 'Không thể tải thông tin đặt chỗ');
+      if (!user?.code) {
+        throw new Error('Khong tim thay thong tin nguoi dung');
+      }
+
+      setIsLoading(true);
+      const response = await bookingService.getBookings({ userId: user.code });
+      const bookings = normalizeBookingList(response.data);
+      const matchedBooking =
+        bookings.find(item => item.id === bookingId || item.code === bookingId) ?? null;
+
+      setBooking(matchedBooking);
+    } catch (error: any) {
+      Alert.alert('Loi', error?.message || 'Khong the tai thong tin dat cho');
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [bookingId, user?.code]);
+
+  useEffect(() => {
+    if (initialBooking) {
+      setBooking(initialBooking);
+      setIsLoading(false);
+      return;
+    }
+
+    loadBooking();
+  }, [initialBooking, loadBooking]);
 
   const handleCancel = () => {
     Alert.alert(
-      'Hủy đặt chỗ',
-      'Bạn có chắc muốn hủy đặt chỗ này?',
-      [
-        { text: 'Không', style: 'cancel' },
-        {
-          text: 'Hủy đặt chỗ',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await bookingService.cancelBooking(bookingId);
-              Alert.alert('Thành công', 'Đã hủy đặt chỗ', [
-                {
-                  text: 'OK',
-                  onPress: () => navigation.goBack(),
-                },
-              ]);
-            } catch (error) {
-              Alert.alert('Lỗi', 'Không thể hủy đặt chỗ');
-            }
-          },
-        },
-      ]
+      'Thong bao',
+      'Chuc nang huy dat cho chua duoc ket noi voi backend hien tai.',
     );
   };
 
   const handleTimeout = () => {
     Alert.alert(
-      'Hết thời gian giữ chỗ',
-      'Đặt chỗ của bạn đã bị hủy do quá thời gian',
-      [
-        {
-          text: 'OK',
-          onPress: () => navigation.goBack(),
-        },
-      ]
+      'Thong bao',
+      'Thoi gian giu cho da het. Vui long kiem tra lai trang thai dat cho.',
+      [{ text: 'OK', onPress: () => navigation.goBack() }],
     );
   };
 
   if (isLoading) {
-    return <Loading fullscreen />;
+    return <Loading fullscreen text="Dang tai thong tin dat cho..." />;
   }
 
   if (!booking) {
@@ -98,7 +99,7 @@ const BookingConfirmScreen: React.FC = () => {
       <SafeAreaView style={styles.container}>
         <View style={styles.errorContainer}>
           <Icon name="alert-circle-outline" size={64} color={COLORS.error} />
-          <Text style={styles.errorText}>Không tìm thấy thông tin đặt chỗ</Text>
+          <Text style={styles.errorText}>Khong tim thay thong tin dat cho</Text>
         </View>
       </SafeAreaView>
     );
@@ -111,13 +112,13 @@ const BookingConfirmScreen: React.FC = () => {
           <Icon name="checkmark-circle" size={80} color={COLORS.success} />
         </View>
 
-        <Text style={styles.title}>Đặt chỗ thành công!</Text>
+        <Text style={styles.title}>Dat cho thanh cong</Text>
         <Text style={styles.subtitle}>
-          Vui lòng đến trước khi hết thời gian giữ chỗ
+          Ban hay den dung gio de nhan vi tri da dat.
         </Text>
 
         <CountdownTimer
-          endTime={new Date(booking.startTime)}
+          endTime={buildHoldExpiryTime(booking)}
           onTimeout={handleTimeout}
         />
 
@@ -125,9 +126,9 @@ const BookingConfirmScreen: React.FC = () => {
           <View style={styles.infoRow}>
             <Icon name="location" size={24} color={COLORS.primary} />
             <View style={styles.infoContent}>
-              <Text style={styles.infoLabel}>Vị trí</Text>
+              <Text style={styles.infoLabel}>Vi tri</Text>
               <Text style={styles.infoValue}>
-                {booking.slot?.code} - Tầng {booking.slot?.floor}
+                {booking.slot?.code || booking.slotId}
               </Text>
             </View>
           </View>
@@ -135,9 +136,9 @@ const BookingConfirmScreen: React.FC = () => {
           <View style={styles.infoRow}>
             <Icon name="car" size={24} color={COLORS.primary} />
             <View style={styles.infoContent}>
-              <Text style={styles.infoLabel}>Phương tiện</Text>
+              <Text style={styles.infoLabel}>Phuong tien</Text>
               <Text style={styles.infoValue}>
-                {booking.vehicle?.licensePlate}
+                {booking.vehicle?.licensePlate || booking.licensePlate || 'N/A'}
               </Text>
             </View>
           </View>
@@ -145,35 +146,44 @@ const BookingConfirmScreen: React.FC = () => {
           <View style={styles.infoRow}>
             <Icon name="time" size={24} color={COLORS.primary} />
             <View style={styles.infoContent}>
-              <Text style={styles.infoLabel}>Thời gian</Text>
+              <Text style={styles.infoLabel}>Thoi gian</Text>
               <Text style={styles.infoValue}>
-                {formatters.dateTime(booking.startTime)} -{' '}
-                {formatters.time(booking.endTime)}
+                {formatters.dateTime(booking.startTime)}
+                {booking.endTime ? ` - ${formatters.time(booking.endTime)}` : ''}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.infoRow}>
+            <Icon name="information-circle" size={24} color={COLORS.primary} />
+            <View style={styles.infoContent}>
+              <Text style={styles.infoLabel}>Trang thai</Text>
+              <Text style={styles.infoValue}>
+                {booking.statusName || booking.status}
               </Text>
             </View>
           </View>
         </Card>
 
-        {/* QR Code placeholder */}
         <Card style={styles.qrCard}>
-          <Text style={styles.qrTitle}>Mã QR Check-in</Text>
+          <Text style={styles.qrTitle}>Ma QR Check-in</Text>
           <View style={styles.qrPlaceholder}>
             <Icon name="qr-code" size={120} color={COLORS.textSecondary} />
           </View>
           <Text style={styles.qrSubtitle}>
-            Quét mã này khi vào bãi đỗ xe
+            Backend hien tai chua tra ve QR code, day la khung cho san.
           </Text>
         </Card>
 
         <View style={styles.actions}>
           <Button
-            title="Xem bản đồ"
-            onPress={() => (navigation as any).navigate('ParkingMap' as any)}
+            title="Xem lich su dat cho"
+            onPress={() => navigation.goBack()}
             variant="outline"
             style={styles.actionButton}
           />
           <Button
-            title="Hủy đặt chỗ"
+            title="Huy dat cho"
             onPress={handleCancel}
             variant="text"
             style={styles.actionButton}

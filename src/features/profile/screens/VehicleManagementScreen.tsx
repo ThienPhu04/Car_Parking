@@ -27,7 +27,7 @@ const VehicleManagementScreen: React.FC = () => {
 
   useEffect(() => {
     fetchVehicles();
-  }, []);
+  }, [fetchVehicles]);
 
   const handleDelete = (vehicleId: string) => {
     Alert.alert('Xóa xe', 'Bạn có chắc muốn xóa xe này?', [
@@ -86,7 +86,7 @@ const VehicleManagementScreen: React.FC = () => {
       ) : (
         <FlatList
           data={vehicles}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item) => item.id || item.licensePlate}
           renderItem={({ item }) => (
             <VehicleCard
               vehicle={item}

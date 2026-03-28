@@ -14,7 +14,7 @@ export const ENDPOINTS = {
   // Vehicles
   GET_VEHICLES: '/api/us/getListVehicles',
   GET_VEHICLE_DETAIL: '/api/us/getDetailVehilces',
-  CREATE_VEHICLE: '/vehicles', // Fallback or assuming default if not provided
+  CREATE_VEHICLE: '/api/us/updateVehicles',
   UPDATE_VEHICLE: '/api/us/updateVehicles',
   DELETE_VEHICLE: '/api/us/deleteVehilces',
   SET_DEFAULT_VEHICLE: (id: string) => `/vehicles/${id}/set-default`,

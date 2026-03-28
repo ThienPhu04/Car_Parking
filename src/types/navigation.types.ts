@@ -1,4 +1,21 @@
 import { NavigatorScreenParams } from '@react-navigation/native';
+import { Booking } from './booking.types';
+
+export interface BookingRouteParams {
+  slotId?: string;
+  vehicleId?: string;
+  expectedArrivalTime?: string;
+  expectedLeaveTime?: string;
+  resetToken?: string;
+}
+
+export interface ParkingMapRouteParams {
+  floor?: number;
+  selectedSlot?: string;
+  vehicleId?: string;
+  expectedArrivalTime?: string;
+  expectedLeaveTime?: string;
+}
 
 export type RootStackParamList = {
   Auth: NavigatorScreenParams<AuthStackParamList>;
@@ -13,8 +30,9 @@ export type AuthStackParamList = {
 
 export type MainStackParamList = {
   MainTabs: NavigatorScreenParams<TabParamList>;
-  ParkingMap: { floor?: number };
-  BookingConfirm: { bookingId: string };
+  ParkingMap: ParkingMapRouteParams | undefined;
+  BookingConfirm: { bookingId: string; booking?: Booking };
+  MyBookings: undefined;
   FindCar: undefined;
   Notifications: undefined;
   VehicleManagement: undefined;
@@ -23,7 +41,7 @@ export type MainStackParamList = {
 export type TabParamList = {
   Home: undefined;
   Search: undefined;
-  Booking: undefined;
+  Booking: BookingRouteParams | undefined;
   Profile: undefined;
 };
 

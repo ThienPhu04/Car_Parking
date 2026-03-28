@@ -1,97 +1,286 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
   Alert,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { RouteProp, useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
-import { COLORS } from '../../../shared/constants/colors';
-import { Card } from '../../../shared/components/Card';
+
 import { Button } from '../../../shared/components/Button';
-import { TimeSelector } from '../components/TimeSelector';
-import { BookingSummary } from '../components/BookingSummary';
-import { useBooking } from '../hooks/useBooking';
-import { useProfile } from '../../profile/hooks/useProfile';
-import { Loading } from '../../../shared/components/Loading';
+import { Card } from '../../../shared/components/Card';
 import { EmptyState } from '../../../shared/components/EmptyState';
+import { Loading } from '../../../shared/components/Loading';
+import { COLORS } from '../../../shared/constants/colors';
+import { CONFIG } from '../../../shared/constants/config';
 import { SPACING } from '../../../shared/constants/spacing';
 import { TYPOGRAPHY } from '../../../shared/constants/typography';
+import { formatters } from '../../../shared/utils/formatters';
+import { TabParamList } from '../../../types/navigation.types';
+import { useProfile } from '../../profile/hooks/useProfile';
+import { TimeSelector } from '../components/TimeSelector';
+import { useBooking } from '../hooks/useBooking';
 
-type BookingScreenRouteProp = RouteProp<{ Booking: { slotId?: string } }, 'Booking'>;
+type BookingScreenRouteProp = RouteProp<TabParamList, 'Booking'>;
+
+const isValidDate = (value?: string) => {
+  if (!value) {
+    return null;
+  }
+
+  const parsedDate = new Date(value);
+  return Number.isNaN(parsedDate.getTime()) ? null : parsedDate;
+};
+
+const roundUpToNextHalfHour = () => {
+  const now = new Date();
+  const roundedDate = new Date(now);
+  roundedDate.setSeconds(0, 0);
+
+  const minutes = roundedDate.getMinutes();
+  const remainder = minutes % 30;
+
+  if (remainder !== 0) {
+    roundedDate.setMinutes(minutes + (30 - remainder));
+  }
+
+  if (roundedDate.getTime() <= now.getTime()) {
+    roundedDate.setMinutes(roundedDate.getMinutes() + 30);
+  }
+
+  return roundedDate;
+};
+
+const addMinutes = (date: Date, minutes: number) => {
+  const nextDate = new Date(date);
+  nextDate.setMinutes(nextDate.getMinutes() + minutes);
+  return nextDate;
+};
+
+const buildInitialTimes = (params?: TabParamList['Booking']) => {
+  const arrivalTime = isValidDate(params?.expectedArrivalTime) ?? roundUpToNextHalfHour();
+  const minimumLeaveTime = addMinutes(
+    arrivalTime,
+    CONFIG.MIN_BOOKING_DURATION_MINUTES,
+  );
+  const requestedLeaveTime = isValidDate(params?.expectedLeaveTime);
+
+  return {
+    arrivalTime,
+    leaveTime:
+      requestedLeaveTime && requestedLeaveTime.getTime() > minimumLeaveTime.getTime()
+        ? requestedLeaveTime
+        : minimumLeaveTime,
+  };
+};
+
+const calculateDuration = (arrivalTime: Date, leaveTime: Date) =>
+  Math.round((leaveTime.getTime() - arrivalTime.getTime()) / (60 * 1000));
 
 const BookingScreen: React.FC = () => {
   const navigation = useNavigation();
   const route = useRoute<BookingScreenRouteProp>();
-  const { slotId } = route.params || {};
+  const initialTimesRef = useRef(buildInitialTimes(route.params));
+  const tabBarHeight = useBottomTabBarHeight();
+  const insets = useSafeAreaInsets();
 
-  const { vehicles } = useProfile();
+  const {
+    vehicles,
+    fetchVehicles,
+    isLoading: isLoadingVehicles,
+  } = useProfile();
   const { createBooking, isLoading } = useBooking();
 
-  const [selectedVehicle, setSelectedVehicle] = useState<string | null>(null);
-  const [selectedDate, setSelectedDate] = useState(new Date());
-  const [duration, setDuration] = useState(60); // minutes
-  const [showSummary, setShowSummary] = useState(false);
+  const [selectedVehicle, setSelectedVehicle] = useState<string | null>(
+    route.params?.vehicleId ?? null,
+  );
+  const [selectedSlotId, setSelectedSlotId] = useState<string | null>(
+    route.params?.slotId ?? null,
+  );
+  const [arrivalTime, setArrivalTime] = useState(initialTimesRef.current.arrivalTime);
+  const [leaveTime, setLeaveTime] = useState(initialTimesRef.current.leaveTime);
 
-  useEffect(() => {
-    // Auto select default vehicle
-    const defaultVehicle = vehicles.find((v) => v.isDefault);
-    if (defaultVehicle) {
-      setSelectedVehicle(defaultVehicle.id);
-    }
+  const slotId = selectedSlotId;
+  const duration = calculateDuration(arrivalTime, leaveTime);
+
+  const resetBookingForm = useCallback(() => {
+    const nextInitialTimes = buildInitialTimes();
+    const defaultVehicle = vehicles.find(vehicle => vehicle.isDefault) ?? vehicles[0] ?? null;
+
+    setSelectedSlotId(null);
+    setArrivalTime(nextInitialTimes.arrivalTime);
+    setLeaveTime(nextInitialTimes.leaveTime);
+    setSelectedVehicle(defaultVehicle?.id ?? null);
   }, [vehicles]);
 
-  const handleBooking = async () => {
+  useFocusEffect(
+    useCallback(() => {
+      fetchVehicles();
+    }, [fetchVehicles]),
+  );
+
+  useEffect(() => {
+    if (vehicles.length === 0) {
+      setSelectedVehicle(null);
+      return;
+    }
+
+    const hasSelectedVehicle = selectedVehicle
+      ? vehicles.some(vehicle => vehicle.id === selectedVehicle)
+      : false;
+    const defaultVehicle = vehicles.find(vehicle => vehicle.isDefault) ?? vehicles[0];
+
+    if (!hasSelectedVehicle && defaultVehicle) {
+      setSelectedVehicle(defaultVehicle.id);
+    }
+  }, [selectedVehicle, vehicles]);
+
+  useEffect(() => {
+    if (route.params?.vehicleId) {
+      setSelectedVehicle(route.params.vehicleId);
+    }
+  }, [route.params?.vehicleId]);
+
+  useEffect(() => {
+    if (route.params?.slotId) {
+      setSelectedSlotId(route.params.slotId);
+    }
+  }, [route.params?.slotId]);
+
+  useEffect(() => {
+    const nextArrivalTime = isValidDate(route.params?.expectedArrivalTime);
+    const nextLeaveTime = isValidDate(route.params?.expectedLeaveTime);
+
+    if (nextArrivalTime) {
+      setArrivalTime(nextArrivalTime);
+    }
+
+    if (nextLeaveTime) {
+      setLeaveTime(nextLeaveTime);
+    }
+  }, [route.params?.expectedArrivalTime, route.params?.expectedLeaveTime]);
+
+  useEffect(() => {
+    if (!route.params?.resetToken) {
+      return;
+    }
+
+    resetBookingForm();
+  }, [resetBookingForm, route.params?.resetToken]);
+
+  const handleArrivalTimeChange = (date: Date) => {
+    setArrivalTime(date);
+
+    const minimumLeaveTime = addMinutes(date, CONFIG.MIN_BOOKING_DURATION_MINUTES);
+    if (leaveTime.getTime() < minimumLeaveTime.getTime()) {
+      setLeaveTime(minimumLeaveTime);
+    }
+  };
+
+  const handleLeaveTimeChange = (date: Date) => {
+    const minimumLeaveTime = addMinutes(
+      arrivalTime,
+      CONFIG.MIN_BOOKING_DURATION_MINUTES,
+    );
+    setLeaveTime(
+      date.getTime() < minimumLeaveTime.getTime() ? minimumLeaveTime : date,
+    );
+  };
+
+  const validateBookingForm = () => {
     if (!selectedVehicle) {
-      Alert.alert('Lỗi', 'Vui lòng chọn xe');
+      Alert.alert('Loi', 'Vui long chon xe');
+      return false;
+    }
+
+    if (duration < CONFIG.MIN_BOOKING_DURATION_MINUTES) {
+      Alert.alert(
+        'Loi',
+        `Thoi gian dat cho toi thieu la ${CONFIG.MIN_BOOKING_DURATION_MINUTES} phut`,
+      );
+      return false;
+    }
+
+    if (duration > CONFIG.MAX_BOOKING_DURATION_HOURS * 60) {
+      Alert.alert(
+        'Loi',
+        `Thoi gian dat cho toi da la ${CONFIG.MAX_BOOKING_DURATION_HOURS} gio`,
+      );
+      return false;
+    }
+
+    return true;
+  };
+
+  const openParkingMap = () => {
+    if (!validateBookingForm()) {
+      return;
+    }
+
+    (navigation as any).navigate('ParkingMap', {
+      selectedSlot: selectedSlotId ?? undefined,
+      expectedArrivalTime: arrivalTime.toISOString(),
+      expectedLeaveTime: leaveTime.toISOString(),
+      vehicleId: selectedVehicle,
+    });
+  };
+
+  const handleBooking = async () => {
+    if (!validateBookingForm()) {
       return;
     }
 
     if (!slotId) {
-      Alert.alert('Lỗi', 'Vui lòng chọn chỗ đỗ');
+      openParkingMap();
       return;
     }
 
     try {
       const booking = await createBooking({
         slotId,
-        vehicleId: selectedVehicle,
-        startTime: selectedDate.toISOString(),
-        duration,
+        vehicleId: selectedVehicle!,
+        expectedArrivalTime: arrivalTime.toISOString(),
+        expectedLeaveTime: leaveTime.toISOString(),
       });
 
-      Alert.alert('Thành công', 'Đặt chỗ thành công!', [
+      if (!booking?.id) {
+        Alert.alert('Thanh cong', 'Dat cho thanh cong. Vui long kiem tra trong lich su dat cho.');
+        return;
+      }
+
+      Alert.alert('Thanh cong', 'Dat cho thanh cong', [
         {
           text: 'OK',
-          onPress: () => (navigation as any).navigate('BookingConfirm' as any, {
-            bookingId: booking.id,
-          }),
+          onPress: () =>
+            (navigation as any).navigate('BookingConfirm', {
+              bookingId: booking.id,
+              booking,
+            }),
         },
       ]);
     } catch (error: any) {
-      Alert.alert('Lỗi', error.message || 'Không thể đặt chỗ');
+      Alert.alert('Loi', error.message || 'Khong the dat cho');
     }
   };
 
-  const calculateEndTime = () => {
-    const end = new Date(selectedDate);
-    end.setMinutes(end.getMinutes() + duration);
-    return end;
-  };
+  if (isLoadingVehicles && vehicles.length === 0) {
+    return <Loading fullscreen text="Dang tai danh sach xe..." />;
+  }
 
   if (vehicles.length === 0) {
     return (
       <SafeAreaView style={styles.container}>
         <EmptyState
           icon="car-outline"
-          title="Chưa có xe"
-          description="Vui lòng thêm thông tin xe để đặt chỗ"
-          actionLabel="Thêm xe"
-          onAction={() => (navigation as any).navigate('VehicleManagement' as any)}
+          title="Chua co xe"
+          description="Vui long them thong tin xe truoc khi dat cho"
+          actionLabel="Them xe"
+          onAction={() => (navigation as any).navigate('VehicleManagement')}
         />
       </SafeAreaView>
     );
@@ -99,18 +288,22 @@ const BookingScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: tabBarHeight + insets.bottom + 120 },
+        ]}
+      >
         <View style={styles.header}>
           <Text style={styles.title}>Đặt chỗ đỗ xe</Text>
           <Text style={styles.subtitle}>
-            Chọn thông tin để đặt chỗ trước
+            Chọn xe va khung giờ trước, sau đó vào bản đồ để chọn slot phù hợp
           </Text>
         </View>
 
-        {/* Vehicle Selection */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Chọn xe</Text>
-          {vehicles.map((vehicle) => (
+          {vehicles.map(vehicle => (
             <TouchableOpacity
               key={vehicle.id}
               onPress={() => setSelectedVehicle(vehicle.id)}
@@ -132,9 +325,7 @@ const BookingScreen: React.FC = () => {
                     }
                   />
                   <View style={styles.vehicleInfo}>
-                    <Text style={styles.vehiclePlate}>
-                      {vehicle.licensePlate}
-                    </Text>
+                    <Text style={styles.vehiclePlate}>{vehicle.licensePlate}</Text>
                     <Text style={styles.vehicleModel}>
                       {vehicle.brand} {vehicle.model}
                     </Text>
@@ -152,71 +343,87 @@ const BookingScreen: React.FC = () => {
           ))}
         </View>
 
-        {/* Time Selection */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Chọn thời gian</Text>
           <TimeSelector
-            selectedDate={selectedDate}
-            onDateChange={setSelectedDate}
-            duration={duration}
-            onDurationChange={setDuration}
+            arrivalTime={arrivalTime}
+            leaveTime={leaveTime}
+            onArrivalTimeChange={handleArrivalTimeChange}
+            onLeaveTimeChange={handleLeaveTimeChange}
           />
+          {slotId ? (
+            <Card style={styles.noticeCard}>
+              <View style={styles.noticeRow}>
+                <Icon name="checkmark-circle-outline" size={20} color={COLORS.success} />
+                <Text style={styles.noticeText}>
+                  Slot đẫ chọn sẽ được giữ lại khi bạn thay đổi thời lượng.
+                </Text>
+              </View>
+            </Card>
+          ) : null}
         </View>
 
-        {/* Slot Info (if provided) */}
-        {slotId && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Vị trí đỗ xe</Text>
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Vị trí đỗ xe</Text>
+          {slotId ? (
             <Card>
               <View style={styles.slotInfo}>
                 <Icon name="location" size={24} color={COLORS.primary} />
                 <View style={styles.slotDetails}>
                   <Text style={styles.slotCode}>Slot {slotId}</Text>
-                  <Text style={styles.slotFloor}>Tầng 1</Text>
                 </View>
-                <TouchableOpacity
-                  onPress={() => (navigation as any).navigate('ParkingMap' as any)}
-                >
-                  <Text style={styles.changeText}>Đổi</Text>
+                <TouchableOpacity onPress={openParkingMap}>
+                  <Text style={styles.changeText}>Đổi slot</Text>
                 </TouchableOpacity>
               </View>
             </Card>
-          </View>
-        )}
+          ) : (
+            <Card style={styles.placeholderCard}>
+              <Text style={styles.placeholderTitle}>Chưa chọn slot</Text>
+              <Text style={styles.placeholderText}>
+                Sau khi chon thoi gian, mo ban do de xem slot phu hop va dat cho.
+              </Text>
+              <TouchableOpacity style={styles.inlineButton} onPress={openParkingMap}>
+                <Text style={styles.inlineButtonText}>Mở bản đồ</Text>
+              </TouchableOpacity>
+            </Card>
+          )}
+        </View>
 
-        {/* Summary Preview */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Tóm tắt</Text>
+          <Text style={styles.sectionTitle}>Tóm tắt thông tin</Text>
           <Card>
             <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Thời gian bắt đầu:</Text>
+              <Text style={styles.summaryLabel}>Giờ vào</Text>
               <Text style={styles.summaryValue}>
-                {selectedDate.toLocaleTimeString('vi-VN', {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })}
+                {formatters.dateTime(arrivalTime.toISOString())}
               </Text>
             </View>
             <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Thời gian kết thúc:</Text>
+              <Text style={styles.summaryLabel}>Giờ ra</Text>
               <Text style={styles.summaryValue}>
-                {calculateEndTime().toLocaleTimeString('vi-VN', {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })}
+                {formatters.dateTime(leaveTime.toISOString())}
               </Text>
             </View>
             <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Thời lượng:</Text>
-              <Text style={styles.summaryValue}>{duration} phút</Text>
+              <Text style={styles.summaryLabel}>Thời lượng</Text>
+              <Text style={styles.summaryValue}>{formatters.duration(duration)}</Text>
             </View>
           </Card>
         </View>
       </ScrollView>
 
-      <View style={styles.footer}>
+      <View
+        style={[
+          styles.footer,
+          {
+            bottom: tabBarHeight,
+            paddingBottom: Math.max(insets.bottom, SPACING.sm),
+          },
+        ]}
+      >
         <Button
-          title="Xác nhận đặt chỗ"
+          title={slotId ? 'Xác nhận đặt chỗ' : 'Mở bản đồ chọn slot'}
           onPress={handleBooking}
           loading={isLoading}
           fullWidth
@@ -233,7 +440,6 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: SPACING.md,
-    paddingBottom: 100,
   },
   header: {
     marginBottom: SPACING.lg,
@@ -283,6 +489,20 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     marginTop: SPACING.xs,
   },
+  noticeCard: {
+    marginTop: SPACING.sm,
+  },
+  noticeRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  noticeText: {
+    flex: 1,
+    marginLeft: SPACING.sm,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    color: COLORS.textSecondary,
+    lineHeight: 20,
+  },
   slotInfo: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -306,6 +526,32 @@ const styles = StyleSheet.create({
     color: COLORS.primary,
     fontWeight: TYPOGRAPHY.fontWeight.medium,
   },
+  placeholderCard: {
+    alignItems: 'flex-start',
+  },
+  placeholderTitle: {
+    fontSize: TYPOGRAPHY.fontSize.md,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold,
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.xs,
+  },
+  placeholderText: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    lineHeight: 20,
+    color: COLORS.textSecondary,
+  },
+  inlineButton: {
+    marginTop: SPACING.md,
+    backgroundColor: COLORS.primary,
+    borderRadius: 10,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+  },
+  inlineButtonText: {
+    color: COLORS.white,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold,
+  },
   summaryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -321,10 +567,11 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.fontSize.md,
     fontWeight: TYPOGRAPHY.fontWeight.medium,
     color: COLORS.textPrimary,
+    maxWidth: '55%',
+    textAlign: 'right',
   },
   footer: {
     position: 'absolute',
-    bottom: 0,
     left: 0,
     right: 0,
     padding: SPACING.md,

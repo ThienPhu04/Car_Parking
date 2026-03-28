@@ -1,79 +1,157 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity,
-  Alert, Modal, ActivityIndicator,
+  ActivityIndicator,
+  Alert,
+  Modal,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
+import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Ionicons';
 
+import { Card } from '../../../shared/components/Card';
 import { COLORS } from '../../../shared/constants/colors';
+import { MQTT_TOPICS } from '../../../shared/constants/mqttTopics';
 import { SPACING } from '../../../shared/constants/spacing';
 import { TYPOGRAPHY } from '../../../shared/constants/typography';
-import { Card } from '../../../shared/components/Card';
-import { MQTT_TOPICS } from '../../../shared/constants/mqttTopics';
-
+import { MainStackParamList } from '../../../types/navigation.types';
+import {
+  CellType,
+  NavigationRoute,
+  ParkingSlot,
+  Position,
+  SlotStatus,
+} from '../../../types/parking.types';
 import { EnhancedParkingGrid } from '../components/EnhancedParkingGrid';
 import { FloorSelector } from '../components/FloorSelector';
 import { NavigationPanel } from '../components/NavigationPanel';
-import { SlotLegend } from '../components/SlotLegend';
 import { SlotActionModal } from '../components/SlotActionModal';
-import { useParkingMap } from '../hooks/useParkingMap';
+import { SlotLegend } from '../components/SlotLegend';
 import { useMQTT } from '../hooks/useMQTT';
+import { useParkingMap } from '../hooks/useParkingMap';
 import { ParkingNavigator } from '../ultils/navigationHelper';
 
-import {
-  CellType, NavigationRoute, ParkingSlot, Position, SlotStatus,
-} from '../../../types/parking.types';
+type ParkingMapRouteProp = RouteProp<MainStackParamList, 'ParkingMap'>;
+
+const toValidDate = (value?: string) => {
+  if (!value) {
+    return null;
+  }
+
+  const parsedDate = new Date(value);
+  return Number.isNaN(parsedDate.getTime()) ? null : parsedDate;
+};
+
+const isSameCalendarDay = (firstDate: Date, secondDate: Date) =>
+  firstDate.getFullYear() === secondDate.getFullYear()
+  && firstDate.getMonth() === secondDate.getMonth()
+  && firstDate.getDate() === secondDate.getDate();
 
 const ParkingMapScreen: React.FC = () => {
   const navigation = useNavigation();
+  const route = useRoute<ParkingMapRouteProp>();
   const parkingCode = 'PK001';
 
+  const requestedArrivalTime = toValidDate(route.params?.expectedArrivalTime);
+  const requestedLeaveTime = toValidDate(route.params?.expectedLeaveTime);
+  const shouldUseRealtime = !requestedArrivalTime
+    || isSameCalendarDay(requestedArrivalTime, new Date());
+
   const {
-    parkingMap, currentLayout,
+    parkingMap,
+    currentLayout,
     isLoading,
-    error, switchFloor, updateSlotStatus, refresh,
-  } = useParkingMap(parkingCode);
+    error,
+    switchFloor,
+    updateSlotStatus,
+    refresh,
+  } = useParkingMap(
+    parkingCode,
+    shouldUseRealtime
+      ? {}
+      : {
+          expectedArrivalTime: requestedArrivalTime?.toISOString(),
+          expectedLeaveTime: requestedLeaveTime?.toISOString(),
+        },
+  );
 
   const [selectedSlot, setSelectedSlot] = useState<ParkingSlot | null>(null);
   const [navRoute, setNavRoute] = useState<NavigationRoute | null>(null);
   const [showEntryModal, setShowEntryModal] = useState(false);
   const [showSlotActionModal, setShowSlotActionModal] = useState(false);
 
-  // MQTT
-  const mqttTopic = currentLayout
-    ? MQTT_TOPICS.SLOT_STATUS(parkingCode, currentLayout.floorLevel)
-    : '';
-  const { isConnected } = useMQTT(mqttTopic, msg => {
-    updateSlotStatus(msg.slotId, msg.status as SlotStatus, statusLabel(msg.status));
-  });
-
-  const statusLabel = (s: number) => {
-    switch (s) {
-      case SlotStatus.AVAILABLE: return 'Trống';
-      case SlotStatus.RESERVED: return 'Đã đặt';
-      case SlotStatus.OCCUPIED: return 'Đã có xe';
-      default: return 'Không xác định';
+  const statusLabel = (status: number) => {
+    switch (status) {
+      case SlotStatus.AVAILABLE:
+        return 'Trống';
+      case SlotStatus.RESERVED:
+        return 'Đã đặt';
+      case SlotStatus.OCCUPIED:
+        return 'Đã có xe';
+      default:
+        return 'Không xác định';
     }
   };
 
-  const currentFloorInfo = parkingMap?.floors.find(f => f.id === currentLayout?.floorId)
+  const mqttTopic = currentLayout
+    ? MQTT_TOPICS.SLOT_STATUS(parkingCode, currentLayout.floorLevel)
+    : '';
+  const { isConnected } = useMQTT(mqttTopic, message => {
+    updateSlotStatus(
+      message.slotId,
+      message.status as SlotStatus,
+      statusLabel(message.status),
+    );
+  });
+
+  const currentFloorInfo =
+    parkingMap?.floors.find(floor => floor.id === currentLayout?.floorId)
     ?? parkingMap?.floors[0];
 
-  const findNearestRoad = useCallback((pos: Position): Position | null => {
-    if (!currentLayout) return null;
-    let best: Position | null = null;
-    let minD = Infinity;
-    currentLayout.cells.forEach((row, y) =>
-      row.forEach((cell, x) => {
-        if (cell.type === CellType.ROAD || cell.type === CellType.ENTRY) {
-          const d = Math.abs(x - pos.x) + Math.abs(y - pos.y);
-          if (d < minD) { minD = d; best = { x, y }; }
-        }
-      }));
-    return best;
-  }, [currentLayout]);
+  useEffect(() => {
+    if (!route.params?.selectedSlot || !currentLayout) {
+      return;
+    }
+
+    const matchedSlot = currentLayout.slots.find(
+      slot =>
+        slot.id === route.params?.selectedSlot
+        || slot.code === route.params?.selectedSlot,
+    );
+
+    if (matchedSlot) {
+      setSelectedSlot(matchedSlot);
+    }
+  }, [currentLayout, route.params?.selectedSlot]);
+
+  const findNearestRoad = useCallback(
+    (position: Position): Position | null => {
+      if (!currentLayout) {
+        return null;
+      }
+
+      let bestPosition: Position | null = null;
+      let minimumDistance = Infinity;
+
+      currentLayout.cells.forEach((row, y) =>
+        row.forEach((cell, x) => {
+          if (cell.type === CellType.ROAD || cell.type === CellType.ENTRY) {
+            const distance = Math.abs(x - position.x) + Math.abs(y - position.y);
+            if (distance < minimumDistance) {
+              minimumDistance = distance;
+              bestPosition = { x, y };
+            }
+          }
+        }),
+      );
+
+      return bestPosition;
+    },
+    [currentLayout],
+  );
 
   const handleSlotPress = useCallback((slot: ParkingSlot) => {
     setSelectedSlot(slot);
@@ -87,30 +165,62 @@ const ParkingMapScreen: React.FC = () => {
   }, []);
 
   const handleBookSlot = useCallback(() => {
-    if (!selectedSlot) return;
-    setShowSlotActionModal(false);
-    (navigation as any).navigate('Booking', { slotId: selectedSlot.id });
-  }, [navigation, selectedSlot]);
-
-  const handleFindRoute = useCallback((entryIdx = 0) => {
-    if (!selectedSlot || !currentLayout) return;
-    const entry = currentLayout.entries[entryIdx];
-    if (!entry) { Alert.alert('Lỗi', 'Không tìm thấy lối vào'); return; }
-
-    setShowEntryModal(false);
-    const road = findNearestRoad({ x: selectedSlot.x, y: selectedSlot.y });
-    if (!road) { Alert.alert('Lỗi', 'Không thể tìm đường'); return; }
-
-    const route = new ParkingNavigator(currentLayout.cells)
-      .findPath({ x: entry.x, y: entry.y }, road);
-
-    if (route) {
-      route.path.push({ x: selectedSlot.x, y: selectedSlot.y });
-      setNavRoute(route);
-    } else {
-      Alert.alert('Lỗi', 'Không tìm thấy đường đi');
+    if (!selectedSlot) {
+      return;
     }
-  }, [selectedSlot, currentLayout, findNearestRoad]);
+
+    setShowSlotActionModal(false);
+    (navigation as any).navigate('MainTabs', {
+      screen: 'Booking',
+      params: {
+        slotId: selectedSlot.id,
+        vehicleId: route.params?.vehicleId,
+        expectedArrivalTime: requestedArrivalTime?.toISOString(),
+        expectedLeaveTime: requestedLeaveTime?.toISOString(),
+      },
+    });
+  }, [
+    navigation,
+    requestedArrivalTime,
+    requestedLeaveTime,
+    route.params?.vehicleId,
+    selectedSlot,
+  ]);
+
+  const handleFindRoute = useCallback(
+    (entryIndex = 0) => {
+      if (!selectedSlot || !currentLayout) {
+        return;
+      }
+
+      const entry = currentLayout.entries[entryIndex];
+      if (!entry) {
+        Alert.alert('Lỗi', 'Không tìm thấy lối vào');
+        return;
+      }
+
+      setShowEntryModal(false);
+      const nearestRoad = findNearestRoad({ x: selectedSlot.x, y: selectedSlot.y });
+      if (!nearestRoad) {
+        Alert.alert('Lỗi', 'Không thể tìm đường');
+        return;
+      }
+
+      const routePath = new ParkingNavigator(currentLayout.cells).findPath(
+        { x: entry.x, y: entry.y },
+        nearestRoad,
+      );
+
+      if (!routePath) {
+        Alert.alert('Lỗi', 'Không tìm thấy đường đi');
+        return;
+      }
+
+      routePath.path.push({ x: selectedSlot.x, y: selectedSlot.y });
+      setNavRoute(routePath);
+    },
+    [currentLayout, findNearestRoad, selectedSlot],
+  );
 
   const handleClearRoute = useCallback(() => {
     setNavRoute(null);
@@ -118,16 +228,20 @@ const ParkingMapScreen: React.FC = () => {
     setShowSlotActionModal(false);
   }, []);
 
-  // ✅ FIX: parseInt("F001") = NaN — phải tìm floor bằng id rồi lấy level
-  const handleFloorChange = useCallback((floorId: string) => {
-    if (!parkingMap) return;
-    switchFloor(floorId);
-    setSelectedSlot(null);
-    setNavRoute(null);
-    setShowSlotActionModal(false);
-  }, [parkingMap, switchFloor]);
+  const handleFloorChange = useCallback(
+    (floorId: string) => {
+      if (!parkingMap) {
+        return;
+      }
 
-  // ── Loading / Error states ──────────────────────────────────────────────────
+      switchFloor(floorId);
+      setSelectedSlot(null);
+      setNavRoute(null);
+      setShowSlotActionModal(false);
+    },
+    [parkingMap, switchFloor],
+  );
+
   if (isLoading && !parkingMap) {
     return (
       <View style={styles.center}>
@@ -161,20 +275,26 @@ const ParkingMapScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
-
-      {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <View style={[styles.dot, { backgroundColor: isConnected ? COLORS.success : COLORS.error }]} />
-          <View style={{ flex: 1 }}>
+          <View
+            style={[
+              styles.dot,
+              { backgroundColor: isConnected ? COLORS.success : COLORS.error },
+            ]}
+          />
+          <View style={styles.headerContent}>
             <Text style={styles.headerTitle} numberOfLines={1}>
               {parkingMap.name || `Bãi xe ${parkingCode}`}
             </Text>
             {!!parkingMap.location && (
-              <Text style={styles.headerSub} numberOfLines={1}>{parkingMap.location}</Text>
+              <Text style={styles.headerSub} numberOfLines={1}>
+                {parkingMap.location}
+              </Text>
             )}
           </View>
         </View>
+
         <View style={styles.headerRight}>
           {navRoute && (
             <TouchableOpacity style={styles.iconBtn} onPress={handleClearRoute}>
@@ -183,44 +303,60 @@ const ParkingMapScreen: React.FC = () => {
           )}
           <TouchableOpacity
             style={styles.iconBtn}
-            onPress={() => Alert.alert('Hướng dẫn',
-              '🟢 Xanh: Trống\n🔴 Đỏ: Có xe\n🟡 Vàng: Đã đặt\nIN: Lối vào | OUT: Lối ra')}
+            onPress={() =>
+              Alert.alert(
+                'Hướng dẫn',
+                'Xanh: Trống\nĐỏ: Đã có xe\nVàng: Đã đặt\nIN: Lối vào | OUT: Lối ra',
+              )
+            }
           >
             <Icon name="help-circle-outline" size={24} color={COLORS.primary} />
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* Floor tabs */}
       <FloorSelector
         selectedFloor={currentLayout?.floorId ?? parkingMap.floors[0]?.id ?? ''}
         onFloorChange={handleFloorChange}
         floors={parkingMap.floors}
       />
 
-      {/* Stats */}
+
       <Card style={styles.statsCard}>
         <View style={styles.statsRow}>
-          <StatChip icon="checkmark-circle" color={COLORS.success}
-            label={`${currentFloorInfo?.availableSlots ?? 0} trống`} />
-          <StatChip icon="car" color={COLORS.error}
-            label={`${currentFloorInfo?.occupiedSlots ?? 0} có xe`} />
-          <StatChip icon="time" color={COLORS.warning}
-            label={`${currentFloorInfo?.reservedSlots ?? 0} đã đặt`} />
+          <StatChip
+            icon="checkmark-circle"
+            color={COLORS.success}
+            label={`${currentFloorInfo?.availableSlots ?? 0} trống`}
+          />
+          <StatChip
+            icon="car"
+            color={COLORS.error}
+            label={`${currentFloorInfo?.occupiedSlots ?? 0} có xe`}
+          />
+          <StatChip
+            icon="time"
+            color={COLORS.warning}
+            label={`${currentFloorInfo?.reservedSlots ?? 0} đã đặt`}
+          />
         </View>
       </Card>
 
-      {/* Selected slot info */}
       {selectedSlot && (
         <Card style={styles.infoCard}>
-          <InfoRow icon="location" color={COLORS.primary}
-            text={`${selectedSlot.name} (${selectedSlot.code})`} />
-          <InfoRow icon="business" color={COLORS.textSecondary}
-            text={`Khu: ${selectedSlot.zone}`} />
+          <InfoRow
+            icon="location"
+            color={COLORS.primary}
+            text={`${selectedSlot.name} (${selectedSlot.code})`}
+          />
+          <InfoRow
+            icon="business"
+            color={COLORS.textSecondary}
+            text={`Khu: ${selectedSlot.zone}`}
+          />
         </Card>
       )}
 
-      {/* Grid */}
       <View style={styles.gridContainer}>
         {currentLayout ? (
           <EnhancedParkingGrid
@@ -236,7 +372,7 @@ const ParkingMapScreen: React.FC = () => {
         ) : (
           <View style={styles.center}>
             <Icon name="map-outline" size={48} color={COLORS.textSecondary} />
-            <Text style={styles.loadingText}>Bai xe chua co so do tang</Text>
+            <Text style={styles.loadingText}>Bãi xe chưa có sơ đồ tầng</Text>
           </View>
         )}
       </View>
@@ -255,9 +391,12 @@ const ParkingMapScreen: React.FC = () => {
         onBookSlot={handleBookSlot}
       />
 
-      {/* Entry selector modal */}
-      <Modal visible={showEntryModal} transparent animationType="slide"
-        onRequestClose={() => setShowEntryModal(false)}>
+      <Modal
+        visible={showEntryModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowEntryModal(false)}
+      >
         <View style={styles.modalOverlay}>
           <View style={styles.modalSheet}>
             <View style={styles.modalHeader}>
@@ -266,86 +405,190 @@ const ParkingMapScreen: React.FC = () => {
                 <Icon name="close" size={22} color={COLORS.textPrimary} />
               </TouchableOpacity>
             </View>
-            {(currentLayout?.entries ?? []).map((entry, idx) => (
-              <TouchableOpacity key={entry.id} style={styles.entryRow}
-                onPress={() => handleFindRoute(idx)}>
+
+            {(currentLayout?.entries ?? []).map((entry, index) => (
+              <TouchableOpacity
+                key={entry.id}
+                style={styles.entryRow}
+                onPress={() => handleFindRoute(index)}
+              >
                 <Icon name="enter-outline" size={22} color={COLORS.success} />
                 <Text style={styles.entryText}>{entry.name}</Text>
-                <Icon name="chevron-forward" size={18} color={COLORS.textSecondary} />
+                <Icon
+                  name="chevron-forward"
+                  size={18}
+                  color={COLORS.textSecondary}
+                />
               </TouchableOpacity>
             ))}
           </View>
         </View>
       </Modal>
-
     </SafeAreaView>
   );
 };
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
-
-const StatChip: React.FC<{ icon: string; color: string; label: string }> = ({ icon, color, label }) => (
-  <View style={{ flexDirection: 'row', alignItems: 'center', gap: SPACING.xs }}>
+const StatChip: React.FC<{ icon: string; color: string; label: string }> = ({
+  icon,
+  color,
+  label,
+}) => (
+  <View style={styles.statChip}>
     <Icon name={icon} size={15} color={color} />
-    <Text style={{ fontSize: TYPOGRAPHY.fontSize.sm, color: COLORS.textPrimary }}>{label}</Text>
+    <Text style={styles.statChipText}>{label}</Text>
   </View>
 );
 
-const InfoRow: React.FC<{ icon: string; color: string; text: string }> = ({ icon, color, text }) => (
-  <View style={{ flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, marginBottom: SPACING.xs }}>
+const InfoRow: React.FC<{ icon: string; color: string; text: string }> = ({
+  icon,
+  color,
+  text,
+}) => (
+  <View style={styles.infoRow}>
     <Icon name={icon} size={16} color={color} />
-    <Text style={{ flex: 1, fontSize: TYPOGRAPHY.fontSize.sm, color: COLORS.textPrimary }} numberOfLines={1}>
+    <Text style={styles.infoRowText} numberOfLines={1}>
       {text}
     </Text>
   </View>
 );
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
-
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
-  center: {
-    flex: 1, justifyContent: 'center', alignItems: 'center',
-    backgroundColor: COLORS.background, padding: SPACING.xl
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.background,
   },
-  loadingText: { marginTop: SPACING.md, fontSize: TYPOGRAPHY.fontSize.md, color: COLORS.textSecondary },
+  center: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: COLORS.background,
+    padding: SPACING.xl,
+  },
+  loadingText: {
+    marginTop: SPACING.md,
+    fontSize: TYPOGRAPHY.fontSize.md,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+  },
   errorTitle: {
-    fontSize: TYPOGRAPHY.fontSize.xl, fontWeight: TYPOGRAPHY.fontWeight.bold,
-    color: COLORS.textPrimary, marginTop: SPACING.lg, textAlign: 'center'
+    fontSize: TYPOGRAPHY.fontSize.xl,
+    fontWeight: TYPOGRAPHY.fontWeight.bold,
+    color: COLORS.textPrimary,
+    marginTop: SPACING.lg,
+    textAlign: 'center',
   },
   errorMsg: {
-    fontSize: TYPOGRAPHY.fontSize.sm, color: COLORS.textSecondary,
-    textAlign: 'center', marginTop: SPACING.sm
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    marginTop: SPACING.sm,
   },
   retryBtn: {
-    marginTop: SPACING.lg, backgroundColor: COLORS.primary,
-    paddingHorizontal: SPACING.xl, paddingVertical: SPACING.md, borderRadius: 8
+    marginTop: SPACING.lg,
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: SPACING.xl,
+    paddingVertical: SPACING.md,
+    borderRadius: 8,
   },
   retryText: {
-    color: COLORS.white, fontSize: TYPOGRAPHY.fontSize.md,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold
+    color: COLORS.white,
+    fontSize: TYPOGRAPHY.fontSize.md,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold,
   },
   header: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
     backgroundColor: COLORS.backgroundSecondary,
-    borderBottomWidth: 1, borderBottomColor: COLORS.border
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
   },
-  headerLeft: { flexDirection: 'row', alignItems: 'center', flex: 1, gap: SPACING.sm },
-  headerRight: { flexDirection: 'row', alignItems: 'center', gap: SPACING.xs },
-  dot: { width: 8, height: 8, borderRadius: 4 },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: SPACING.sm,
+  },
+  headerContent: {
+    flex: 1,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
   headerTitle: {
-    fontSize: TYPOGRAPHY.fontSize.md, fontWeight: TYPOGRAPHY.fontWeight.semibold,
-    color: COLORS.textPrimary
+    fontSize: TYPOGRAPHY.fontSize.md,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold,
+    color: COLORS.textPrimary,
   },
-  headerSub: { fontSize: TYPOGRAPHY.fontSize.xs, color: COLORS.textSecondary, marginTop: 1 },
-  iconBtn: { padding: SPACING.xs },
+  headerSub: {
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    color: COLORS.textSecondary,
+    marginTop: 1,
+  },
+  iconBtn: {
+    padding: SPACING.xs,
+  },
+  modeCard: {
+    marginHorizontal: SPACING.md,
+    marginTop: SPACING.sm,
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+  },
+  modeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  modeText: {
+    flex: 1,
+    marginLeft: SPACING.sm,
+    color: COLORS.textPrimary,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    lineHeight: 20,
+  },
   statsCard: {
-    marginHorizontal: SPACING.md, marginTop: SPACING.sm,
-    paddingVertical: SPACING.sm, paddingHorizontal: SPACING.md
+    marginHorizontal: SPACING.md,
+    marginTop: SPACING.sm,
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.md,
   },
-  statsRow: { flexDirection: 'row', justifyContent: 'space-around' },
-  infoCard: { marginHorizontal: SPACING.md, marginTop: SPACING.sm, padding: SPACING.md },
+  statsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+  },
+  statChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+  },
+  statChipText: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    color: COLORS.textPrimary,
+  },
+  infoCard: {
+    marginHorizontal: SPACING.md,
+    marginTop: SPACING.sm,
+    padding: SPACING.md,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    marginBottom: SPACING.xs,
+  },
+  infoRowText: {
+    flex: 1,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    color: COLORS.textPrimary,
+  },
   gridContainer: {
     flex: 1,
     width: '100%',
@@ -357,27 +600,48 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.backgroundSecondary,
   },
   legendBar: {
-    padding: SPACING.md, backgroundColor: COLORS.backgroundSecondary,
-    borderTopWidth: 1, borderTopColor: COLORS.border
+    padding: SPACING.md,
+    backgroundColor: COLORS.backgroundSecondary,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
   },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
   modalSheet: {
     backgroundColor: COLORS.backgroundSecondary,
-    borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '50%'
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '50%',
   },
   modalHeader: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    padding: SPACING.lg, borderBottomWidth: 1, borderBottomColor: COLORS.border
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: SPACING.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
   },
   modalTitle: {
-    fontSize: TYPOGRAPHY.fontSize.lg, fontWeight: TYPOGRAPHY.fontWeight.bold,
-    color: COLORS.textPrimary
+    fontSize: TYPOGRAPHY.fontSize.lg,
+    fontWeight: TYPOGRAPHY.fontWeight.bold,
+    color: COLORS.textPrimary,
   },
   entryRow: {
-    flexDirection: 'row', alignItems: 'center', padding: SPACING.lg,
-    borderBottomWidth: 1, borderBottomColor: COLORS.border, gap: SPACING.md
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: SPACING.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+    gap: SPACING.md,
   },
-  entryText: { flex: 1, fontSize: TYPOGRAPHY.fontSize.md, color: COLORS.textPrimary },
+  entryText: {
+    flex: 1,
+    fontSize: TYPOGRAPHY.fontSize.md,
+    color: COLORS.textPrimary,
+  },
 });
 
 export default ParkingMapScreen;

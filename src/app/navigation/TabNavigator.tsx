@@ -72,7 +72,17 @@ export const TabNavigator: React.FC = () => {
     >
       <Tab.Screen name="Home" component={HomeScreen} />
       <Tab.Screen name="Search" component={SearchScreen} />
-      <Tab.Screen name="Booking" component={BookingScreen} />
+      <Tab.Screen
+        name="Booking"
+        component={BookingScreen}
+        listeners={({ navigation }) => ({
+          tabPress: () => {
+            navigation.navigate('Booking', {
+              resetToken: Date.now().toString(),
+            });
+          },
+        })}
+      />
       <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>
   );

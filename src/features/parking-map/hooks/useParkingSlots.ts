@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { CellType, ParkingSlot, SlotStatus } from '../../../types/parking.types';
+import { ParkingSlot, SlotStatus } from '../../../types/parking.types';
 import { apiClient } from '../../../services/api/apiClient';
 import { ENDPOINTS } from '../../../shared/constants/endpoints';
 import { slotHelper } from '../../../shared/utils/slotHelper';
@@ -26,20 +26,23 @@ export const useParkingSlots = (lotId: string, floor: number) => {
 
   const fetchSlots = useCallback(async () => {
     try {
+      if (!lotId) {
+        setSlots([]);
+        return;
+      }
+
       setIsLoading(true);
       setError(null);
-      const response = await apiClient.get<ParkingSlot[]>(ENDPOINTS.GET_MAP);
-      console.log('API car parking response:', response);
-      // ⏱ giả lập delay như gọi API
-      await new Promise(resolve => setTimeout(resolve, 800));
+      const response = await apiClient.get<ParkingSlot[]>(
+        ENDPOINTS.GET_SLOTS(lotId, floor),
+      );
       setSlots(response.data);
-
     } catch (err) {
       setError(err as Error);
     } finally {
       setIsLoading(false);
     }
-  }, [floor]);
+  }, [floor, lotId]);
 
   useEffect(() => {
     fetchSlots();

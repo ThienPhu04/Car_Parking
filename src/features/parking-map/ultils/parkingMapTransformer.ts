@@ -6,20 +6,14 @@ import {
   CellType, Position, SlotStatus, ZoneLayout, LaneLayout,
 } from '../../../types/parking.types';
 
-// ─── Hằng số convert canvas → grid ───────────────────────────────────────────
-//
-// Admin tool dùng canvas pixel. Mỗi ô grid = CELL_SIZE pixel.
-// Ví dụ thực tế:  positionX=-100, positionY=80 (GroupSlot Dãy 1)
-//                  zone.points=[-180,40, 480,40, 480,160, -180,160]
-//                  lane.witdh=946, positionY≈400
-//
-// Chọn CELL_SIZE=40 → grid hợp lý khoảng 18×14 cells cho floor này.
 const CELL_SIZE = 25;
-
-// ─── Helper: canvas px → grid index ─────────────────────────────────────────
 
 function toGrid(canvasPx: number, offset: number): number {
   return Math.round((canvasPx + offset) / CELL_SIZE);
+}
+
+function toGridPrecise(canvasPx: number, offset: number): number {
+  return (canvasPx + offset) / CELL_SIZE;
 }
 
 function toGridMin(canvasPx: number, offset: number): number {
@@ -255,11 +249,13 @@ export class ParkingMapTransformer {
 
   static transformParkingMap(dto: ParkingMapDTO): ParkingMap {
     const floorDtos = Array.isArray(dto.floors) ? dto.floors : [];
-    const floors    = floorDtos.map(f => this.buildFloor(f));
-    const layouts   = floorDtos.map(f => this.buildLayout(f));
+    const floors: Floor[] = [];
+    const layouts: FloorLayout[] = [];
 
-    const totalSlots = layouts.reduce((s, l) => s + l.slots.length, 0);
-    console.log('[Transformer] floors:', floorDtos.length, '| slots:', totalSlots);
+    for (const floorDto of floorDtos) {
+      floors.push(this.buildFloor(floorDto));
+      layouts.push(this.buildLayout(floorDto));
+    }
 
     return {
       code: dto.code, name: dto.name, location: dto.location,
@@ -276,23 +272,32 @@ export class ParkingMapTransformer {
     const allSlots = (dto.zones ?? []).flatMap(zone =>
       (zone.groupSlots ?? []).flatMap(group => group.slots ?? []),
     );
-    const totalSlots = allSlots.length;
-    const available = allSlots.filter(slot =>
-      this.mapApiSlotStatus(slot).status === SlotStatus.AVAILABLE,
-    ).length;
-    const occupied = allSlots.filter(slot =>
-      this.mapApiSlotStatus(slot).status === SlotStatus.OCCUPIED,
-    ).length;
-    const reserved = allSlots.filter(slot =>
-      this.mapApiSlotStatus(slot).status === SlotStatus.RESERVED,
-    ).length;
+    let available = 0;
+    let occupied = 0;
+    let reserved = 0;
+
+    for (const slot of allSlots) {
+      switch (this.mapApiSlotStatus(slot).status) {
+        case SlotStatus.AVAILABLE:
+          available++;
+          break;
+        case SlotStatus.OCCUPIED:
+          occupied++;
+          break;
+        case SlotStatus.RESERVED:
+          reserved++;
+          break;
+        default:
+          break;
+      }
+    }
 
     return {
       id:             floorId,
       code:           dto.code,
       name:           dto.nameFloor,
       level:          dto.level,
-      totalSlots,
+      totalSlots:     allSlots.length,
       availableSlots: available,
       occupiedSlots:  occupied,
       reservedSlots:  reserved,
@@ -355,53 +360,67 @@ export class ParkingMapTransformer {
       floorLevel: dto.level,
       floorName:  dto.nameFloor,
       width, height, cells,
-      slots: allSlots, entries, exits, zones, lanes,
+      slots: allSlots,
+      entries,
+      exits,
+      zones,
+      lanes,
+      boundary: (dto.boundary?.points ?? []).reduce<Position[]>((result, value, index, source) => {
+        if (index % 2 === 0 && Number.isFinite(value) && Number.isFinite(source[index + 1])) {
+          result.push({
+            x: toGridPrecise(value, ox),
+            y: toGridPrecise(source[index + 1], oy),
+          });
+        }
+        return result;
+      }, []),
     };
   }
 
   static buildZoneLayouts(dto: FloorDTO, ox: number, oy: number): ZoneLayout[] {
     return (dto.zones ?? [])
-      .map(zone => {
+      .map((zone): ZoneLayout | null => {
         const points: Position[] = [];
         for (let i = 0; i < (zone.points?.length ?? 0); i += 2) {
           points.push({
-            x: toGrid(zone.points[i], ox),
-            y: toGrid(zone.points[i + 1], oy),
+            x: toGridPrecise(zone.points[i], ox),
+            y: toGridPrecise(zone.points[i + 1], oy),
           });
         }
 
         if (points.length < 3) return null;
-        return { code: zone.code, name: zone.nameZone, points };
+        return { code: zone.code, name: zone.nameZone, points, color: zone.color };
       })
       .filter((zone): zone is ZoneLayout => zone !== null);
   }
 
   static buildLaneLayouts(dto: FloorDTO, ox: number, oy: number): LaneLayout[] {
-    return (dto.lanes ?? [])
-      .map((lane, idx) => {
-        const hasRawPoints = Array.isArray(lane.points) && lane.points.length >= 4;
-        const rawPoints = hasRawPoints ? lane.points : [];
-        const points: Position[] = [];
-        for (let i = 0; i < rawPoints.length; i += 2) {
-          const x = Number(rawPoints[i]);
-          const y = Number(rawPoints[i + 1]);
-          if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
-          points.push({ x: toGrid(x, ox), y: toGrid(y, oy) });
-        }
+    const result: LaneLayout[] = [];
 
-        if (points.length < 2) return null;
+    (dto.lanes ?? []).forEach((lane, idx) => {
+      const rawPoints = Array.isArray(lane.points) ? lane.points : [];
+      if (rawPoints.length < 4) return;
 
-        const laneWidth = typeof lane.laneWidth === 'number'
+      const points: Position[] = [];
+      for (let i = 0; i < rawPoints.length; i += 2) {
+        const x = Number(rawPoints[i]);
+        const y = Number(rawPoints[i + 1]);
+        if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+        points.push({ x: toGridPrecise(x, ox), y: toGridPrecise(y, oy) });
+      }
+
+      if (points.length < 2) return;
+
+      result.push({
+        code: lane.code ?? lane._id ?? `lane-${idx}`,
+        points,
+        laneWidth: typeof lane.laneWidth === 'number'
           ? lane.laneWidth
-          : (hasRawPoints ? CELL_SIZE : (typeof lane.witdh === 'number' ? lane.witdh : CELL_SIZE));
+          : (typeof lane.witdh === 'number' ? lane.witdh : CELL_SIZE),
+      });
+    });
 
-        return {
-          code: lane.code ?? lane._id ?? `lane-${idx}`,
-          points,
-          laneWidth,
-        };
-      })
-      .filter((lane): lane is LaneLayout => lane !== null);
+    return result;
   }
 
   // ─── Build slots từ zones → groupSlots → slots ───────────────────────────────
@@ -456,6 +475,11 @@ export class ParkingMapTransformer {
             type:         CellType.SLOT,
             walkable:     false,
             features:     [],
+            rotation:     group.rotation ?? 0,
+            canvasX:      toGridPrecise(rotated.x, ox),
+            canvasY:      toGridPrecise(rotated.y, oy),
+            slotWidth:    slotCanvasW / CELL_SIZE,
+            slotHeight:   slotCanvasH / CELL_SIZE,
           });
         });
       }

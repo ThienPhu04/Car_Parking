@@ -27,7 +27,7 @@ const MyBookingsScreen: React.FC = () => {
 
   useEffect(() => {
     fetchBookings();
-  }, []);
+  }, [fetchBookings]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -85,7 +85,11 @@ const MyBookingsScreen: React.FC = () => {
           title="Chưa có đặt chỗ nào"
           description="Đặt chỗ để xem lịch sử ở đây"
           actionLabel="Đặt chỗ ngay"
-          onAction={() => (navigation as any).navigate('Booking' as any)}
+          onAction={() =>
+            (navigation as any).navigate('MainTabs', {
+              screen: 'Booking',
+            })
+          }
         />
       ) : (
         <FlatList
@@ -97,6 +101,7 @@ const MyBookingsScreen: React.FC = () => {
               onPress={() =>
                 (navigation as any).navigate('BookingConfirm' as any, {
                   bookingId: item.id,
+                  booking: item,
                 })
               }
               onCancel={
