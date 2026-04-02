@@ -278,8 +278,8 @@ const BookingScreen: React.FC = () => {
         <EmptyState
           icon="car-outline"
           title="Chua co xe"
-          description="Vui long them thong tin xe truoc khi dat cho"
-          actionLabel="Them xe"
+          description="Vui lòng thêm thông tin xe trước khi đặt chỗ"
+          actionLabel="Thêm xe"
           onAction={() => (navigation as any).navigate('VehicleManagement')}
         />
       </SafeAreaView>

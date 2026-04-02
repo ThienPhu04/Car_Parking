@@ -13,6 +13,10 @@ const SLOT_LENGTH = 74;
 const SLOT_THICKNESS = 30;
 const GATE_WIDTH = 68;
 const GATE_DEPTH = 42;
+const SLOT_VISUAL_SCALE = 1.18;
+const SLOT_SPACING_FILL = 0.84;
+const SLOT_MIN_RENDER_WIDTH = 92;
+const SLOT_MIN_RENDER_DEPTH = 44;
 
 export type Parking3DStatus = 'empty' | 'reserved' | 'occupied';
 
@@ -182,6 +186,69 @@ const getCentroid = (points: ParkingMap3DPoint[]): ParkingMap3DPoint => {
   return {
     x: total.x / points.length,
     y: total.y / points.length,
+  };
+};
+
+const getAxisSpacing = (
+  slot: ParkingMap3DSlot,
+  slots: ParkingMap3DSlot[],
+  axis: 'width' | 'depth',
+) => {
+  const rotationRadians = (slot.rotation * Math.PI) / 180;
+  const axisVector = axis === 'width'
+    ? { x: Math.cos(rotationRadians), y: Math.sin(rotationRadians) }
+    : { x: -Math.sin(rotationRadians), y: Math.cos(rotationRadians) };
+  const crossVector = axis === 'width'
+    ? { x: -Math.sin(rotationRadians), y: Math.cos(rotationRadians) }
+    : { x: Math.cos(rotationRadians), y: Math.sin(rotationRadians) };
+  const slotCrossSize = axis === 'width' ? slot.size.depth : slot.size.width;
+
+  let nearestSpacing = Infinity;
+
+  slots.forEach(otherSlot => {
+    if (otherSlot.id === slot.id) {
+      return;
+    }
+
+    const dx = otherSlot.position2d.x - slot.position2d.x;
+    const dy = otherSlot.position2d.y - slot.position2d.y;
+    const projectedAxis = dx * axisVector.x + dy * axisVector.y;
+    const projectedCross = dx * crossVector.x + dy * crossVector.y;
+    const otherCrossSize = axis === 'width' ? otherSlot.size.depth : otherSlot.size.width;
+    const crossThreshold = Math.max(slotCrossSize, otherCrossSize) * 0.7;
+
+    if (Math.abs(projectedCross) > crossThreshold) {
+      return;
+    }
+
+    const spacing = Math.abs(projectedAxis);
+    if (spacing > 1) {
+      nearestSpacing = Math.min(nearestSpacing, spacing);
+    }
+  });
+
+  return nearestSpacing;
+};
+
+const getExpandedSlotSize = (
+  slot: ParkingMap3DSlot,
+  slots: ParkingMap3DSlot[],
+) => {
+  const baseWidth = Math.max(slot.size.width, SLOT_MIN_RENDER_WIDTH);
+  const baseDepth = Math.max(slot.size.depth, SLOT_MIN_RENDER_DEPTH);
+  const widthSpacing = getAxisSpacing(slot, slots, 'width');
+  const depthSpacing = getAxisSpacing(slot, slots, 'depth');
+
+  const expandedWidth = Number.isFinite(widthSpacing)
+    ? Math.min(baseWidth * SLOT_VISUAL_SCALE, widthSpacing * SLOT_SPACING_FILL)
+    : baseWidth * SLOT_VISUAL_SCALE;
+  const expandedDepth = Number.isFinite(depthSpacing)
+    ? Math.min(baseDepth * SLOT_VISUAL_SCALE, depthSpacing * SLOT_SPACING_FILL)
+    : baseDepth * SLOT_VISUAL_SCALE;
+
+  return {
+    width: Math.max(baseWidth, expandedWidth),
+    depth: Math.max(baseDepth, expandedDepth),
   };
 };
 
@@ -377,9 +444,14 @@ export const buildParkingMap3DLayoutData = (layout: FloorLayout): ParkingMap3DLa
     };
   });
 
-  const bounds = getWorldBounds(layout, boundary, zones, lanes, gates, slots);
+  const visualSlots = slots.map(slot => ({
+    ...slot,
+    size: getExpandedSlotSize(slot, slots),
+  }));
 
-  const stats = slots.reduce(
+  const bounds = getWorldBounds(layout, boundary, zones, lanes, gates, visualSlots);
+
+  const stats = visualSlots.reduce(
     (result, slot) => {
       result.total += 1;
       result[slot.status] += 1;
@@ -405,7 +477,7 @@ export const buildParkingMap3DLayoutData = (layout: FloorLayout): ParkingMap3DLa
     zones,
     lanes,
     gates,
-    slots,
+    slots: visualSlots,
     stats,
   };
 };

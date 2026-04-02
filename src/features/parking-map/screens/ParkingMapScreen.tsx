@@ -306,7 +306,7 @@ const ParkingMapScreen: React.FC = () => {
             onPress={() =>
               Alert.alert(
                 'Hướng dẫn',
-                'Xanh: Trống\nĐỏ: Đã có xe\nVàng: Đã đặt\nIN: Lối vào | OUT: Lối ra',
+                'Kéo 1 ngón để xoay bản đồ 3D\nDùng 2 ngón để di chuyển trái/phải/lên/xuống và chụm/mở để thu phóng\nXanh: Trống\nĐỏ: Đã có xe\nVàng: Đã đặt\nIN: Lối vào | OUT: Lối ra',
               )
             }
           >

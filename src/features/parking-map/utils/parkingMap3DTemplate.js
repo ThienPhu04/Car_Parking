@@ -108,7 +108,7 @@ export const generateThreeJSHTML = parkingData => {
         ctx.closePath();
       }
 
-      function createTextSprite(text, bgColor, textColor, fontSize) {
+      function createTextSprite(text, bgColor, textColor, fontSize, spriteWidth, spriteHeight) {
         var canvas = document.createElement('canvas');
         canvas.width = 512;
         canvas.height = 128;
@@ -136,20 +136,28 @@ export const generateThreeJSHTML = parkingData => {
         tex.needsUpdate = true;
         var mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false });
         var sprite = new THREE.Sprite(mat);
-        sprite.scale.set(3.2, 0.8, 1);
+        sprite.scale.set(spriteWidth || 3.2, spriteHeight || 0.8, 1);
         sprite.renderOrder = 100;
         return sprite;
       }
       const statusPalette = {
         empty: { fill: 0x1a4731, line: 0x68d391, accent: '#68d391', label: 'Empty' },
         occupied: { fill: 0x4a1515, line: 0xfc8149, accent: '#fc8149', label: 'Occupied' },
-        reserved: { fill: 0x5b3b13, line: 0xf6c453, accent: '#f6c453', label: 'Reserved' },
+        reserved: { fill: 0xc79210, line: 0xffdd57, accent: '#ffdd57', label: 'Reserved' },
         inactive: { fill: 0x1f2937, line: 0x94a3b8, accent: '#94a3b8', label: 'Inactive' },
         unknown: { fill: 0x0f2744, line: 0x60a5fa, accent: '#60a5fa', label: 'Unknown' }
       };
 
       const worldSize = Math.max(bounds.width || 0, bounds.height || 0) * SCALE;
       const fitDistance = Math.max(worldSize * 1.45, 18);
+      const minCameraRadius = Math.max(4.5, fitDistance * 0.28);
+      const maxCameraRadius = Math.max(minCameraRadius + 6, fitDistance * 2.2);
+      const panBounds = {
+        minX: (bounds.minX - bounds.centerX) * SCALE,
+        maxX: (bounds.maxX - bounds.centerX) * SCALE,
+        minZ: (bounds.minY - bounds.centerY) * SCALE,
+        maxZ: (bounds.maxY - bounds.centerY) * SCALE
+      };
       function toWorldPoint(point) {
         return new THREE.Vector2(
           (Number(point.x) - bounds.centerX) * SCALE,
@@ -592,7 +600,8 @@ export const generateThreeJSHTML = parkingData => {
       });
 
       gates.forEach(gate => {
-        const gateColor = gate.kind === 'entrance' ? 0x22c55e : 0xef4444;
+        const isEntrance = gate.kind === 'entrance';
+        const gateColor = isEntrance ? 0x22c55e : 0xef4444;
         const gateMesh = new THREE.Mesh(
           new THREE.BoxGeometry(
             Math.max((gate.width || 60) * SCALE, 0.4),
@@ -613,6 +622,19 @@ export const generateThreeJSHTML = parkingData => {
         gateMesh.rotation.y = getRotationY(gate.rotation);
         gateMesh.castShadow = true;
         root.add(gateMesh);
+
+        const gateLabel = createTextSprite(
+          isEntrance ? 'IN' : 'OUT',
+          'rgba(15, 23, 42, 0.88)',
+          isEntrance ? '#86efac' : '#fca5a5',
+          56,
+          isEntrance ? 3.8 : 4.4,
+          1.2
+        );
+        gateLabel.position.copy(
+          toWorldVector3({ x: gate.positionX, y: gate.positionY }, FLOOR_THICKNESS + 0.95)
+        );
+        root.add(gateLabel);
       });
 
       const slotHitboxes = [];
@@ -631,8 +653,8 @@ export const generateThreeJSHTML = parkingData => {
         );
         group.rotation.y = getRotationY(slot.rotation);
 
-        const slotWidth = Math.max((slot.size && slot.size.width || 40) * SCALE, 0.22);
-        const slotDepth = Math.max((slot.size && slot.size.depth || 24) * SCALE, 0.18);
+        const slotWidth = Math.max((slot.size && slot.size.width || 40) * SCALE, 0.3);
+        const slotDepth = Math.max((slot.size && slot.size.depth || 24) * SCALE, 0.22);
 
         const baseMaterial = new THREE.MeshStandardMaterial({
           color: palette.fill,
@@ -770,6 +792,27 @@ export const generateThreeJSHTML = parkingData => {
         theta: -0.72,
         phi: 1.05
       };
+      const worldUp = new THREE.Vector3(0, 1, 0);
+      const panPlane = new THREE.Plane(worldUp.clone(), -FLOOR_THICKNESS);
+
+      function clamp(value, min, max) {
+        return Math.max(min, Math.min(max, value));
+      }
+
+      function clampTargetToBounds() {
+        target.x = clamp(target.x, panBounds.minX, panBounds.maxX);
+        target.z = clamp(target.z, panBounds.minZ, panBounds.maxZ);
+      }
+
+      function getScreenIntersection(clientX, clientY) {
+        pointer.x = (clientX / window.innerWidth) * 2 - 1;
+        pointer.y = -(clientY / window.innerHeight) * 2 + 1;
+        raycaster.setFromCamera(pointer, camera);
+
+        const intersection = new THREE.Vector3();
+        const hit = raycaster.ray.intersectPlane(panPlane, intersection);
+        return hit ? intersection : null;
+      }
 
       function updateCamera() {
         const sinPhiRadius = Math.sin(spherical.phi) * spherical.radius;
@@ -848,10 +891,13 @@ export const generateThreeJSHTML = parkingData => {
       }
 
       let isDragging = false;
+      let interactionMode = null;
       let lastPointerX = 0;
       let lastPointerY = 0;
       let movedDuringGesture = false;
       let pinchDistance = 0;
+      let lastPanIntersection = null;
+      let lastPinchCenterIntersection = null;
       let touchStart = null;
 
       function getDistance(a, b) {
@@ -860,11 +906,61 @@ export const generateThreeJSHTML = parkingData => {
         return Math.hypot(dx, dy);
       }
 
+      function getTouchCenter(touchA, touchB) {
+        return {
+          clientX: (touchA.clientX + touchB.clientX) / 2,
+          clientY: (touchA.clientY + touchB.clientY) / 2
+        };
+      }
+
+      function applyPanFromScreenPoint(clientX, clientY) {
+        const nextIntersection = getScreenIntersection(clientX, clientY);
+        if (!nextIntersection) {
+          lastPanIntersection = null;
+          return;
+        }
+
+        if (!lastPanIntersection) {
+          lastPanIntersection = nextIntersection;
+          return;
+        }
+
+        const delta = lastPanIntersection.clone().sub(nextIntersection);
+        if (delta.lengthSq() <= 0) {
+          lastPanIntersection = nextIntersection;
+          return;
+        }
+
+        target.add(delta);
+        clampTargetToBounds();
+        lastPanIntersection = nextIntersection;
+        updateCamera();
+      }
+
+      function applyRotation(dx, dy) {
+        spherical.theta -= dx * 0.005;
+        spherical.phi = Math.max(0.42, Math.min(Math.PI * 0.48, spherical.phi + dy * 0.0045));
+        updateCamera();
+      }
+
+      function applyZoom(delta) {
+        spherical.radius = clamp(spherical.radius + delta, minCameraRadius, maxCameraRadius);
+        updateCamera();
+      }
+
+      renderer.domElement.addEventListener('contextmenu', function (event) {
+        event.preventDefault();
+      });
+
       renderer.domElement.addEventListener('mousedown', function (event) {
         isDragging = true;
         movedDuringGesture = false;
         lastPointerX = event.clientX;
         lastPointerY = event.clientY;
+        interactionMode = event.button === 2 ? 'pan' : 'rotate';
+        lastPanIntersection = interactionMode === 'pan'
+          ? getScreenIntersection(event.clientX, event.clientY)
+          : null;
       });
 
       renderer.domElement.addEventListener('mousemove', function (event) {
@@ -876,20 +972,26 @@ export const generateThreeJSHTML = parkingData => {
         const dy = event.clientY - lastPointerY;
         movedDuringGesture = movedDuringGesture || Math.abs(dx) > 2 || Math.abs(dy) > 2;
 
-        spherical.theta -= dx * 0.005;
-        spherical.phi = Math.max(0.42, Math.min(Math.PI * 0.48, spherical.phi + dy * 0.0045));
+        if (interactionMode === 'rotate') {
+          applyRotation(dx, dy);
+        } else {
+          applyPanFromScreenPoint(event.clientX, event.clientY);
+        }
 
         lastPointerX = event.clientX;
         lastPointerY = event.clientY;
-        updateCamera();
       });
 
       renderer.domElement.addEventListener('mouseup', function () {
         isDragging = false;
+        interactionMode = null;
+        lastPanIntersection = null;
       });
 
       renderer.domElement.addEventListener('mouseleave', function () {
         isDragging = false;
+        interactionMode = null;
+        lastPanIntersection = null;
       });
 
       renderer.domElement.addEventListener('click', function (event) {
@@ -899,17 +1001,18 @@ export const generateThreeJSHTML = parkingData => {
       });
 
       renderer.domElement.addEventListener('wheel', function (event) {
-        spherical.radius = Math.max(8, Math.min(fitDistance * 2.2, spherical.radius + event.deltaY * 0.015));
-        updateCamera();
+        applyZoom(event.deltaY * 0.015);
       }, { passive: true });
 
       renderer.domElement.addEventListener('touchstart', function (event) {
         if (event.touches.length === 1) {
           const touch = event.touches[0];
           isDragging = true;
+          interactionMode = 'rotate';
           movedDuringGesture = false;
           lastPointerX = touch.clientX;
           lastPointerY = touch.clientY;
+          lastPanIntersection = null;
           touchStart = {
             x: touch.clientX,
             y: touch.clientY,
@@ -918,38 +1021,52 @@ export const generateThreeJSHTML = parkingData => {
         }
 
         if (event.touches.length === 2) {
+          interactionMode = 'pinch';
+          isDragging = false;
           pinchDistance = getDistance(event.touches[0], event.touches[1]);
+          const center = getTouchCenter(event.touches[0], event.touches[1]);
+          lastPinchCenterIntersection = getScreenIntersection(center.clientX, center.clientY);
+          lastPanIntersection = null;
         }
       }, { passive: true });
 
       renderer.domElement.addEventListener('touchmove', function (event) {
-        if (event.touches.length === 1 && isDragging) {
+        if (event.touches.length === 1 && interactionMode === 'rotate' && isDragging) {
           const touch = event.touches[0];
           const dx = touch.clientX - lastPointerX;
           const dy = touch.clientY - lastPointerY;
 
           movedDuringGesture = movedDuringGesture || Math.abs(dx) > 2 || Math.abs(dy) > 2;
-          spherical.theta -= dx * 0.005;
-          spherical.phi = Math.max(0.42, Math.min(Math.PI * 0.48, spherical.phi + dy * 0.0045));
+          applyRotation(dx, dy);
 
           lastPointerX = touch.clientX;
           lastPointerY = touch.clientY;
-          updateCamera();
         }
 
         if (event.touches.length === 2) {
+          interactionMode = 'pinch';
           const nextDistance = getDistance(event.touches[0], event.touches[1]);
-          spherical.radius = Math.max(
-            8,
-            Math.min(fitDistance * 2.2, spherical.radius - (nextDistance - pinchDistance) * 0.03)
-          );
+          const center = getTouchCenter(event.touches[0], event.touches[1]);
+          const nextCenterIntersection = getScreenIntersection(center.clientX, center.clientY);
+          applyZoom(-(nextDistance - pinchDistance) * 0.03);
+
+          if (lastPinchCenterIntersection && nextCenterIntersection) {
+            const delta = lastPinchCenterIntersection.clone().sub(nextCenterIntersection);
+            target.add(delta);
+            clampTargetToBounds();
+            updateCamera();
+          }
+
+          lastPinchCenterIntersection = nextCenterIntersection;
           pinchDistance = nextDistance;
-          updateCamera();
         }
       }, { passive: true });
 
       renderer.domElement.addEventListener('touchend', function (event) {
         isDragging = false;
+        interactionMode = null;
+        lastPanIntersection = null;
+        lastPinchCenterIntersection = null;
 
         if (
           touchStart &&
@@ -981,11 +1098,6 @@ export const generateThreeJSHTML = parkingData => {
 
         accentLight.intensity = 1.45 + Math.sin(frame * 0.018) * 0.18;
         backLight.intensity = 0.55 + Math.cos(frame * 0.012) * 0.08;
-
-        if (!isDragging) {
-          spherical.theta += 0.0007;
-          updateCamera();
-        }
 
         renderer.render(scene, camera);
       }
