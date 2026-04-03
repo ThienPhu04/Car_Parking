@@ -6,70 +6,114 @@ import {
   ScrollView,
   TouchableOpacity,
   RefreshControl,
+  ImageBackground,
+  ActivityIndicator,
+  TextInput,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS } from '../../../shared/constants/colors';
-import { Card } from '../../../shared/components/Card';
-// import { useAuth } from '../../../store/AuthContext';
-import { useParking } from '../../../store/ParkingContext';
-import { MainStackParamList } from '../../../types/navigation.types';
+import { parkingService } from '../../parking-map/services/parkingService';
+import { ParkingMapDTO } from '../../../types/parking.types';
 import { SPACING } from '../../../shared/constants/spacing';
 import { TYPOGRAPHY } from '../../../shared/constants/typography';
 
-type HomeScreenNavigationProp = NativeStackNavigationProp<MainStackParamList>;
+type HomeScreenNavigationProp = NativeStackNavigationProp<any>;
+
+// Mock image for placeholder
+const PARKING_IMAGE = 'https://images.unsplash.com/photo-1506521781263-d8422e82f27a?auto=format&fit=crop&q=80&w=1000';
 
 const HomeScreen: React.FC = () => {
   const navigation = useNavigation<HomeScreenNavigationProp>();
-  // const { user } = useAuth();
-  const { slots, floors } = useParking();
   const [refreshing, setRefreshing] = useState(false);
+  const [parkingLots, setParkingLots] = useState<ParkingMapDTO[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
 
-  const stats = {
-    totalSlots: 120,
-    availableSlots: 45,
-    occupiedSlots: 65,
-    reservedSlots: 10,
+  const fetchParkingLots = async () => {
+    try {
+      const response = await parkingService.getParkingMap();
+      if (response && response.data) {
+        // Handle case where data is nested in data.data or is an array
+        const rawData: any = response.data;
+        const payload = rawData.data ?? rawData;
+        const lotList: ParkingMapDTO[] = Array.isArray(payload) ? payload : [payload];
+        
+        // Filter: chỉ lấy những bãi xe có code và có tầng (floors), đồng thời xóa bỏ trùng lặp
+        const uniqueLots = lotList.reduce((acc: ParkingMapDTO[], current) => {
+          if (!current || !current.code) return acc;
+          const isDuplicate = acc.find(item => item.code === current.code);
+          const hasFloors = Array.isArray(current.floors) && current.floors.length > 0;
+          
+          if (!isDuplicate && hasFloors) {
+            acc.push(current);
+          }
+          return acc;
+        }, []);
+
+        setParkingLots(uniqueLots);
+      }
+    } catch (error) {
+      console.error('Error fetching parking lots:', error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   };
 
-  const onRefresh = async () => {
+  useEffect(() => {
+    fetchParkingLots();
+  }, []);
+
+  const onRefresh = () => {
     setRefreshing(true);
-    // TODO: Refresh data
-    setTimeout(() => setRefreshing(false), 1000);
+    fetchParkingLots();
   };
 
-  const quickActions = [
-    {
-      id: 1,
-      icon: 'search-outline',
-      label: 'Tìm chỗ',
-      color: COLORS.primary,
-      onPress: () => (navigation as any).navigate('ParkingMap'),
-    },
-    {
-      id: 2,
-      icon: 'calendar-outline',
-      label: 'Đặt chỗ',
-      color: COLORS.accent,
-      onPress: () => navigation.navigate('Booking' as any),
-    },
-    {
-      id: 3,
-      icon: 'car-outline',
-      label: 'Tìm xe',
-      color: COLORS.success,
-      onPress: () => navigation.navigate('FindCar'),
-    },
-    {
-      id: 4,
-      icon: 'notifications-outline',
-      label: 'Thông báo',
-      color: COLORS.error,
-      onPress: () => navigation.navigate('Notifications'),
-    },
-  ];
+  const handleSearch = () => {
+    if (searchQuery.trim()) {
+      navigation.navigate('Search', { query: searchQuery });
+    }
+  };
+
+  const calculateLotStats = (lot: ParkingMapDTO) => {
+    let total = 0;
+    let available = 0;
+    let occupied = 0;
+
+    lot.floors?.forEach(floor => {
+      floor.zones?.forEach(zone => {
+        zone.groupSlots?.forEach(gs => {
+          gs.slots?.forEach(slot => {
+            total++;
+            // Nếu có sensorStatus thì dùng (true = có xe), nếu không thì check statusName/code
+            if (slot.sensorStatus === true || slot.status === 2) {
+              occupied++;
+            } else if (slot.status === 0 || slot.sensorStatus === false) {
+              available++;
+            }
+          });
+        });
+      });
+    });
+
+    // Fallback if no slots defined yet but specified in group slots
+    if (total === 0) {
+      lot.floors?.forEach(floor => {
+        floor.zones?.forEach(zone => {
+          zone.groupSlots?.forEach(gs => {
+            total += (gs.slots?.length || 0);
+            available += gs.availableSlots || 0;
+            occupied += gs.occupiedSlots || 0;
+          });
+        });
+      });
+    }
+
+    return { total, available, occupied };
+  };
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -78,108 +122,88 @@ const HomeScreen: React.FC = () => {
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
+        showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
+        {/* Header Section */}
         <View style={styles.header}>
-          <View>
-            <Text style={styles.greeting}>Xin chào,</Text>
-            {/* <Text style={styles.userName}>{user?.name || 'Người dùng'}</Text> */}
+          <View style={styles.locationGroup}>
+            <View style={styles.locationIconContainer}>
+              <Icon name="location" size={20} color="#FF9500" />
+            </View>
+            <View style={styles.locationTextContainer}>
+              <Text style={styles.locationLabel}>Vị trí của bạn</Text>
+              <Text style={styles.locationValue}>Gò Vấp, Hồ Chí Minh</Text>
+            </View>
           </View>
-          <TouchableOpacity
-            style={styles.avatarContainer}
-            onPress={() => navigation.navigate('Profile' as any)}
-          >
-            <Icon name="person" size={24} color={COLORS.primary} />
+          <TouchableOpacity style={styles.notificationButton} onPress={() => navigation.navigate('Notifications')}>
+            <Icon name="notifications" size={24} color="#FF9500" />
           </TouchableOpacity>
         </View>
 
+        {/* Hero Title Section */}
+        <View style={styles.heroSection}>
+          <Text style={styles.heroTitle}>Tìm kiếm bãi giữ xe{'\n'}tốt nhất</Text>
+        </View>
 
-        {/* Quick Actions */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Thao tác nhanh</Text>
-          <View style={styles.quickActionsGrid}>
-            {quickActions.map((action) => (
-              <TouchableOpacity
-                key={action.id}
-                style={styles.quickActionItem}
-                onPress={action.onPress}
+        {/* Search Bar Section */}
+        <View style={styles.searchContainer}>
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Tìm kiếm chỗ để xe trống"
+            placeholderTextColor="rgba(255, 255, 255, 0.6)"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            onSubmitEditing={handleSearch}
+            returnKeyType="search"
+          />
+          <TouchableOpacity onPress={handleSearch}>
+            <Icon name="locate-outline" size={22} color={COLORS.white} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Parking Lot Section Title */}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Bãi đỗ xe</Text>
+        </View>
+
+        {loading ? (
+          <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 20 }} />
+        ) : (
+          parkingLots.map((lot) => {
+            const stats = calculateLotStats(lot);
+            return (
+              <TouchableOpacity 
+                key={lot.code || lot._id}
+                style={styles.parkingCard}
+                activeOpacity={0.95}
+                onPress={() => navigation.navigate('ParkingMap', { parkingCode: lot.code })}
               >
-                <View
-                  style={[
-                    styles.quickActionIcon,
-                    { backgroundColor: `${action.color}20` },
-                  ]}
+                <ImageBackground
+                  source={{ uri: PARKING_IMAGE }}
+                  style={styles.cardImage}
+                  imageStyle={styles.cardInternalImage}
                 >
-                  <Icon name={action.icon} size={28} color={action.color} />
-                </View>
-                <Text style={styles.quickActionLabel}>{action.label}</Text>
+                  <View style={styles.cardOverlay}>
+                    <Text style={styles.parkingName}>{lot.name}</Text>
+                    <Text style={styles.parkingLocation}>{lot.location}</Text>
+                    <View style={styles.statsRow}>
+                      <Text style={styles.statText}>Tổng vị trí: {stats.total} -- </Text>
+                      <Text style={styles.statText}>Vị trí trống : {stats.available} -- </Text>
+                      <Text style={styles.statText}>Vị trí đã đỗ : {stats.occupied}</Text>
+                    </View>
+                  </View>
+                </ImageBackground>
               </TouchableOpacity>
-            ))}
+            );
+          })
+        )}
+
+        {parkingLots.length === 0 && !loading && (
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>Không tìm thấy bãi đỗ xe nào</Text>
           </View>
-        </View>
+        )}
 
-        {/* Recent Activity */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Hoạt động gần đây</Text>
-            <TouchableOpacity>
-              <Text style={styles.seeAllText}>Xem tất cả</Text>
-            </TouchableOpacity>
-          </View>
-
-          <Card style={styles.activityCard}>
-            <View style={styles.activityItem}>
-              <View style={styles.activityIcon}>
-                <Icon name="checkmark-circle" size={24} color={COLORS.success} />
-              </View>
-              <View style={styles.activityContent}>
-                <Text style={styles.activityTitle}>Đã đỗ xe tại A1-05</Text>
-                <Text style={styles.activityTime}>2 giờ trước • Tầng 1</Text>
-              </View>
-              <Icon name="chevron-forward" size={20} color={COLORS.textSecondary} />
-            </View>
-          </Card>
-
-          <Card style={styles.activityCard}>
-            <View style={styles.activityItem}>
-              <View style={styles.activityIcon}>
-                <Icon name="calendar" size={24} color={COLORS.warning} />
-              </View>
-              <View style={styles.activityContent}>
-                <Text style={styles.activityTitle}>Đặt chỗ B2-12</Text>
-                <Text style={styles.activityTime}>Hôm qua • 15:30</Text>
-              </View>
-              <Icon name="chevron-forward" size={20} color={COLORS.textSecondary} />
-            </View>
-          </Card>
-        </View>
-
-        {/* Parking Map Preview */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Bản đồ bãi đỗ</Text>
-          <TouchableOpacity
-            onPress={() => (navigation as any).navigate('ParkingMap')}
-          >
-            <Card style={styles.mapPreviewCard}>
-              <View style={styles.mapPreview}>
-                <Icon name="map" size={48} color={COLORS.primary} />
-                <Text style={styles.mapPreviewText}>
-                  Xem bản đồ chi tiết
-                </Text>
-                <View style={styles.mapStats}>
-                  <View style={styles.mapStat}>
-                    <View style={[styles.dot, { backgroundColor: COLORS.success }]} />
-                    <Text style={styles.mapStatText}>45 trống</Text>
-                  </View>
-                  <View style={styles.mapStat}>
-                    <View style={[styles.dot, { backgroundColor: COLORS.error }]} />
-                    <Text style={styles.mapStatText}>65 đã đỗ</Text>
-                  </View>
-                </View>
-              </View>
-            </Card>
-          </TouchableOpacity>
-        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -188,158 +212,151 @@ const HomeScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: COLORS.white,
   },
   scrollContent: {
-    padding: SPACING.md,
+    paddingHorizontal: SPACING.lg,
+    paddingTop: SPACING.md,
     paddingBottom: 100,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: SPACING.lg,
+    marginBottom: SPACING.xxl,
   },
-  greeting: {
-    fontSize: TYPOGRAPHY.fontSize.md,
-    color: COLORS.textSecondary,
+  locationGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  userName: {
-    fontSize: TYPOGRAPHY.fontSize.xxl,
-    fontWeight: TYPOGRAPHY.fontWeight.bold,
-    color: COLORS.textPrimary,
-    marginTop: SPACING.xs,
+  locationIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#E5E5EA',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: SPACING.sm,
   },
-  avatarContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: `${COLORS.primary}20`,
+  locationTextContainer: {
+    justifyContent: 'center',
+  },
+  locationLabel: {
+    fontSize: 12,
+    color: '#8E8E93',
+    fontWeight: '500',
+  },
+  locationValue: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#000000',
+    marginTop: 2,
+  },
+  notificationButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#E5E5EA',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  statsContainer: {
+  heroSection: {
+    marginBottom: SPACING.xl,
+  },
+  heroTitle: {
+    fontSize: 36,
+    fontWeight: '800',
+    color: '#000000',
+    lineHeight: 44,
+    letterSpacing: -0.5,
+  },
+  searchContainer: {
     flexDirection: 'row',
-    gap: SPACING.md,
-    marginBottom: SPACING.lg,
-  },
-  statCard: {
-    flex: 1,
+    backgroundColor: '#333333',
+    borderRadius: 24,
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.lg,
     alignItems: 'center',
-    padding: SPACING.md,
+    justifyContent: 'space-between',
+    marginBottom: SPACING.xxl,
+    height: 60,
   },
-  statValue: {
-    fontSize: TYPOGRAPHY.fontSize.xxl,
-    fontWeight: TYPOGRAPHY.fontWeight.bold,
-    color: COLORS.textPrimary,
-    marginTop: SPACING.sm,
+  searchPlaceholder: {
+    color: COLORS.white,
+    fontSize: 16,
+    fontWeight: '500',
+    opacity: 0.8,
   },
-  statLabel: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    color: COLORS.textSecondary,
-    marginTop: SPACING.xs,
-  },
-  section: {
-    marginBottom: SPACING.lg,
+  searchInput: {
+    flex: 1,
+    color: COLORS.white,
+    fontSize: 16,
+    fontWeight: '500',
+    paddingVertical: 0,
   },
   sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     marginBottom: SPACING.md,
   },
   sectionTitle: {
-    fontSize: TYPOGRAPHY.fontSize.lg,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold,
-    color: COLORS.textPrimary,
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#000000',
   },
-  seeAllText: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    color: COLORS.primary,
-    fontWeight: TYPOGRAPHY.fontWeight.medium,
+  parkingCard: {
+    height: 220,
+    borderRadius: 24,
+    overflow: 'hidden',
+    marginBottom: SPACING.xl,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
   },
-  quickActionsGrid: {
+  cardImage: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  cardInternalImage: {
+    borderRadius: 24,
+  },
+  cardOverlay: {
+    padding: SPACING.lg,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+  },
+  parkingName: {
+    color: COLORS.white,
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  parkingLocation: {
+    color: COLORS.white,
+    fontSize: 14,
+    opacity: 0.9,
+    marginBottom: 12,
+  },
+  statsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: SPACING.md,
   },
-  quickActionItem: {
-    width: '21%',
+  statText: {
+    color: COLORS.white,
+    fontSize: 12,
+    fontWeight: '500',
+    opacity: 0.9,
+  },
+  emptyContainer: {
     alignItems: 'center',
+    marginTop: 40,
   },
-  quickActionIcon: {
-    width: 64,
-    height: 64,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: SPACING.sm,
-  },
-  quickActionLabel: {
-    fontSize: TYPOGRAPHY.fontSize.xs,
-    color: COLORS.textPrimary,
-    textAlign: 'center',
-  },
-  activityCard: {
-    marginBottom: SPACING.sm,
-  },
-  activityItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  activityIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: `${COLORS.primary}10`,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: SPACING.md,
-  },
-  activityContent: {
-    flex: 1,
-  },
-  activityTitle: {
-    fontSize: TYPOGRAPHY.fontSize.md,
-    fontWeight: TYPOGRAPHY.fontWeight.medium,
-    color: COLORS.textPrimary,
-  },
-  activityTime: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    color: COLORS.textSecondary,
-    marginTop: SPACING.xs,
-  },
-  mapPreviewCard: {
-    padding: SPACING.lg,
-  },
-  mapPreview: {
-    alignItems: 'center',
-  },
-  mapPreviewText: {
-    fontSize: TYPOGRAPHY.fontSize.md,
-    fontWeight: TYPOGRAPHY.fontWeight.medium,
-    color: COLORS.textPrimary,
-    marginTop: SPACING.md,
-  },
-  mapStats: {
-    flexDirection: 'row',
-    gap: SPACING.lg,
-    marginTop: SPACING.md,
-  },
-  mapStat: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.xs,
-  },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  mapStatText: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    color: COLORS.textSecondary,
+  emptyText: {
+    fontSize: 16,
+    color: '#8E8E93',
   },
 });
+
 
 export default HomeScreen;

@@ -10,6 +10,7 @@ export interface BookingRouteParams {
 }
 
 export interface ParkingMapRouteParams {
+  parkingCode?: string;
   floor?: number;
   selectedSlot?: string;
   vehicleId?: string;

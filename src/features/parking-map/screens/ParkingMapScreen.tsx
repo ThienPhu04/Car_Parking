@@ -53,7 +53,7 @@ const isSameCalendarDay = (firstDate: Date, secondDate: Date) =>
 const ParkingMapScreen: React.FC = () => {
   const navigation = useNavigation();
   const route = useRoute<ParkingMapRouteProp>();
-  const parkingCode = 'PK001';
+  const parkingCode = route.params?.parkingCode ?? 'PK001';
 
   const requestedArrivalTime = toValidDate(route.params?.expectedArrivalTime);
   const requestedLeaveTime = toValidDate(route.params?.expectedLeaveTime);

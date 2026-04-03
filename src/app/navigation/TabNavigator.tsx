@@ -22,7 +22,7 @@ const TAB_CONFIG: Record<
   Home: {
     label: 'Trang chủ',
     activeIcon: 'home',
-    inactiveIcon: 'home',
+    inactiveIcon: 'home-outline',
   },
   Search: {
     label: 'Tìm kiếm',
@@ -37,7 +37,7 @@ const TAB_CONFIG: Record<
   Profile: {
     label: 'Cài đặt',
     activeIcon: 'settings',
-    inactiveIcon: 'settings',
+    inactiveIcon: 'settings-outline',
   },
 };
 
@@ -53,7 +53,9 @@ const renderTabIcon = (routeName: TabRouteName, focused: boolean) => {
           color={focused ? COLORS.accent : COLORS.black}
         />
       </View>
-      <Text numberOfLines={1} style={[styles.tabLabel, !focused && styles.hiddenLabel]}>{tabConfig.label}</Text>
+      {focused && (
+        <Text style={styles.tabLabel}>{tabConfig.label}</Text>
+      )}
     </View>
   );
 };
@@ -75,13 +77,6 @@ export const TabNavigator: React.FC = () => {
       <Tab.Screen
         name="Booking"
         component={BookingScreen}
-        listeners={({ navigation }) => ({
-          tabPress: () => {
-            navigation.navigate('Booking', {
-              resetToken: Date.now().toString(),
-            });
-          },
-        })}
       />
       <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>
@@ -90,24 +85,28 @@ export const TabNavigator: React.FC = () => {
 
 const styles = StyleSheet.create({
   tabBar: {
-    backgroundColor: '#F7F7F7',
-    borderWidth: 1.5,
-    borderColor: COLORS.accent,
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: '#FF9500', // COLORS.accent
     height: Platform.OS === 'ios' ? 96 : 88,
-    paddingBottom: Platform.OS === 'ios' ? 18 : 10,
-    paddingTop: 20,
+    paddingBottom: Platform.OS === 'ios' ? 24 : 12,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     position: 'absolute',
-    alignItems: 'center',
     left: 0,
     right: 0,
     bottom: 0,
-    elevation: 0,
-    shadowOpacity: 0,
+    alignItems: 'center',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    borderRadius: 28,
   },
   tabBarItem: {
-    justifyContent: 'flex-start',
+    justifyContent: 'center',
+
   },
   tabItemContent: {
     alignItems: 'center',
@@ -121,20 +120,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   iconContainerActive: {
-    backgroundColor: '#D8D8D8',
+    backgroundColor: '#E5E5EA',
   },
   tabLabel: {
     textAlign: 'center',
     minWidth: 60,
-    marginTop: 2,
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: '700',
-    color: COLORS.black,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  hiddenLabel: {
-    opacity: 0,
-    height: 0,
+    color: '#000000',
+    marginTop: 4,
   },
 });

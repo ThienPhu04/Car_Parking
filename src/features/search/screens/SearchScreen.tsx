@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Ionicons';
 
 import { COLORS } from '../../../shared/constants/colors';
@@ -23,6 +23,9 @@ import { TYPOGRAPHY } from '../../../shared/constants/typography';
 
 const SearchScreen: React.FC = () => {
   const navigation = useNavigation();
+  const route = useRoute<any>();
+  const initialQuery = route.params?.query || '';
+  
   const lotId = 'lot_001';
   const { slots } = useParkingSlots(lotId, 1);
 
@@ -34,6 +37,12 @@ const SearchScreen: React.FC = () => {
     clearFilters,
     filteredSlots,
   } = useSlotSearch(slots);
+
+  useEffect(() => {
+    if (initialQuery) {
+      setSearchQuery(initialQuery);
+    }
+  }, [initialQuery, setSearchQuery]);
 
   const [showFilters, setShowFilters] = useState(false);
 
