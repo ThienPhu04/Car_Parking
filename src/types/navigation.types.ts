@@ -37,6 +37,7 @@ export type MainStackParamList = {
   FindCar: undefined;
   Notifications: undefined;
   VehicleManagement: undefined;
+  EditProfile: undefined;
 };
 
 export type TabParamList = {

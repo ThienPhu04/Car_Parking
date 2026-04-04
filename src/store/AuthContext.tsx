@@ -15,7 +15,7 @@ interface AuthContextType {
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
-  updateUser: (user: User) => void;
+  updateUser: (userData: Partial<User>) => Promise<void>;
   refreshUser: () => Promise<void>;
 }
 
@@ -106,9 +106,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  const updateUser = (userData: User) => {
-    setUser(userData);
-    storage.setItem(CONFIG.STORAGE_KEYS.USER_DATA, userData);
+  const updateUser = async (userData: Partial<User>) => {
+    try {
+      const response = await authService.updateProfile(userData);
+      const updatedUser = response.data;
+      setUser(updatedUser);
+      await storage.setItem(CONFIG.STORAGE_KEYS.USER_DATA, updatedUser);
+    } catch (error) {
+      console.error('Update user error:', error);
+      throw error;
+    }
   };
 
   const refreshUser = async () => {

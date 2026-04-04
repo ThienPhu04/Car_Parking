@@ -37,44 +37,44 @@ const ProfileScreen: React.FC = () => {
   const menuItems = [
     {
       icon: 'car-outline',
-      title: 'Quan ly xe',
+      title: 'Quản lý xe',
       subtitle: 'Them va chinh sua thong tin xe',
       onPress: () => (navigation as any).navigate('VehicleManagement'),
     },
     {
       icon: 'calendar-outline',
-      title: 'Lich su dat cho',
-      subtitle: 'Xem thong tin dat cho de xe da tao',
+      title: 'Lịch sử đặt chỗ',
+      subtitle: 'Xem thông tin đặt chỗ của xe đã tạo',
       onPress: () => (navigation as any).navigate('MyBookings'),
     },
     {
       icon: 'notifications-outline',
-      title: 'Thong bao',
-      subtitle: 'Cai dat thong bao',
+      title: 'Thông báo',
+      subtitle: 'Cài đặt thông báo',
       onPress: () => (navigation as any).navigate('Notifications'),
     },
     {
       icon: 'language-outline',
-      title: 'Ngon ngu',
-      subtitle: 'Tieng Viet',
+      title: 'Ngôn ngữ',
+      subtitle: 'Tiếng Việt',
       onPress: () => {},
     },
     {
       icon: 'help-circle-outline',
-      title: 'Tro giup',
-      subtitle: 'Cau hoi thuong gap',
+      title: 'Trợ giúp',
+      subtitle: 'Câu hỏi thường gặp',
       onPress: () => {},
     },
     {
       icon: 'document-text-outline',
-      title: 'Dieu khoan va Chinh sach',
-      subtitle: 'Dieu khoan su dung va chinh sach',
+      title: 'Điều khoản và Chính sách',
+      subtitle: 'Điều khoản sử dụng và chính sách',
       onPress: () => {},
     },
     {
       icon: 'log-out-outline',
-      title: 'Dang xuat',
-      subtitle: 'Dang xuat khoi tai khoan',
+      title: 'Đăng xuất',
+      subtitle: 'Đăng xuất khỏi tài khoản',
       onPress: handleLogout,
     },
   ];
@@ -82,20 +82,17 @@ const ProfileScreen: React.FC = () => {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Cai dat</Text>
-        </View>
 
         <Card style={styles.profileCard}>
           <View style={styles.avatarContainer}>
             <Icon name="person" size={40} color={COLORS.primary} />
           </View>
           <View style={styles.profileInfo}>
-            <Text style={styles.userName}>{user?.name || 'Nguoi dung'}</Text>
+            <Text style={styles.userName}>{user?.userName || user?.name || 'Nguoi dung'}</Text>
             <Text style={styles.userEmail}>{user?.email || ''}</Text>
             <Text style={styles.userPhone}>{user?.phone || ''}</Text>
           </View>
-          <TouchableOpacity>
+          <TouchableOpacity onPress={() => (navigation as any).navigate('EditProfile')}>
             <Icon name="create-outline" size={24} color={COLORS.primary} />
           </TouchableOpacity>
         </Card>
@@ -139,9 +136,6 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: SPACING.md,
     paddingBottom: 100,
-  },
-  header: {
-    marginBottom: SPACING.lg,
   },
   title: {
     fontSize: TYPOGRAPHY.fontSize.xxl,

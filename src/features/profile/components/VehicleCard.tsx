@@ -11,66 +11,46 @@ interface VehicleCardProps {
   vehicle: Vehicle;
   onEdit: () => void;
   onDelete: () => void;
-  onSetDefault: () => void;
 }
 
 export const VehicleCard: React.FC<VehicleCardProps> = ({
   vehicle,
   onEdit,
   onDelete,
-  onSetDefault,
 }) => {
   return (
     <Card style={styles.card}>
-      <View style={styles.content}>
+      <View style={styles.container}>
         <View style={styles.iconContainer}>
           <Icon name="car" size={32} color={COLORS.primary} />
         </View>
 
         <View style={styles.info}>
-          <View style={styles.header}>
-            <Text style={styles.licensePlate}>{vehicle.licensePlate}</Text>
-            {vehicle.isDefault && (
-              <View style={styles.defaultBadge}>
-                <Text style={styles.defaultText}>Mặc định</Text>
-              </View>
-            )}
-          </View>
-
-          {vehicle.brand && vehicle.model && (
-            <Text style={styles.model}>
-              {vehicle.brand} {vehicle.model}
+          <Text style={styles.licensePlate}>{vehicle.licensePlate}</Text>
+          {vehicle.brand && (
+            <Text style={styles.vehicleName}>
+              {vehicle.brand} {vehicle.model || ''}
             </Text>
           )}
-
-          <View style={styles.details}>
-            <View style={styles.detailItem}>
-              <Icon name="color-palette" size={14} color={COLORS.textSecondary} />
-              <Text style={styles.detailText}>{vehicle.color || 'N/A'}</Text>
-            </View>
-            <View style={styles.detailItem}>
-              <Icon name="car-sport" size={14} color={COLORS.textSecondary} />
-              <Text style={styles.detailText}>{vehicle.type}</Text>
-            </View>
-          </View>
         </View>
-      </View>
 
-      <View style={styles.actions}>
-        {!vehicle.isDefault && (
-          <TouchableOpacity style={styles.actionButton} onPress={onSetDefault}>
-            <Icon name="star-outline" size={20} color={COLORS.warning} />
-            <Text style={styles.actionText}>Đặt mặc định</Text>
+        <View style={styles.verticalActions}>
+          <TouchableOpacity 
+            style={styles.verticalActionButton} 
+            onPress={onEdit}
+            activeOpacity={0.7}
+          >
+            <Icon name="create-outline" size={24} color={COLORS.primary} />
           </TouchableOpacity>
-        )}
-        <TouchableOpacity style={styles.actionButton} onPress={onEdit}>
-          <Icon name="create-outline" size={20} color={COLORS.primary} />
-          <Text style={styles.actionText}>Sửa</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.actionButton} onPress={onDelete}>
-          <Icon name="trash-outline" size={20} color={COLORS.error} />
-          <Text style={[styles.actionText, { color: COLORS.error }]}>Xóa</Text>
-        </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={styles.verticalActionButton} 
+            onPress={onDelete}
+            activeOpacity={0.7}
+          >
+            <Icon name="trash-outline" size={24} color={COLORS.error} />
+          </TouchableOpacity>
+        </View>
       </View>
     </Card>
   );
@@ -79,15 +59,16 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
 const styles = StyleSheet.create({
   card: {
     marginBottom: SPACING.md,
+    padding: SPACING.md,
   },
-  content: {
+  container: {
     flexDirection: 'row',
-    marginBottom: SPACING.md,
+    alignItems: 'center',
   },
   iconContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     backgroundColor: `${COLORS.primary}20`,
     justifyContent: 'center',
     alignItems: 'center',
@@ -95,62 +76,31 @@ const styles = StyleSheet.create({
   },
   info: {
     flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: SPACING.xs,
+    justifyContent: 'center',
   },
   licensePlate: {
-    fontSize: TYPOGRAPHY.fontSize.lg,
+    fontSize: TYPOGRAPHY.fontSize.xl,
     fontWeight: TYPOGRAPHY.fontWeight.bold,
     color: COLORS.textPrimary,
-    marginRight: SPACING.sm,
+    marginBottom: 4,
   },
-  defaultBadge: {
-    backgroundColor: COLORS.warning,
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  defaultText: {
-    fontSize: TYPOGRAPHY.fontSize.xs,
-    color: COLORS.white,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold,
-  },
-  model: {
+  vehicleName: {
     fontSize: TYPOGRAPHY.fontSize.md,
     color: COLORS.textSecondary,
-    marginBottom: SPACING.sm,
-  },
-  details: {
-    flexDirection: 'row',
-    gap: SPACING.md,
-  },
-  detailItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.xs,
-  },
-  detailText: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    color: COLORS.textSecondary,
-  },
-  actions: {
-    flexDirection: 'row',
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
-    paddingTop: SPACING.sm,
-    gap: SPACING.md,
-  },
-  actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.xs,
-  },
-  actionText: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    color: COLORS.primary,
     fontWeight: TYPOGRAPHY.fontWeight.medium,
   },
-});
+  verticalActions: {
+    paddingLeft: SPACING.md,
+    borderLeftWidth: 1,
+    borderLeftColor: COLORS.border,
+    gap: SPACING.md,
+  },
+  verticalActionButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: COLORS.backgroundSecondary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+});

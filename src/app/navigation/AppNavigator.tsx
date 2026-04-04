@@ -19,6 +19,7 @@ import FindCarScreen from '../../features/find-car/screens/FindCarScreen';
 import NotificationsScreen from '../../features/notifications/screens/NotificationsScreen';
 import ParkingMapScreen from '../../features/parking-map/screens/ParkingMapScreen';
 import VehicleManagementScreen from '../../features/profile/screens/VehicleManagementScreen';
+import EditProfileScreen from '../../features/profile/screens/EditProfileScreen';
 import { TabNavigator } from './TabNavigator';
 
 const RootStack = createNativeStackNavigator<RootStackParamList>();
@@ -69,48 +70,55 @@ const MainNavigator: React.FC = () => {
         name="ParkingMap"
         component={ParkingMapScreen}
         options={{
-          title: 'Ban do bai do',
-          headerBackTitle: 'Quay lai',
+          title: 'Bản đồ đỗ xe',
+          headerBackTitle: 'Quay lại',
         }}
       />
       <MainStack.Screen
         name="BookingConfirm"
         component={BookingConfirmScreen}
         options={{
-          title: 'Xac nhan dat cho',
-          headerBackTitle: 'Quay lai',
+          title: 'Xác nhận đặt chỗ',
+          headerBackTitle: 'Quay lại',
         }}
       />
       <MainStack.Screen
         name="MyBookings"
         component={MyBookingsScreen}
         options={{
-          title: 'Lich su dat cho',
-          headerBackTitle: 'Quay lai',
+          title: 'Lịch sử đặt chỗ',
+          headerBackTitle: 'Quay lại',
         }}
       />
       <MainStack.Screen
         name="FindCar"
         component={FindCarScreen}
         options={{
-          title: 'Tim xe cua toi',
-          headerBackTitle: 'Quay lai',
+          title: 'Tìm xe của tôi',
+          headerBackTitle: 'Quay lại',
         }}
       />
       <MainStack.Screen
         name="Notifications"
         component={NotificationsScreen}
         options={{
-          title: 'Thong bao',
-          headerBackTitle: 'Quay lai',
+          title: 'Thông báo',
+          headerBackTitle: 'Quay lại',
         }}
       />
       <MainStack.Screen
         name="VehicleManagement"
         component={VehicleManagementScreen}
         options={{
-          title: 'Quan ly xe',
-          headerBackTitle: 'Quay lai',
+          title: 'Quản lý xe',
+          headerBackTitle: 'Quay lại',
+        }}
+      />
+      <MainStack.Screen
+        name="EditProfile"
+        component={EditProfileScreen}
+        options={{
+          headerShown: false,
         }}
       />
     </MainStack.Navigator>
