@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -18,12 +18,25 @@ import { COLORS } from '../../../shared/constants/colors';
 import { parkingService } from '../../parking-map/services/parkingService';
 import { ParkingMapDTO } from '../../../types/parking.types';
 import { SPACING } from '../../../shared/constants/spacing';
-import { TYPOGRAPHY } from '../../../shared/constants/typography';
 
 type HomeScreenNavigationProp = NativeStackNavigationProp<any>;
 
-// Mock image for placeholder
-const PARKING_IMAGE = 'https://images.unsplash.com/photo-1506521781263-d8422e82f27a?auto=format&fit=crop&q=80&w=1000';
+const PARKING_IMAGE =
+  'https://images.unsplash.com/photo-1506521781263-d8422e82f27a?auto=format&fit=crop&q=80&w=1000';
+
+const extractParkingLots = (rawResponse: unknown): ParkingMapDTO[] => {
+  const payload =
+    (rawResponse as { data?: unknown })?.data ??
+    (rawResponse as { items?: unknown })?.items ??
+    (rawResponse as { parkingMaps?: unknown })?.parkingMaps ??
+    rawResponse;
+
+  if (Array.isArray(payload)) {
+    return payload.filter(Boolean) as ParkingMapDTO[];
+  }
+
+  return payload ? [payload as ParkingMapDTO] : [];
+};
 
 const HomeScreen: React.FC = () => {
   const navigation = useNavigation<HomeScreenNavigationProp>();
@@ -32,40 +45,43 @@ const HomeScreen: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const fetchParkingLots = async () => {
+  const featuredParkingLot = parkingLots[0] ?? null;
+
+  const fetchParkingLots = useCallback(async () => {
     try {
       const response = await parkingService.getParkingMap();
-      if (response && response.data) {
-        // Handle case where data is nested in data.data or is an array
-        const rawData: any = response.data;
-        const payload = rawData.data ?? rawData;
-        const lotList: ParkingMapDTO[] = Array.isArray(payload) ? payload : [payload];
-        
-        // Filter: chỉ lấy những bãi xe có code và có tầng (floors), đồng thời xóa bỏ trùng lặp
-        const uniqueLots = lotList.reduce((acc: ParkingMapDTO[], current) => {
-          if (!current || !current.code) return acc;
-          const isDuplicate = acc.find(item => item.code === current.code);
-          const hasFloors = Array.isArray(current.floors) && current.floors.length > 0;
-          
-          if (!isDuplicate && hasFloors) {
-            acc.push(current);
-          }
+      const lotList = extractParkingLots(response?.data);
+      const uniqueLots = lotList.reduce((acc: ParkingMapDTO[], current) => {
+        const lotCode = current?.code?.trim();
+        if (!lotCode) {
           return acc;
-        }, []);
+        }
 
-        setParkingLots(uniqueLots);
-      }
+        const isDuplicate = acc.some(item => item.code === lotCode);
+        if (!isDuplicate) {
+          acc.push({
+            ...current,
+            code: lotCode,
+            floors: Array.isArray(current.floors) ? current.floors : [],
+          });
+        }
+
+        return acc;
+      }, []);
+
+      setParkingLots(uniqueLots);
     } catch (error) {
       console.error('Error fetching parking lots:', error);
+      setParkingLots([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchParkingLots();
-  }, []);
+  }, [fetchParkingLots]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -85,10 +101,9 @@ const HomeScreen: React.FC = () => {
 
     lot.floors?.forEach(floor => {
       floor.zones?.forEach(zone => {
-        zone.groupSlots?.forEach(gs => {
-          gs.slots?.forEach(slot => {
+        zone.groupSlots?.forEach(groupSlot => {
+          groupSlot.slots?.forEach(slot => {
             total++;
-            // Nếu có sensorStatus thì dùng (true = có xe), nếu không thì check statusName/code
             if (slot.sensorStatus === true || slot.status === 2) {
               occupied++;
             } else if (slot.status === 0 || slot.sensorStatus === false) {
@@ -99,14 +114,13 @@ const HomeScreen: React.FC = () => {
       });
     });
 
-    // Fallback if no slots defined yet but specified in group slots
     if (total === 0) {
       lot.floors?.forEach(floor => {
         floor.zones?.forEach(zone => {
-          zone.groupSlots?.forEach(gs => {
-            total += (gs.slots?.length || 0);
-            available += gs.availableSlots || 0;
-            occupied += gs.occupiedSlots || 0;
+          zone.groupSlots?.forEach(groupSlot => {
+            total += groupSlot.slots?.length || 0;
+            available += groupSlot.availableSlots || 0;
+            occupied += groupSlot.occupiedSlots || 0;
           });
         });
       });
@@ -114,6 +128,10 @@ const HomeScreen: React.FC = () => {
 
     return { total, available, occupied };
   };
+
+  const featuredStats = featuredParkingLot
+    ? calculateLotStats(featuredParkingLot)
+    : null;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -124,7 +142,6 @@ const HomeScreen: React.FC = () => {
         }
         showsVerticalScrollIndicator={false}
       >
-        {/* Header Section */}
         <View style={styles.header}>
           <View style={styles.locationGroup}>
             <View style={styles.locationIconContainer}>
@@ -135,17 +152,18 @@ const HomeScreen: React.FC = () => {
               <Text style={styles.locationValue}>Gò Vấp, Hồ Chí Minh</Text>
             </View>
           </View>
-          <TouchableOpacity style={styles.notificationButton} onPress={() => navigation.navigate('Notifications')}>
+          <TouchableOpacity
+            style={styles.notificationButton}
+            onPress={() => navigation.navigate('Notifications')}
+          >
             <Icon name="notifications" size={24} color="#FF9500" />
           </TouchableOpacity>
         </View>
 
-        {/* Hero Title Section */}
         <View style={styles.heroSection}>
           <Text style={styles.heroTitle}>Tìm kiếm bãi giữ xe{'\n'}tốt nhất</Text>
         </View>
 
-        {/* Search Bar Section */}
         <View style={styles.searchContainer}>
           <TextInput
             style={styles.searchInput}
@@ -161,49 +179,53 @@ const HomeScreen: React.FC = () => {
           </TouchableOpacity>
         </View>
 
-        {/* Parking Lot Section Title */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Bãi đỗ xe</Text>
         </View>
 
         {loading ? (
-          <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 20 }} />
+          <ActivityIndicator
+            size="large"
+            color={COLORS.primary}
+            style={{ marginTop: 20 }}
+          />
+        ) : featuredParkingLot && featuredStats ? (
+          <TouchableOpacity
+            key={featuredParkingLot.code || featuredParkingLot._id}
+            style={styles.parkingCard}
+            activeOpacity={0.95}
+            onPress={() =>
+              navigation.navigate('ParkingMap', {
+                parkingCode: featuredParkingLot.code,
+              })
+            }
+          >
+            <ImageBackground
+              source={{ uri: PARKING_IMAGE }}
+              style={styles.cardImage}
+              imageStyle={styles.cardInternalImage}
+            >
+              <View style={styles.cardOverlay}>
+                <Text style={styles.parkingName}>{featuredParkingLot.name}</Text>
+                <Text style={styles.parkingLocation}>
+                  {featuredParkingLot.location}
+                </Text>
+                <View style={styles.statsRow}>
+                  <Text style={styles.statText}>
+                    Tổng vị trí: {featuredStats.total} --
+                  </Text>
+                  <Text style={styles.statText}>
+                    Vị trí đã đỗ: {featuredStats.occupied}
+                  </Text>
+                </View>
+              </View>
+            </ImageBackground>
+          </TouchableOpacity>
         ) : (
-          parkingLots.map((lot) => {
-            const stats = calculateLotStats(lot);
-            return (
-              <TouchableOpacity 
-                key={lot.code || lot._id}
-                style={styles.parkingCard}
-                activeOpacity={0.95}
-                onPress={() => navigation.navigate('ParkingMap', { parkingCode: lot.code })}
-              >
-                <ImageBackground
-                  source={{ uri: PARKING_IMAGE }}
-                  style={styles.cardImage}
-                  imageStyle={styles.cardInternalImage}
-                >
-                  <View style={styles.cardOverlay}>
-                    <Text style={styles.parkingName}>{lot.name}</Text>
-                    <Text style={styles.parkingLocation}>{lot.location}</Text>
-                    <View style={styles.statsRow}>
-                      <Text style={styles.statText}>Tổng vị trí: {stats.total} -- </Text>
-                      <Text style={styles.statText}>Vị trí trống : {stats.available} -- </Text>
-                      <Text style={styles.statText}>Vị trí đã đỗ : {stats.occupied}</Text>
-                    </View>
-                  </View>
-                </ImageBackground>
-              </TouchableOpacity>
-            );
-          })
-        )}
-
-        {parkingLots.length === 0 && !loading && (
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyText}>Không tìm thấy bãi đỗ xe nào</Text>
           </View>
         )}
-
       </ScrollView>
     </SafeAreaView>
   );
@@ -341,6 +363,7 @@ const styles = StyleSheet.create({
   statsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    gap: 6,
   },
   statText: {
     color: COLORS.white,
@@ -357,6 +380,5 @@ const styles = StyleSheet.create({
     color: '#8E8E93',
   },
 });
-
 
 export default HomeScreen;

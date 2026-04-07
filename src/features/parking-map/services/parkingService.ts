@@ -13,6 +13,9 @@ export const parkingService = {
 
   async getParkingMap(params: GetParkingMapParams = {}): Promise<ApiResponse<ParkingMapResponseDTO>> {
     const body = {
+      ...(params.parkingCode
+        ? { parkingCode: params.parkingCode }
+        : {}),
       ...(params.status !== undefined && params.status !== null && params.status !== ''
         ? { status: params.status }
         : {}),
