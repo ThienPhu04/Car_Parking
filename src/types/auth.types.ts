@@ -2,6 +2,7 @@ export interface User {
   id?: string;
   code?: string; // Mã người dùng backend cần
   name?: string;
+  userName?: string;
   role: string;
   email: string;
   phone?: string;
@@ -28,9 +29,13 @@ export interface RegisterRequest {
   confirmPassword: string;
 }
 
-export interface OTPVerificationRequest {
-  phone: string;
-  otp: string;
+export interface EmailVerificationRequest {
+  token: string;
+}
+
+export interface LoginResponseData extends User {
+  accessToken?: string;
+  refreshToken?: string;
 }
 
 export interface AuthState {

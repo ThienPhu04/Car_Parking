@@ -22,10 +22,10 @@ const ProfileScreen: React.FC = () => {
   const { user, logout } = useAuth();
 
   const handleLogout = () => {
-    Alert.alert('Dang xuat', 'Ban co chac muon dang xuat?', [
-      { text: 'Huy', style: 'cancel' },
+    Alert.alert('Đăng xuất', 'Bạn có chắc muốn đăng xuất?', [
+      { text: 'Hủy', style: 'cancel' },
       {
-        text: 'Dang xuat',
+        text: 'Đăng xuất',
         style: 'destructive',
         onPress: async () => {
           await logout();

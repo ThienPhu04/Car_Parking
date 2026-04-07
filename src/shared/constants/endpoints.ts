@@ -2,7 +2,7 @@ export const ENDPOINTS = {
   // Auth
   LOGIN: '/api/us/login',
   REGISTER: '/api/us/register',
-  VERIFY_OTP: '/api/us/verify-otp',
+  VERIFY_EMAIL: '/api/us/verify-email',
   REFRESH_TOKEN: '/api/us/refresh-token',
   LOGOUT: '/api/us/logout',
   FORGOT_PASSWORD: '/api/us/forgot-password',

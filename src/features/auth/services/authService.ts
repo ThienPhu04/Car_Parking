@@ -4,25 +4,27 @@ import {
   User,
   AuthTokens,
   LoginRequest,
+  LoginResponseData,
   RegisterRequest,
-  OTPVerificationRequest,
 } from '../../../types/auth.types';
 import { ApiResponse } from '../../../types/api.types';
 
 
 export const authService = {
-  async login(credentials: LoginRequest): Promise<ApiResponse<{
-    data: any; user: User; tokens: AuthTokens 
-}>> {
+  async login(credentials: LoginRequest): Promise<ApiResponse<LoginResponseData>> {
     return apiClient.post(ENDPOINTS.LOGIN, credentials);
   },
 
-  async register(data: RegisterRequest): Promise<ApiResponse<{ message: string }>> {
+  async register(
+    data: RegisterRequest
+  ): Promise<ApiResponse<{ id: string; email: string }>> {
     return apiClient.post(ENDPOINTS.REGISTER, data);
   },
 
-  async verifyOTP(data: OTPVerificationRequest): Promise<ApiResponse<{ user: User; tokens: AuthTokens }>> {
-    return apiClient.post(ENDPOINTS.VERIFY_OTP, data);
+  async verifyEmail(token: string): Promise<ApiResponse<void>> {
+    return apiClient.get(
+      `${ENDPOINTS.VERIFY_EMAIL}?token=${encodeURIComponent(token)}`
+    );
   },
 
   async refreshToken(refreshToken: string): Promise<ApiResponse<AuthTokens>> {

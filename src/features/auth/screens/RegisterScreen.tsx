@@ -120,11 +120,12 @@ const RegisterScreen: React.FC = () => {
 
       Alert.alert(
         'Đăng ký thành công',
-        'Vui lòng xác thực OTP để hoàn tất đăng ký',
+        'Vui lòng kiểm tra email để lấy link hoặc token xác thực tài khoản',
         [
           {
             text: 'OK',
-            onPress: () => navigation.navigate('OTPVerification', { phone: formData.phone }),
+            onPress: () =>
+              navigation.navigate('OTPVerification', { email: formData.email }),
           },
         ]
       );

@@ -1,12 +1,14 @@
-import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { User, AuthTokens } from '../types/auth.types';
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  ReactNode,
+} from 'react';
+import { User, AuthTokens, LoginResponseData } from '../types/auth.types';
 import { authService } from '../features/auth/services/authService';
 import { storage } from '../shared/utils/storage';
 import { CONFIG } from '../shared/constants/config';
-import { ENDPOINTS } from '@shared/constants/endpoints';
-import { ParkingSlot } from '@app-types/parking.types';
-import { apiClient } from '@services/api/apiClient';
-
 
 interface AuthContextType {
   user: User | null;
@@ -21,7 +23,9 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+export const AuthProvider: React.FC<{ children: ReactNode }> = ({
+  children,
+}) => {
   const [user, setUser] = useState<User | null>(null);
   const [tokens, setTokens] = useState<AuthTokens | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -38,17 +42,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         storage.getItem<string>(CONFIG.STORAGE_KEYS.REFRESH_TOKEN),
       ]);
 
-      // if (savedUser && savedToken && savedRefreshToken) {
-      //   setUser(savedUser);
-      //   setTokens({
-      //     accessToken: savedToken,
-      //     refreshToken: savedRefreshToken,
-      //   });
-      // }
       if (savedUser) {
         setUser(savedUser);
       }
 
+      if (savedToken && savedRefreshToken) {
+        setTokens({
+          accessToken: savedToken,
+          refreshToken: savedRefreshToken,
+        });
+      }
     } catch (error) {
       console.error('Error loading auth data:', error);
     } finally {
@@ -61,29 +64,50 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const response = await authService.login({ email, password });
       console.log('LOGIN RESPONSE:', response);
 
-      const responseData = response?.data;
-      
-      // Lấy user từ response - xử lý cả 2 format
-      const user = responseData?.user || responseData;
-      
-      if (!user || !user.email) {
+      const responseData = response?.data as LoginResponseData | undefined;
+
+      if (!responseData?.email) {
         console.error('Invalid user data:', responseData);
         throw new Error('No user returned from server');
       }
 
-      // Lưu user data
-      await storage.setItem(CONFIG.STORAGE_KEYS.USER_DATA, user);
+      const normalizedUser: User = {
+        id: responseData.id,
+        code: responseData.code,
+        name: responseData.name || responseData.userName,
+        userName: responseData.userName || responseData.name,
+        role: responseData.role,
+        email: responseData.email,
+        phone: responseData.phone,
+        avatar: responseData.avatar,
+        createdAt: responseData.createdAt,
+      };
 
-      // Nếu có tokens, lưu lại
-      if (responseData?.tokens?.accessToken) {
+      const normalizedTokens =
+        responseData.accessToken && responseData.refreshToken
+          ? {
+              accessToken: responseData.accessToken,
+              refreshToken: responseData.refreshToken,
+            }
+          : null;
+
+      await storage.setItem(CONFIG.STORAGE_KEYS.USER_DATA, normalizedUser);
+
+      if (normalizedTokens) {
         await Promise.all([
-          storage.setItem(CONFIG.STORAGE_KEYS.AUTH_TOKEN, responseData.tokens.accessToken),
-          storage.setItem(CONFIG.STORAGE_KEYS.REFRESH_TOKEN, responseData.tokens.refreshToken),
+          storage.setItem(
+            CONFIG.STORAGE_KEYS.AUTH_TOKEN,
+            normalizedTokens.accessToken
+          ),
+          storage.setItem(
+            CONFIG.STORAGE_KEYS.REFRESH_TOKEN,
+            normalizedTokens.refreshToken
+          ),
         ]);
-        setTokens(responseData.tokens);
       }
 
-      setUser(user);
+      setUser(normalizedUser);
+      setTokens(normalizedTokens);
     } catch (error) {
       console.error('Login error:', error);
       throw error;
@@ -132,9 +156,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const value: AuthContextType = {
     user,
     tokens,
-    isAuthenticated: !!user,
-    // isAuthenticated: !!user && !!tokens,
-    // isAuthenticated: true,
+    isAuthenticated: !!user && !!tokens,
     isLoading,
     login,
     logout,

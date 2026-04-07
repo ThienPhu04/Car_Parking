@@ -25,7 +25,13 @@ export const useAuth = () => {
   }) => {
     try {
       setIsLoading(true);
-      await authService.register(data);
+      await authService.register({
+        userName: data.name,
+        email: data.email,
+        phone: data.phone,
+        password: data.password,
+        confirmPassword: data.password,
+      });
     } catch (error) {
       throw error;
     } finally {
@@ -33,10 +39,10 @@ export const useAuth = () => {
     }
   };
 
-  const verifyOTP = async (phone: string, otp: string) => {
+  const verifyEmail = async (token: string) => {
     try {
       setIsLoading(true);
-      await authService.verifyOTP({ phone, otp });
+      await authService.verifyEmail(token);
     } catch (error) {
       throw error;
     } finally {
@@ -49,6 +55,6 @@ export const useAuth = () => {
     isLoading,
     loginWithPhone,
     registerWithPhone,
-    verifyOTP,
+    verifyEmail,
   };
 };
