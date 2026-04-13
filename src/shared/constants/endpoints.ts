@@ -19,6 +19,12 @@ export const ENDPOINTS = {
   DELETE_VEHICLE: '/api/us/deleteVehilces',
   SET_DEFAULT_VEHICLE: (id: string) => `/vehicles/${id}/set-default`,
 
+  // Wallet
+  GET_WALLET: '/api/us/wallet/getWallet',
+  GET_WALLET_HISTORY: '/api/us/wallet/getHistory',
+  PAY_WITH_WALLET: '/api/us/wallet/pay',
+  CREATE_TOPUP_QR: '/api/us/payment/create-qr',
+
   // Parking
   GET_PARKING_LOTS: '/parking/lots',
   GET_PARKING_LOT: (id: string) => `/parking/lots/${id}`,

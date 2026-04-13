@@ -20,6 +20,7 @@ import NotificationsScreen from '../../features/notifications/screens/Notificati
 import ParkingMapScreen from '../../features/parking-map/screens/ParkingMapScreen';
 import VehicleManagementScreen from '../../features/profile/screens/VehicleManagementScreen';
 import EditProfileScreen from '../../features/profile/screens/EditProfileScreen';
+import SettingsScreen from '../../features/profile/screens/SettingsScreen';
 import { TabNavigator } from './TabNavigator';
 
 const RootStack = createNativeStackNavigator<RootStackParamList>();
@@ -119,6 +120,14 @@ const MainNavigator: React.FC = () => {
         component={EditProfileScreen}
         options={{
           headerShown: false,
+        }}
+      />
+      <MainStack.Screen
+        name="Settings"
+        component={SettingsScreen}
+        options={{
+          title: 'Cai dat',
+          headerBackTitle: 'Quay lai',
         }}
       />
     </MainStack.Navigator>

@@ -7,11 +7,11 @@ import {
   LoginResponseData,
   RegisterRequest,
 } from '../../../types/auth.types';
-import { ApiResponse } from '../../../types/api.types';
+import { ApiResponse, AuthApiResponse } from '../../../types/api.types';
 
 
 export const authService = {
-  async login(credentials: LoginRequest): Promise<ApiResponse<LoginResponseData>> {
+  async login(credentials: LoginRequest): Promise<AuthApiResponse<LoginResponseData>> {
     return apiClient.post(ENDPOINTS.LOGIN, credentials);
   },
 

@@ -65,6 +65,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
       console.log('LOGIN RESPONSE:', response);
 
       const responseData = response?.data as LoginResponseData | undefined;
+      const accessToken =
+        response?.accessToken || responseData?.accessToken || null;
+      const refreshToken =
+        response?.refreshToken || responseData?.refreshToken || null;
 
       if (!responseData?.email) {
         console.error('Invalid user data:', responseData);
@@ -84,10 +88,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
       };
 
       const normalizedTokens =
-        responseData.accessToken && responseData.refreshToken
+        accessToken && refreshToken
           ? {
-              accessToken: responseData.accessToken,
-              refreshToken: responseData.refreshToken,
+              accessToken,
+              refreshToken,
             }
           : null;
 

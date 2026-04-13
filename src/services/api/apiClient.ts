@@ -1,7 +1,7 @@
 import axios, { AxiosInstance, AxiosError, AxiosRequestConfig, InternalAxiosRequestConfig } from 'axios';
 import { CONFIG } from '../../shared/constants/config';
 import { storage } from '../../shared/utils/storage';
-import { ApiError, ApiResponse } from '../../types/api.types';
+import { ApiError, ApiResponse, AuthApiResponse } from '../../types/api.types';
 import { ENDPOINTS } from '../../shared/constants/endpoints';
 
 class ApiClient {
@@ -85,12 +85,15 @@ class ApiClient {
               throw new Error('No refresh token');
             }
 
-            const response = await this.client.post(ENDPOINTS.REFRESH_TOKEN, {
+            const response = await this.client.post<AuthApiResponse<{ accessToken?: string }>>(
+              ENDPOINTS.REFRESH_TOKEN,
+              {
               refreshToken,
-            });
+              }
+            );
 
-            // const { accessToken } = response.data.data;
-            const accessToken = response?.data?.data?.accessToken;
+            const accessToken =
+              response?.data?.accessToken || response?.data?.data?.accessToken;
             if (!accessToken) {
                throw new Error('No access token in refresh response'); 
               }

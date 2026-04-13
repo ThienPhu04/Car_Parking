@@ -4,6 +4,11 @@ export interface ApiResponse<T> {
   message?: string;
 }
 
+export interface AuthApiResponse<T> extends ApiResponse<T> {
+  accessToken?: string;
+  refreshToken?: string;
+}
+
 export interface ApiError {
   success: false;
   error: string;
