@@ -35,7 +35,7 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
           <Text style={styles.name}>{user.name}</Text>
           {onEditPress && (
             <TouchableOpacity onPress={onEditPress} style={styles.editButton}>
-              <Icon name="create-outline" size={20} color={COLORS.primary} />
+              <Icon name="create-outline" size={20} color={"#FF9500"} />
             </TouchableOpacity>
           )}
         </View>
@@ -43,20 +43,20 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
         <View style={styles.contactInfo}>
           {user.email && (
             <View style={styles.contactItem}>
-              <Icon name="mail-outline" size={16} color={COLORS.textSecondary} />
+              <Icon name="mail-outline" size={16} color={"#FF9500"} />
               <Text style={styles.contactText}>{user.email}</Text>
             </View>
           )}
           {user.phone && (
             <View style={styles.contactItem}>
-              <Icon name="call-outline" size={16} color={COLORS.textSecondary} />
+              <Icon name="call-outline" size={16} color={"#FF9500"} />
               <Text style={styles.contactText}>{user.phone}</Text>
             </View>
           )}
         </View>
 
         <View style={styles.memberBadge}>
-          <Icon name="star" size={16} color={COLORS.warning} />
+          <Icon name="star" size={16} color={"#FF9500"} />
           <Text style={styles.memberText}>Thành viên Vàng</Text>
         </View>
       </View>

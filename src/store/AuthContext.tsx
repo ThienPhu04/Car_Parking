@@ -5,10 +5,11 @@ import React, {
   useState,
   ReactNode,
 } from 'react';
-import { User, AuthTokens, LoginResponseData } from '../types/auth.types';
+import { User, AuthTokens } from '../types/auth.types';
 import { authService } from '../features/auth/services/authService';
 import { storage } from '../shared/utils/storage';
 import { CONFIG } from '../shared/constants/config';
+import { apiClient } from '../services/api/apiClient';
 
 interface AuthContextType {
   user: User | null;
@@ -22,6 +23,46 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+const normalizeLoginPayload = (payload: any) => {
+  const responseData = payload?.data?.data ?? payload?.data ?? payload?.user ?? payload;
+  const accessToken =
+    payload?.accessToken
+    ?? payload?.data?.accessToken
+    ?? responseData?.accessToken
+    ?? null;
+  const refreshToken =
+    payload?.refreshToken
+    ?? payload?.data?.refreshToken
+    ?? responseData?.refreshToken
+    ?? null;
+
+  if (!responseData?.email) {
+    throw new Error('Khong nhan duoc thong tin nguoi dung tu server');
+  }
+
+  const normalizedUser: User = {
+    id: responseData.id ?? responseData._id,
+    code: responseData.code,
+    name: responseData.name || responseData.userName,
+    userName: responseData.userName || responseData.name,
+    role: responseData.role ?? 'user',
+    email: responseData.email,
+    phone: responseData.phone,
+    avatar: responseData.avatar,
+    createdAt: responseData.createdAt,
+  };
+
+  return {
+    user: normalizedUser,
+    tokens: accessToken
+      ? {
+          accessToken,
+          ...(refreshToken ? { refreshToken } : {}),
+        }
+      : null,
+  };
+};
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   children,
@@ -42,14 +83,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         storage.getItem<string>(CONFIG.STORAGE_KEYS.REFRESH_TOKEN),
       ]);
 
-      if (savedUser) {
+      if (savedUser && savedToken) {
+        apiClient.setAccessToken(savedToken);
         setUser(savedUser);
-      }
-
-      if (savedToken && savedRefreshToken) {
         setTokens({
           accessToken: savedToken,
-          refreshToken: savedRefreshToken,
+          ...(savedRefreshToken ? { refreshToken: savedRefreshToken } : {}),
         });
       }
     } catch (error) {
@@ -63,56 +102,31 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     try {
       const response = await authService.login({ email, password });
       console.log('LOGIN RESPONSE:', response);
+      const normalized = normalizeLoginPayload(response);
+      apiClient.setAccessToken(normalized.tokens?.accessToken ?? null);
 
-      const responseData = response?.data as LoginResponseData | undefined;
-      const accessToken =
-        response?.accessToken || responseData?.accessToken || null;
-      const refreshToken =
-        response?.refreshToken || responseData?.refreshToken || null;
+      setUser(normalized.user);
+      setTokens(normalized.tokens);
 
-      if (!responseData?.email) {
-        console.error('Invalid user data:', responseData);
-        throw new Error('No user returned from server');
+      await storage.setItem(CONFIG.STORAGE_KEYS.USER_DATA, normalized.user);
+
+      if (normalized.tokens?.accessToken) {
+        await storage.setItem(
+          CONFIG.STORAGE_KEYS.AUTH_TOKEN,
+          normalized.tokens.accessToken
+        );
       }
 
-      const normalizedUser: User = {
-        id: responseData.id,
-        code: responseData.code,
-        name: responseData.name || responseData.userName,
-        userName: responseData.userName || responseData.name,
-        role: responseData.role,
-        email: responseData.email,
-        phone: responseData.phone,
-        avatar: responseData.avatar,
-        createdAt: responseData.createdAt,
-      };
-
-      const normalizedTokens =
-        accessToken && refreshToken
-          ? {
-              accessToken,
-              refreshToken,
-            }
-          : null;
-
-      await storage.setItem(CONFIG.STORAGE_KEYS.USER_DATA, normalizedUser);
-
-      if (normalizedTokens) {
-        await Promise.all([
-          storage.setItem(
-            CONFIG.STORAGE_KEYS.AUTH_TOKEN,
-            normalizedTokens.accessToken
-          ),
-          storage.setItem(
-            CONFIG.STORAGE_KEYS.REFRESH_TOKEN,
-            normalizedTokens.refreshToken
-          ),
-        ]);
+      if (normalized.tokens?.refreshToken) {
+        await storage.setItem(
+          CONFIG.STORAGE_KEYS.REFRESH_TOKEN,
+          normalized.tokens.refreshToken
+        );
+      } else {
+        await storage.removeItem(CONFIG.STORAGE_KEYS.REFRESH_TOKEN);
       }
-
-      setUser(normalizedUser);
-      setTokens(normalizedTokens);
     } catch (error) {
+      apiClient.setAccessToken(null);
       console.error('Login error:', error);
       throw error;
     }
@@ -124,6 +138,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     } catch (error) {
       console.error('Logout error:', error);
     } finally {
+      apiClient.setAccessToken(null);
       await Promise.all([
         storage.removeItem(CONFIG.STORAGE_KEYS.USER_DATA),
         storage.removeItem(CONFIG.STORAGE_KEYS.AUTH_TOKEN),
@@ -160,7 +175,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   const value: AuthContextType = {
     user,
     tokens,
-    isAuthenticated: !!user && !!tokens,
+    isAuthenticated: !!user && !!tokens?.accessToken,
     isLoading,
     login,
     logout,

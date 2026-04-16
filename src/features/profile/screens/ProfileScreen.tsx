@@ -141,11 +141,11 @@ const ProfileScreen: React.FC = () => {
       >
         <Card style={styles.profileCard}>
           <View style={styles.avatarContainer}>
-            <Icon name="person" size={40} color={COLORS.primary} />
+            <Icon name="person" size={40} color={"#FF9500"} />
           </View>
           <View style={styles.profileInfo}>
             <Text style={styles.userName}>
-              {user?.userName || user?.name || 'Nguoi dung'}
+              {user?.userName || user?.name || 'Người dùng'}
             </Text>
             <Text style={styles.userEmail}>{user?.email || ''}</Text>
             <Text style={styles.userPhone}>{user?.phone || ''}</Text>
@@ -153,7 +153,7 @@ const ProfileScreen: React.FC = () => {
           <TouchableOpacity
             onPress={() => (navigation as any).navigate('EditProfile')}
           >
-            <Icon name="create-outline" size={24} color={COLORS.primary} />
+            <Icon name="create-outline" size={24} color={"#FF9500"} />
           </TouchableOpacity>
         </Card>
 
@@ -166,13 +166,13 @@ const ProfileScreen: React.FC = () => {
               </Text>
             </View>
             <View style={styles.walletBadge}>
-              <Icon name="wallet-outline" size={18} color={COLORS.primary} />
+              <Icon name="wallet-outline" size={18} color={"#FF9500"} />
               <Text style={styles.walletBadgeText}>Ví Smart Parking</Text>
             </View>
           </View>
 
           <Button
-            title="Nap tien"
+            title="Nạp tiền"
             onPress={() => setShowTopUpModal(true)}
             fullWidth
             style={styles.walletAction}
@@ -237,7 +237,7 @@ const ProfileScreen: React.FC = () => {
             >
               <Card style={styles.menuItem}>
                 <View style={styles.menuItemIcon}>
-                  <Icon name={item.icon} size={24} color={COLORS.primary} />
+                  <Icon name={item.icon} size={24} color={"#FF9500"} />
                 </View>
                 <View style={styles.menuItemContent}>
                   <Text style={styles.menuItemTitle}>{item.title}</Text>
@@ -340,17 +340,18 @@ const styles = StyleSheet.create({
   },
   walletBadgeText: {
     fontSize: TYPOGRAPHY.fontSize.xs,
-    color: COLORS.primary,
+    color: COLORS.black,
     fontWeight: TYPOGRAPHY.fontWeight.semibold,
   },
   walletHint: {
     fontSize: TYPOGRAPHY.fontSize.sm,
-    color: COLORS.textSecondary,
+    color: COLORS.black,
     lineHeight: 20,
     marginTop: SPACING.md,
   },
   walletAction: {
     marginTop: SPACING.md,
+    backgroundColor: "#FF9500",
   },
   transactionSection: {
     marginBottom: SPACING.lg,

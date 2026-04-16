@@ -59,7 +59,7 @@ export const WalletTopUpModal: React.FC<WalletTopUpModalProps> = ({
 
   const handleCreateTransaction = async () => {
     if (parsedAmount < 10000) {
-      Alert.alert('So tien khong hop le', 'Vui long nhap it nhat 10.000 VND');
+      Alert.alert('Số tiền không hợp lệ', 'Vui lòng nhập ít nhất 10.000 VND');
       return;
     }
 
@@ -67,7 +67,7 @@ export const WalletTopUpModal: React.FC<WalletTopUpModalProps> = ({
       const nextDraft = await onCreateDraft(parsedAmount);
       setDraft(nextDraft);
     } catch (error: any) {
-      Alert.alert('Loi', error?.message || 'Khong the tao ma QR nap tien');
+      Alert.alert('Lỗi', error?.message || 'Không thể tạo mã QR nạp tiền');
     }
   };
 
@@ -79,17 +79,17 @@ export const WalletTopUpModal: React.FC<WalletTopUpModalProps> = ({
     try {
       await onConfirmSuccess(draft);
       Alert.alert(
-        'Da ghi nhan',
-        'Yeu cau nap tien da duoc ghi nhan. So du se cap nhat sau khi he thong xac nhan giao dich.'
+        'Đã ghi nhận',
+        'Yêu cầu nạp tiền đã được ghi nhận. Số dư sẽ được cập nhật sau khi hệ thống xác nhận giao dịch.'
       );
       onClose();
     } catch (error: any) {
-      Alert.alert('Loi', error?.message || 'Khong the xac nhan giao dich');
+      Alert.alert('Lỗi', error?.message || 'Không thể xác nhận giao dịch');
     }
   };
 
   return (
-    <Modal visible={visible} onClose={onClose} title="Nap tien vao vi">
+    <Modal visible={visible} onClose={onClose} title="Nạp tiền vào ví">
       <ScrollView showsVerticalScrollIndicator={false}>
         {!draft ? (
           <View>

@@ -8,6 +8,7 @@ class ApiClient {
   private client: AxiosInstance;
   private isRefreshing = false;
   private failedQueue: any[] = [];
+  private accessToken: string | null = null;
 
   constructor() {
     this.client = axios.create({
@@ -29,9 +30,13 @@ class ApiClient {
     // Request interceptor
     this.client.interceptors.request.use(
       async (config: InternalAxiosRequestConfig) => {
-        const token = await storage.getItem<string>(
+        const token = this.accessToken ?? await storage.getItem<string>(
           CONFIG.STORAGE_KEYS.AUTH_TOKEN
         );
+
+        if (!this.accessToken && token) {
+          this.accessToken = token;
+        }
 
         if (token) {
           config.headers.Authorization = `Bearer ${token}`;
@@ -97,6 +102,7 @@ class ApiClient {
             if (!accessToken) {
                throw new Error('No access token in refresh response'); 
               }
+            this.accessToken = accessToken;
             await storage.setItem(CONFIG.STORAGE_KEYS.AUTH_TOKEN, accessToken);
 
             this.failedQueue.forEach((prom) => prom.resolve(accessToken));
@@ -112,6 +118,7 @@ class ApiClient {
             await storage.removeItem(CONFIG.STORAGE_KEYS.AUTH_TOKEN);
             await storage.removeItem(CONFIG.STORAGE_KEYS.REFRESH_TOKEN);
             await storage.removeItem(CONFIG.STORAGE_KEYS.USER_DATA);
+            this.accessToken = null;
 
             return Promise.reject(refreshError);
           } finally {
@@ -176,6 +183,10 @@ class ApiClient {
   async delete<T>(url: string, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
     const response = await this.client.delete<ApiResponse<T>>(url, config);
     return response.data;
+  }
+
+  setAccessToken(token: string | null): void {
+    this.accessToken = token;
   }
 }
 

@@ -140,7 +140,7 @@ const BookingScreen: React.FC = () => {
     const maxTimeMs = now + 10 * 24 * 60 * 60 * 1000;
 
     if (arrivalTimeMs < minTimeMs || arrivalTimeMs > maxTimeMs) {
-      Alert.alert('Loi', 'Thoi gian dat phai sau 30 phut va truoc 10 ngay');
+      Alert.alert('Loi', 'Thời gian đặt phải sau 30 phút và trước 10 ngày');
       return false;
     }
 
@@ -183,9 +183,9 @@ const BookingScreen: React.FC = () => {
       <SafeAreaView style={styles.container}>
         <EmptyState
           icon="car-outline"
-          title="Chua co xe"
-          description="Vui long them thong tin xe truoc khi dat lich do xe"
-          actionLabel="Them xe"
+          title="Chưa có xe"
+          description="Vui lòng thêm thông tin xe trước khi đặt lịch đỗ xe"
+          actionLabel="Thêm xe"
           onAction={() => (navigation as any).navigate('VehicleManagement')}
         />
       </SafeAreaView>
@@ -223,7 +223,7 @@ const BookingScreen: React.FC = () => {
                     size={24}
                     color={
                       selectedVehicle === vehicle.id
-                        ? COLORS.primary
+                        ? "#FF9500"
                         : COLORS.textSecondary
                     }
                   />
@@ -237,7 +237,7 @@ const BookingScreen: React.FC = () => {
                     <Icon
                       name="checkmark-circle"
                       size={24}
-                      color={COLORS.primary}
+                      color={"#FF9500"}
                     />
                   )}
                 </View>
@@ -280,12 +280,22 @@ const BookingScreen: React.FC = () => {
           },
         ]}
       >
-        <Button
-          title="Xác nhận đặt lịch"
+        <TouchableOpacity
+          style={[
+            styles.bookButton,
+            isLoading && styles.bookButtonDisabled,
+          ]}
           onPress={handleBooking}
-          loading={isLoading}
-          fullWidth
-        />
+          disabled={isLoading}
+        >
+          {isLoading ? (
+            <Loading text="Đang xử lý..." />
+          ) : (
+            <Text style={styles.bookButtonText}>
+              Xác nhận đặt lịch
+            </Text>
+          )}
+        </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
@@ -328,7 +338,7 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   vehicleCardActive: {
-    borderColor: COLORS.primary,
+    borderColor: "#FF9500",
   },
   vehicleContent: {
     flexDirection: 'row',
@@ -388,6 +398,23 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.backgroundSecondary,
     borderTopWidth: 1,
     borderTopColor: COLORS.border,
+  },
+  bookButton: {
+    width: '100%',
+    backgroundColor: "#FF9500",
+    paddingVertical: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bookButtonDisabled: {
+    opacity: 0.6,
+  },
+
+  bookButtonText: {
+    color: '#000000',
+    fontSize: TYPOGRAPHY.fontSize.md,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold,
   },
 });
 

@@ -99,8 +99,8 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: COLORS.backgroundSecondary,
+    backgroundColor: "#FF9500",
     justifyContent: 'center',
     alignItems: 'center',
   },
-});
+});

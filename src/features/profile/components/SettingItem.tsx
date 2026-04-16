@@ -26,7 +26,7 @@ export const SettingItem: React.FC<SettingItemProps> = ({
     <View style={styles.container}>
       <View style={styles.leftContent}>
         <View style={styles.iconContainer}>
-          <Icon name={icon} size={24} color={COLORS.textSecondary} />
+          <Icon name={icon} size={24} color={"#FF9500"} />
         </View>
         <View style={styles.textContainer}>
           <Text style={styles.label}>{label}</Text>
@@ -38,7 +38,7 @@ export const SettingItem: React.FC<SettingItemProps> = ({
         {renderRight ? (
           renderRight()
         ) : showChevron ? (
-          <Icon name="chevron-forward" size={20} color={COLORS.textSecondary} />
+          <Icon name="chevron-forward" size={20} color={"#FF9500"} />
         ) : null}
       </View>
     </View>

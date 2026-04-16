@@ -24,12 +24,11 @@ export const TimeSelector: React.FC<TimeSelectorProps> = ({
     <View>
       <Card style={styles.card}>
         <TouchableOpacity style={styles.dateRow} onPress={() => setOpen(true)}>
-          <Icon name="calendar-outline" size={24} color={COLORS.primary} />
+          <Icon name="calendar-outline" size={24} color={"#FF9500"} />
           <View style={styles.dateInfo}>
-            <Text style={styles.dateLabel}>Thoi gian vao bai</Text>
             <Text style={styles.dateValue}>{formatters.dateTime(arrivalTime)}</Text>
           </View>
-          <Icon name="chevron-forward" size={20} color={COLORS.textSecondary} />
+          <Icon name="chevron-forward" size={20} color={"#FF9500"} />
         </TouchableOpacity>
       </Card>
 
@@ -65,12 +64,12 @@ const styles = StyleSheet.create({
   },
   dateLabel: {
     fontSize: TYPOGRAPHY.fontSize.sm,
-    color: COLORS.textSecondary,
+    color: "#FF9500",
     marginBottom: SPACING.xs,
   },
   dateValue: {
     fontSize: TYPOGRAPHY.fontSize.md,
     fontWeight: TYPOGRAPHY.fontWeight.semibold,
-    color: COLORS.textPrimary,
+    color: "#000000",
   },
 });

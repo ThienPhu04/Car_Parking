@@ -36,17 +36,17 @@ export const BookingCard: React.FC<BookingCardProps> = ({
   const getStatusText = () => {
     switch (booking.status) {
       case BookingStatus.ACTIVE:
-        return 'Da gan vi tri';
+        return 'Đã gần vị trí';
       case BookingStatus.COMPLETED:
-        return 'Hoan thanh';
+        return 'Hoàn thành';
       case BookingStatus.CANCELLED:
-        return 'Da huy';
+        return 'Đã hủy';
       case BookingStatus.PENDING:
-        return 'Dang cho gan slot';
+        return 'Đang chờ gắn slot';
       case BookingStatus.EXPIRED:
-        return 'Da het han';
+        return 'Đã hết hạn';
       default:
-        return 'Khong xac dinh';
+        return 'Không xác định';
     }
   };
 
@@ -82,7 +82,7 @@ export const BookingCard: React.FC<BookingCardProps> = ({
             </View>
             <View style={styles.headerText}>
               <Text style={styles.slotCode}>
-                {booking.slot?.code || booking.slotId || 'Cho he thong xep vi tri'}
+                {booking.slot?.code || booking.slotId || 'Chờ hệ thống xếp vị trí'}
               </Text>
               <View
                 style={[
@@ -112,7 +112,7 @@ export const BookingCard: React.FC<BookingCardProps> = ({
           <View style={styles.detailRow}>
             <Icon name="layers-outline" size={16} color={COLORS.textSecondary} />
             <Text style={styles.detailText}>
-              Tang {booking.slot?.floorLevel || 'Dang cap nhat'}
+              ầng {booking.slot?.floorLevel || 'Đang cập nhật'}
             </Text>
           </View>
 
@@ -134,7 +134,7 @@ export const BookingCard: React.FC<BookingCardProps> = ({
         {onCancel && (
           <TouchableOpacity style={styles.cancelButton} onPress={onCancel}>
             <Icon name="close-circle-outline" size={20} color={COLORS.error} />
-            <Text style={styles.cancelText}>Huy dat cho</Text>
+            <Text style={styles.cancelText}>Hủy đặt chỗ</Text>
           </TouchableOpacity>
         )}
       </Card>

@@ -98,7 +98,7 @@ export const VehicleFormModal: React.FC<VehicleFormModalProps> = ({
     >
       <View style={styles.form}>
         <Input
-          label="Bien so xe *"
+          label="Biển số xe *"
           placeholder="VD: 29A-12345"
           value={formData.licensePlate}
           onChangeText={text =>
@@ -109,7 +109,7 @@ export const VehicleFormModal: React.FC<VehicleFormModalProps> = ({
         />
 
         <Input
-          label="Hang xe"
+          label="Hãng xe"
           placeholder="VD: Toyota"
           value={formData.brand}
           onChangeText={text => setFormData({ ...formData, brand: text })}
