@@ -51,23 +51,20 @@ export const useBooking = () => {
 
       const payload = {
         userId: user.code,
-        slotId: data.slotId,
         vehiclesId: data.vehicleId,
         expectedArrivalTime: data.expectedArrivalTime,
-        expectedLeaveTime: data.expectedLeaveTime,
         status: data.status ?? 2,
       };
 
       const response = await bookingService.createBooking(payload);
       let newBooking = normalizeBookingResponse(response.data);
 
-      if (!newBooking) {
+      if (!newBooking?.id) {
         const normalizedBookings = await fetchBookings();
         newBooking =
           normalizedBookings.find(
             booking =>
-              booking.slotId === data.slotId
-              && booking.vehicleId === data.vehicleId
+              booking.vehicleId === data.vehicleId
               && booking.startTime === data.expectedArrivalTime,
           )
           ?? normalizedBookings[0]
@@ -87,7 +84,9 @@ export const useBooking = () => {
         addNotification({
           type: NotificationType.BOOKING_REMINDER,
           title: 'Nhac nho dat cho',
-          message: `Gan den gio dat cho tai ${newBooking.slot?.code || data.slotId}`,
+          message: newBooking.slot?.code
+            ? `Gan den gio dat cho tai ${newBooking.slot.code}`
+            : 'Gan den gio vao bai xe theo lich da dat',
           data: { bookingId: newBooking.id },
         });
       }
@@ -104,14 +103,31 @@ export const useBooking = () => {
 
   const cancelBooking = useCallback(async (id: string) => {
     try {
+      if (!user?.code) {
+        throw new Error('Khong tim thay ma nguoi dung');
+      }
+
+      const targetBooking = bookings.find(
+        booking => booking.id === id || booking.code === id,
+      );
+      const bookingCode = targetBooking?.code ?? id;
+
       setIsLoading(true);
       setError(null);
-      await bookingService.cancelBooking(id);
+      await bookingService.cancelBooking({
+        bookingCode,
+        userCode: user.code,
+      });
 
       setBookings(prev =>
         prev.map(booking =>
-          booking.id === id
-            ? { ...booking, status: BookingStatus.CANCELLED }
+          booking.id === id || booking.code === bookingCode
+            ? {
+                ...booking,
+                status: BookingStatus.CANCELLED,
+                statusName: 'Đã hủy',
+                slotId: undefined,
+              }
             : booking,
         ),
       );
@@ -132,7 +148,7 @@ export const useBooking = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [activeBooking, addNotification]);
+  }, [activeBooking, addNotification, bookings, user?.code]);
 
   const getActiveBooking = useCallback(async () => {
     try {

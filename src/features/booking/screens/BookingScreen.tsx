@@ -7,8 +7,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { RouteProp, useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
+import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 
@@ -17,7 +17,6 @@ import { Card } from '../../../shared/components/Card';
 import { EmptyState } from '../../../shared/components/EmptyState';
 import { Loading } from '../../../shared/components/Loading';
 import { COLORS } from '../../../shared/constants/colors';
-import { CONFIG } from '../../../shared/constants/config';
 import { SPACING } from '../../../shared/constants/spacing';
 import { TYPOGRAPHY } from '../../../shared/constants/typography';
 import { formatters } from '../../../shared/utils/formatters';
@@ -25,6 +24,7 @@ import { TabParamList } from '../../../types/navigation.types';
 import { useProfile } from '../../profile/hooks/useProfile';
 import { TimeSelector } from '../components/TimeSelector';
 import { useBooking } from '../hooks/useBooking';
+import { RouteProp } from '@react-navigation/native';
 
 type BookingScreenRouteProp = RouteProp<TabParamList, 'Booking'>;
 
@@ -56,36 +56,13 @@ const roundUpToNextHalfHour = () => {
   return roundedDate;
 };
 
-const addMinutes = (date: Date, minutes: number) => {
-  const nextDate = new Date(date);
-  nextDate.setMinutes(nextDate.getMinutes() + minutes);
-  return nextDate;
-};
-
-const buildInitialTimes = (params?: TabParamList['Booking']) => {
-  const arrivalTime = isValidDate(params?.expectedArrivalTime) ?? roundUpToNextHalfHour();
-  const minimumLeaveTime = addMinutes(
-    arrivalTime,
-    CONFIG.MIN_BOOKING_DURATION_MINUTES,
-  );
-  const requestedLeaveTime = isValidDate(params?.expectedLeaveTime);
-
-  return {
-    arrivalTime,
-    leaveTime:
-      requestedLeaveTime && requestedLeaveTime.getTime() > minimumLeaveTime.getTime()
-        ? requestedLeaveTime
-        : minimumLeaveTime,
-  };
-};
-
-const calculateDuration = (arrivalTime: Date, leaveTime: Date) =>
-  Math.round((leaveTime.getTime() - arrivalTime.getTime()) / (60 * 1000));
+const buildInitialArrivalTime = (params?: TabParamList['Booking']) =>
+  isValidDate(params?.expectedArrivalTime) ?? roundUpToNextHalfHour();
 
 const BookingScreen: React.FC = () => {
   const navigation = useNavigation();
   const route = useRoute<BookingScreenRouteProp>();
-  const initialTimesRef = useRef(buildInitialTimes(route.params));
+  const initialArrivalTimeRef = useRef(buildInitialArrivalTime(route.params));
   const tabBarHeight = useBottomTabBarHeight();
   const insets = useSafeAreaInsets();
 
@@ -99,22 +76,11 @@ const BookingScreen: React.FC = () => {
   const [selectedVehicle, setSelectedVehicle] = useState<string | null>(
     route.params?.vehicleId ?? null,
   );
-  const [selectedSlotId, setSelectedSlotId] = useState<string | null>(
-    route.params?.slotId ?? null,
-  );
-  const [arrivalTime, setArrivalTime] = useState(initialTimesRef.current.arrivalTime);
-  const [leaveTime, setLeaveTime] = useState(initialTimesRef.current.leaveTime);
-
-  const slotId = selectedSlotId;
-  const duration = calculateDuration(arrivalTime, leaveTime);
+  const [arrivalTime, setArrivalTime] = useState(initialArrivalTimeRef.current);
 
   const resetBookingForm = useCallback(() => {
-    const nextInitialTimes = buildInitialTimes();
     const defaultVehicle = vehicles.find(vehicle => vehicle.isDefault) ?? vehicles[0] ?? null;
-
-    setSelectedSlotId(null);
-    setArrivalTime(nextInitialTimes.arrivalTime);
-    setLeaveTime(nextInitialTimes.leaveTime);
+    setArrivalTime(roundUpToNextHalfHour());
     setSelectedVehicle(defaultVehicle?.id ?? null);
   }, [vehicles]);
 
@@ -147,23 +113,12 @@ const BookingScreen: React.FC = () => {
   }, [route.params?.vehicleId]);
 
   useEffect(() => {
-    if (route.params?.slotId) {
-      setSelectedSlotId(route.params.slotId);
-    }
-  }, [route.params?.slotId]);
-
-  useEffect(() => {
     const nextArrivalTime = isValidDate(route.params?.expectedArrivalTime);
-    const nextLeaveTime = isValidDate(route.params?.expectedLeaveTime);
 
     if (nextArrivalTime) {
       setArrivalTime(nextArrivalTime);
     }
-
-    if (nextLeaveTime) {
-      setLeaveTime(nextLeaveTime);
-    }
-  }, [route.params?.expectedArrivalTime, route.params?.expectedLeaveTime]);
+  }, [route.params?.expectedArrivalTime]);
 
   useEffect(() => {
     if (!route.params?.resetToken) {
@@ -173,100 +128,51 @@ const BookingScreen: React.FC = () => {
     resetBookingForm();
   }, [resetBookingForm, route.params?.resetToken]);
 
-  const handleArrivalTimeChange = (date: Date) => {
-    setArrivalTime(date);
-
-    const minimumLeaveTime = addMinutes(date, CONFIG.MIN_BOOKING_DURATION_MINUTES);
-    if (leaveTime.getTime() < minimumLeaveTime.getTime()) {
-      setLeaveTime(minimumLeaveTime);
-    }
-  };
-
-  const handleLeaveTimeChange = (date: Date) => {
-    const minimumLeaveTime = addMinutes(
-      arrivalTime,
-      CONFIG.MIN_BOOKING_DURATION_MINUTES,
-    );
-    setLeaveTime(
-      date.getTime() < minimumLeaveTime.getTime() ? minimumLeaveTime : date,
-    );
-  };
-
-  const validateBookingForm = () => {
+  const validateBookingForm = useCallback(() => {
     if (!selectedVehicle) {
       Alert.alert('Loi', 'Vui long chon xe');
       return false;
     }
 
-    if (duration < CONFIG.MIN_BOOKING_DURATION_MINUTES) {
-      Alert.alert(
-        'Loi',
-        `Thoi gian dat cho toi thieu la ${CONFIG.MIN_BOOKING_DURATION_MINUTES} phut`,
-      );
-      return false;
-    }
+    const now = Date.now();
+    const arrivalTimeMs = arrivalTime.getTime();
+    const minTimeMs = now + 30 * 60 * 1000;
+    const maxTimeMs = now + 10 * 24 * 60 * 60 * 1000;
 
-    if (duration > CONFIG.MAX_BOOKING_DURATION_HOURS * 60) {
-      Alert.alert(
-        'Loi',
-        `Thoi gian dat cho toi da la ${CONFIG.MAX_BOOKING_DURATION_HOURS} gio`,
-      );
+    if (arrivalTimeMs < minTimeMs || arrivalTimeMs > maxTimeMs) {
+      Alert.alert('Loi', 'Thoi gian dat phai sau 30 phut va truoc 10 ngay');
       return false;
     }
 
     return true;
-  };
+  }, [arrivalTime, selectedVehicle]);
 
-  const openParkingMap = () => {
+  const handleBooking = useCallback(async () => {
     if (!validateBookingForm()) {
-      return;
-    }
-
-    (navigation as any).navigate('ParkingMap', {
-      selectedSlot: selectedSlotId ?? undefined,
-      expectedArrivalTime: arrivalTime.toISOString(),
-      expectedLeaveTime: leaveTime.toISOString(),
-      vehicleId: selectedVehicle,
-    });
-  };
-
-  const handleBooking = async () => {
-    if (!validateBookingForm()) {
-      return;
-    }
-
-    if (!slotId) {
-      openParkingMap();
       return;
     }
 
     try {
-      const booking = await createBooking({
-        slotId,
+      await createBooking({
         vehicleId: selectedVehicle!,
         expectedArrivalTime: arrivalTime.toISOString(),
-        expectedLeaveTime: leaveTime.toISOString(),
       });
 
-      if (!booking?.id) {
-        Alert.alert('Thanh cong', 'Dat cho thanh cong. Vui long kiem tra trong lich su dat cho.');
-        return;
-      }
-
-      Alert.alert('Thanh cong', 'Dat cho thanh cong', [
+      resetBookingForm();
+      Alert.alert('Thành công', 'Đặt lịch thành công', [
         {
-          text: 'OK',
-          onPress: () =>
-            (navigation as any).navigate('BookingConfirm', {
-              bookingId: booking.id,
-              booking,
-            }),
+          text: 'Đóng',
+          style: 'cancel',
+        },
+        {
+          text: 'Xem lịch sử',
+          onPress: () => (navigation as any).navigate('MyBookings'),
         },
       ]);
     } catch (error: any) {
-      Alert.alert('Loi', error.message || 'Khong the dat cho');
+      Alert.alert('Lỗi', error.message || 'Không thể đặt lịch');
     }
-  };
+  }, [arrivalTime, createBooking, navigation, resetBookingForm, selectedVehicle, validateBookingForm]);
 
   if (isLoadingVehicles && vehicles.length === 0) {
     return <Loading fullscreen text="Dang tai danh sach xe..." />;
@@ -278,8 +184,8 @@ const BookingScreen: React.FC = () => {
         <EmptyState
           icon="car-outline"
           title="Chua co xe"
-          description="Vui lòng thêm thông tin xe trước khi đặt chỗ"
-          actionLabel="Thêm xe"
+          description="Vui long them thong tin xe truoc khi dat lich do xe"
+          actionLabel="Them xe"
           onAction={() => (navigation as any).navigate('VehicleManagement')}
         />
       </SafeAreaView>
@@ -295,10 +201,7 @@ const BookingScreen: React.FC = () => {
         ]}
       >
         <View style={styles.header}>
-          <Text style={styles.title}>Đặt chỗ đỗ xe</Text>
-          <Text style={styles.subtitle}>
-            Chọn xe va khung giờ trước, sau đó vào bản đồ để chọn slot phù hợp
-          </Text>
+          <Text style={styles.title}>Đặt lịch đỗ xe</Text>
         </View>
 
         <View style={styles.section}>
@@ -344,70 +247,25 @@ const BookingScreen: React.FC = () => {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Chọn thời gian</Text>
+          <Text style={styles.sectionTitle}>Thời gian vào</Text>
           <TimeSelector
             arrivalTime={arrivalTime}
-            leaveTime={leaveTime}
-            onArrivalTimeChange={handleArrivalTimeChange}
-            onLeaveTimeChange={handleLeaveTimeChange}
+            onArrivalTimeChange={setArrivalTime}
           />
-          {slotId ? (
-            <Card style={styles.noticeCard}>
-              <View style={styles.noticeRow}>
-                <Icon name="checkmark-circle-outline" size={20} color={COLORS.success} />
-                <Text style={styles.noticeText}>
-                  Slot đẫ chọn sẽ được giữ lại khi bạn thay đổi thời lượng.
-                </Text>
-              </View>
-            </Card>
-          ) : null}
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Vị trí đỗ xe</Text>
-          {slotId ? (
-            <Card>
-              <View style={styles.slotInfo}>
-                <Icon name="location" size={24} color={COLORS.primary} />
-                <View style={styles.slotDetails}>
-                  <Text style={styles.slotCode}>Slot {slotId}</Text>
-                </View>
-                <TouchableOpacity onPress={openParkingMap}>
-                  <Text style={styles.changeText}>Đổi slot</Text>
-                </TouchableOpacity>
-              </View>
-            </Card>
-          ) : (
-            <Card style={styles.placeholderCard}>
-              <Text style={styles.placeholderTitle}>Chưa chọn slot</Text>
-              <Text style={styles.placeholderText}>
-                Sau khi chon thoi gian, mo ban do de xem slot phu hop va dat cho.
-              </Text>
-              <TouchableOpacity style={styles.inlineButton} onPress={openParkingMap}>
-                <Text style={styles.inlineButtonText}>Mở bản đồ</Text>
-              </TouchableOpacity>
-            </Card>
-          )}
         </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Tóm tắt thông tin</Text>
           <Card>
             <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Giờ vào</Text>
+              <Text style={styles.summaryLabel}>Thời gian vào</Text>
               <Text style={styles.summaryValue}>
                 {formatters.dateTime(arrivalTime.toISOString())}
               </Text>
             </View>
             <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Giờ ra</Text>
-              <Text style={styles.summaryValue}>
-                {formatters.dateTime(leaveTime.toISOString())}
-              </Text>
-            </View>
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Thời lượng</Text>
-              <Text style={styles.summaryValue}>{formatters.duration(duration)}</Text>
+              <Text style={styles.summaryLabel}>Vị trí đỗ xe</Text>
+              <Text style={styles.summaryValue}>Hệ thống tự động sắp xếp</Text>
             </View>
           </Card>
         </View>
@@ -423,7 +281,7 @@ const BookingScreen: React.FC = () => {
         ]}
       >
         <Button
-          title={slotId ? 'Xác nhận đặt chỗ' : 'Mở bản đồ chọn slot'}
+          title="Xác nhận đặt lịch"
           onPress={handleBooking}
           loading={isLoading}
           fullWidth
@@ -453,6 +311,7 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.fontSize.md,
     color: COLORS.textSecondary,
     marginTop: SPACING.xs,
+    lineHeight: 22,
   },
   section: {
     marginBottom: SPACING.lg,
@@ -502,55 +361,6 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.fontSize.sm,
     color: COLORS.textSecondary,
     lineHeight: 20,
-  },
-  slotInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  slotDetails: {
-    flex: 1,
-    marginLeft: SPACING.md,
-  },
-  slotCode: {
-    fontSize: TYPOGRAPHY.fontSize.md,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold,
-    color: COLORS.textPrimary,
-  },
-  slotFloor: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    color: COLORS.textSecondary,
-    marginTop: SPACING.xs,
-  },
-  changeText: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    color: COLORS.primary,
-    fontWeight: TYPOGRAPHY.fontWeight.medium,
-  },
-  placeholderCard: {
-    alignItems: 'flex-start',
-  },
-  placeholderTitle: {
-    fontSize: TYPOGRAPHY.fontSize.md,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold,
-    color: COLORS.textPrimary,
-    marginBottom: SPACING.xs,
-  },
-  placeholderText: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    lineHeight: 20,
-    color: COLORS.textSecondary,
-  },
-  inlineButton: {
-    marginTop: SPACING.md,
-    backgroundColor: COLORS.primary,
-    borderRadius: 10,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-  },
-  inlineButtonText: {
-    color: COLORS.white,
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold,
   },
   summaryRow: {
     flexDirection: 'row',

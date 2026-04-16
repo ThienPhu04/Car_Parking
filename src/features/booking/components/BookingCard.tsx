@@ -1,10 +1,11 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
+
 import { Card } from '../../../shared/components/Card';
-import { COLORS} from '../../../shared/constants/colors';
-import { Booking, BookingStatus } from '../../../types/booking.types';
+import { COLORS } from '../../../shared/constants/colors';
 import { formatters } from '../../../shared/utils/formatters';
+import { Booking, BookingStatus } from '../../../types/booking.types';
 import { SPACING } from '@shared/constants/spacing';
 import { TYPOGRAPHY } from '@shared/constants/typography';
 
@@ -35,17 +36,17 @@ export const BookingCard: React.FC<BookingCardProps> = ({
   const getStatusText = () => {
     switch (booking.status) {
       case BookingStatus.ACTIVE:
-        return 'Äang hoáº¡t Ä‘á»™ng';
+        return 'Da gan vi tri';
       case BookingStatus.COMPLETED:
-        return 'HoÃ n thÃ nh';
+        return 'Hoan thanh';
       case BookingStatus.CANCELLED:
-        return 'ÄÃ£ há»§y';
+        return 'Da huy';
       case BookingStatus.PENDING:
-        return 'Chá» xÃ¡c nháº­n';
+        return 'Dang cho gan slot';
       case BookingStatus.EXPIRED:
-        return 'ÄÃ£ háº¿t háº¡n';
+        return 'Da het han';
       default:
-        return 'KhÃ´ng xÃ¡c Ä‘á»‹nh';
+        return 'Khong xac dinh';
     }
   };
 
@@ -79,9 +80,9 @@ export const BookingCard: React.FC<BookingCardProps> = ({
                 color={getStatusColor()}
               />
             </View>
-            <View>
+            <View style={styles.headerText}>
               <Text style={styles.slotCode}>
-                {booking.slot?.code || 'N/A'}
+                {booking.slot?.code || booking.slotId || 'Cho he thong xep vi tri'}
               </Text>
               <View
                 style={[
@@ -90,7 +91,7 @@ export const BookingCard: React.FC<BookingCardProps> = ({
                 ]}
               >
                 <Text style={[styles.statusText, { color: getStatusColor() }]}>
-                  {getStatusText()}
+                  {booking.statusName || getStatusText()}
                 </Text>
               </View>
             </View>
@@ -104,16 +105,21 @@ export const BookingCard: React.FC<BookingCardProps> = ({
 
         <View style={styles.details}>
           <View style={styles.detailRow}>
+            <Icon name="pricetag-outline" size={16} color={COLORS.textSecondary} />
+            <Text style={styles.detailText}>{booking.code || booking.id}</Text>
+          </View>
+
+          <View style={styles.detailRow}>
             <Icon name="layers-outline" size={16} color={COLORS.textSecondary} />
             <Text style={styles.detailText}>
-              Táº§ng {booking.slot?.floorLevel || 'N/A'}
+              Tang {booking.slot?.floorLevel || 'Dang cap nhat'}
             </Text>
           </View>
 
           <View style={styles.detailRow}>
             <Icon name="car-outline" size={16} color={COLORS.textSecondary} />
             <Text style={styles.detailText}>
-              {booking.vehicle?.licensePlate || 'N/A'}
+              {booking.vehicle?.licensePlate || booking.licensePlate || 'N/A'}
             </Text>
           </View>
 
@@ -125,10 +131,10 @@ export const BookingCard: React.FC<BookingCardProps> = ({
           </View>
         </View>
 
-        {onCancel && booking.status === BookingStatus.ACTIVE && (
+        {onCancel && (
           <TouchableOpacity style={styles.cancelButton} onPress={onCancel}>
             <Icon name="close-circle-outline" size={20} color={COLORS.error} />
-            <Text style={styles.cancelText}>Há»§y Ä‘áº·t chá»—</Text>
+            <Text style={styles.cancelText}>Huy dat cho</Text>
           </TouchableOpacity>
         )}
       </Card>
@@ -149,6 +155,9 @@ const styles = StyleSheet.create({
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
+  },
+  headerText: {
     flex: 1,
   },
   statusIcon: {

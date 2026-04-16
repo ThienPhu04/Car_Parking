@@ -13,12 +13,12 @@ export interface Booking {
   id: string;
   code?: string;
   userId: string;
-  slotId: string;
+  slotId?: string;
   slot?: Partial<ParkingSlot>;
   vehicleId: string;
   vehicle?: Partial<Vehicle>;
   startTime: string;
-  endTime: string;
+  endTime?: string;
   status: BookingStatus;
   statusName?: string;
   licensePlate?: string;
@@ -27,10 +27,8 @@ export interface Booking {
 }
 
 export interface CreateBookingRequest {
-  slotId: string;
   vehicleId: string;
   expectedArrivalTime: string;
-  expectedLeaveTime: string;
   status?: number;
 }
 

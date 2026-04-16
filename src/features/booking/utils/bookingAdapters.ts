@@ -13,6 +13,39 @@ const pickString = (...values: unknown[]) => {
   return '';
 };
 
+const unwrapBookingPayload = (payload: any): any => {
+  let current = payload;
+
+  while (
+    current
+    && typeof current === 'object'
+    && !Array.isArray(current)
+  ) {
+    if (Array.isArray(current.data) || Array.isArray(current.items) || Array.isArray(current.list)) {
+      return current;
+    }
+
+    if (current.data && typeof current.data === 'object') {
+      current = current.data;
+      continue;
+    }
+
+    if (current.item && typeof current.item === 'object') {
+      current = current.item;
+      continue;
+    }
+
+    if (current.booking && typeof current.booking === 'object') {
+      current = current.booking;
+      continue;
+    }
+
+    break;
+  }
+
+  return current;
+};
+
 const normalizeBookingStatus = (status: unknown, statusName?: unknown): BookingStatus => {
   const normalizedStatusName = typeof statusName === 'string'
     ? statusName.trim().toLowerCase()
@@ -43,6 +76,10 @@ const normalizeBookingStatus = (status: unknown, statusName?: unknown): BookingS
   }
 
   if (typeof status === 'number') {
+    if (status === 0) {
+      return BookingStatus.CANCELLED;
+    }
+
     if (status === 1) {
       return BookingStatus.ACTIVE;
     }
@@ -52,14 +89,6 @@ const normalizeBookingStatus = (status: unknown, statusName?: unknown): BookingS
     }
 
     if (status === 3) {
-      return BookingStatus.CANCELLED;
-    }
-
-    if (status === 4) {
-      return BookingStatus.EXPIRED;
-    }
-
-    if (status === 5) {
       return BookingStatus.COMPLETED;
     }
   }
@@ -99,7 +128,12 @@ export const normalizeBooking = (rawBooking: any): Booking => {
     id: pickString(rawBooking?.id, rawBooking?._id, rawBooking?.code),
     code: pickString(rawBooking?.code),
     userId: pickString(rawBooking?.userId?.code, rawBooking?.userId, rawBooking?.userCode),
-    slotId: pickString(slotSource?.code, rawBooking?.slotId, rawBooking?.slotCode),
+    slotId: pickString(
+      slotSource?.code,
+      slotSource?.nameSlot,
+      rawBooking?.slotCode,
+      typeof rawBooking?.slotId === 'string' ? rawBooking.slotId : '',
+    ) || undefined,
     slot: slotSource
       ? {
           id: pickString(slotSource?.id, slotSource?._id, slotSource?.code),
@@ -126,7 +160,7 @@ export const normalizeBooking = (rawBooking: any): Booking => {
         }
       : undefined,
     startTime,
-    endTime,
+    endTime: endTime || undefined,
     status: normalizeBookingStatus(rawBooking?.status, rawBooking?.statusName),
     statusName: pickString(rawBooking?.statusName),
     licensePlate: pickString(rawBooking?.licensePlate),
@@ -136,12 +170,15 @@ export const normalizeBooking = (rawBooking: any): Booking => {
 };
 
 export const normalizeBookingList = (payload: any): Booking[] => {
-  const rawBookings = Array.isArray(payload)
-    ? payload
-    : Array.isArray(payload?.items)
-      ? payload.items
-      : Array.isArray(payload?.list)
-        ? payload.list
+  const unwrappedPayload = unwrapBookingPayload(payload);
+  const rawBookings = Array.isArray(unwrappedPayload)
+    ? unwrappedPayload
+    : Array.isArray(unwrappedPayload?.data)
+      ? unwrappedPayload.data
+      : Array.isArray(unwrappedPayload?.items)
+        ? unwrappedPayload.items
+        : Array.isArray(unwrappedPayload?.list)
+          ? unwrappedPayload.list
         : [];
 
   return rawBookings
@@ -150,7 +187,7 @@ export const normalizeBookingList = (payload: any): Booking[] => {
 };
 
 export const normalizeBookingResponse = (payload: any): Booking | null => {
-  const rawBooking = payload?.data ?? payload?.item ?? payload?.booking ?? payload;
+  const rawBooking = unwrapBookingPayload(payload);
 
   if (rawBooking && typeof rawBooking === 'object' && !Array.isArray(rawBooking)) {
     return normalizeBooking(rawBooking);

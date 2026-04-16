@@ -8,7 +8,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 // import Icon from 'react-native-vector-icons/Ionicons';
 import { COLORS, } from '../../../shared/constants/colors';
 import { useBooking } from '../hooks/useBooking';
@@ -28,6 +28,12 @@ const MyBookingsScreen: React.FC = () => {
   useEffect(() => {
     fetchBookings();
   }, [fetchBookings]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchBookings();
+    }, [fetchBookings]),
+  );
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -106,6 +112,7 @@ const MyBookingsScreen: React.FC = () => {
               }
               onCancel={
                 item.status === BookingStatus.ACTIVE
+                || item.status === BookingStatus.PENDING
                   ? () => cancelBooking(item.id)
                   : undefined
               }

@@ -448,6 +448,7 @@ export class ParkingMapTransformer {
 
         rawSlots.forEach((raw, idx) => {
           const mappedStatus = this.mapApiSlotStatus(raw);
+          if (mappedStatus.status !== SlotStatus.AVAILABLE) return;
 
           // Tọa độ tâm ô slot trong canvas
           const rawX = isHorizontal

@@ -6,10 +6,11 @@ import {
   Text,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 
+import { useAuth } from '../../../store/AuthContext';
 import { Button } from '../../../shared/components/Button';
 import { Card } from '../../../shared/components/Card';
 import { Loading } from '../../../shared/components/Loading';
@@ -18,11 +19,10 @@ import { CONFIG } from '../../../shared/constants/config';
 import { SPACING } from '../../../shared/constants/spacing';
 import { TYPOGRAPHY } from '../../../shared/constants/typography';
 import { formatters } from '../../../shared/utils/formatters';
+import { Booking, BookingStatus } from '../../../types/booking.types';
 import { MainStackParamList } from '../../../types/navigation.types';
-import { Booking } from '../../../types/booking.types';
-import { useAuth } from '../../../store/AuthContext';
-import { bookingService } from '../services/bookingService';
 import { CountdownTimer } from '../components/CountdownTimer';
+import { bookingService } from '../services/bookingService';
 import { normalizeBookingList } from '../utils/bookingAdapters';
 
 type BookingConfirmRouteProp = RouteProp<MainStackParamList, 'BookingConfirm'>;
@@ -31,10 +31,11 @@ const buildHoldExpiryTime = (booking: Booking) => {
   const createdAt = new Date(booking.createdAt || Date.now());
   const createdAtMs = Number.isNaN(createdAt.getTime()) ? Date.now() : createdAt.getTime();
 
-  return new Date(
-    createdAtMs + CONFIG.BOOKING_TIMEOUT_MINUTES * 60 * 1000,
-  );
+  return new Date(createdAtMs + CONFIG.BOOKING_TIMEOUT_MINUTES * 60 * 1000);
 };
+
+const canCancelBooking = (booking: Booking) =>
+  booking.status === BookingStatus.ACTIVE || booking.status === BookingStatus.PENDING;
 
 const BookingConfirmScreen: React.FC = () => {
   const navigation = useNavigation();
@@ -44,6 +45,7 @@ const BookingConfirmScreen: React.FC = () => {
 
   const [booking, setBooking] = useState<Booking | null>(initialBooking ?? null);
   const [isLoading, setIsLoading] = useState(!initialBooking);
+  const [isCancelling, setIsCancelling] = useState(false);
 
   const loadBooking = useCallback(async () => {
     try {
@@ -75,11 +77,36 @@ const BookingConfirmScreen: React.FC = () => {
     loadBooking();
   }, [initialBooking, loadBooking]);
 
-  const handleCancel = () => {
-    Alert.alert(
-      'Thong bao',
-      'Chuc nang huy dat cho chua duoc ket noi voi backend hien tai.',
-    );
+  const handleCancel = async () => {
+    if (!booking?.code || !user?.code) {
+      Alert.alert('Loi', 'Khong tim thay thong tin dat cho de huy');
+      return;
+    }
+
+    try {
+      setIsCancelling(true);
+      await bookingService.cancelBooking({
+        bookingCode: booking.code,
+        userCode: user.code,
+      });
+
+      setBooking(prev =>
+        prev
+          ? {
+              ...prev,
+              status: BookingStatus.CANCELLED,
+              statusName: 'Da huy',
+              slotId: undefined,
+            }
+          : prev,
+      );
+
+      Alert.alert('Thong bao', 'Huy dat cho thanh cong');
+    } catch (error: any) {
+      Alert.alert('Loi', error?.message || 'Khong the huy dat cho');
+    } finally {
+      setIsCancelling(false);
+    }
   };
 
   const handleTimeout = () => {
@@ -105,6 +132,8 @@ const BookingConfirmScreen: React.FC = () => {
     );
   }
 
+  const isPendingAssignment = !booking.slot?.code && !booking.slotId;
+
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -112,9 +141,9 @@ const BookingConfirmScreen: React.FC = () => {
           <Icon name="checkmark-circle" size={80} color={COLORS.success} />
         </View>
 
-        <Text style={styles.title}>Dat cho thanh cong</Text>
+        <Text style={styles.title}>Dat lich thanh cong</Text>
         <Text style={styles.subtitle}>
-          Ban hay den dung gio de nhan vi tri da dat.
+          He thong se tu dong sap xep slot cho ban khi den thoi diem phu hop.
         </Text>
 
         <CountdownTimer
@@ -124,17 +153,25 @@ const BookingConfirmScreen: React.FC = () => {
 
         <Card style={styles.infoCard}>
           <View style={styles.infoRow}>
-            <Icon name="location" size={24} color={COLORS.primary} />
+            <Icon name="pricetag-outline" size={24} color={COLORS.primary} />
+            <View style={styles.infoContent}>
+              <Text style={styles.infoLabel}>Ma dat cho</Text>
+              <Text style={styles.infoValue}>{booking.code || booking.id}</Text>
+            </View>
+          </View>
+
+          <View style={styles.infoRow}>
+            <Icon name="location-outline" size={24} color={COLORS.primary} />
             <View style={styles.infoContent}>
               <Text style={styles.infoLabel}>Vi tri</Text>
               <Text style={styles.infoValue}>
-                {booking.slot?.code || booking.slotId}
+                {booking.slot?.code || booking.slotId || 'He thong se tu dong gan'}
               </Text>
             </View>
           </View>
 
           <View style={styles.infoRow}>
-            <Icon name="car" size={24} color={COLORS.primary} />
+            <Icon name="car-outline" size={24} color={COLORS.primary} />
             <View style={styles.infoContent}>
               <Text style={styles.infoLabel}>Phuong tien</Text>
               <Text style={styles.infoValue}>
@@ -144,26 +181,30 @@ const BookingConfirmScreen: React.FC = () => {
           </View>
 
           <View style={styles.infoRow}>
-            <Icon name="time" size={24} color={COLORS.primary} />
+            <Icon name="time-outline" size={24} color={COLORS.primary} />
             <View style={styles.infoContent}>
-              <Text style={styles.infoLabel}>Thoi gian</Text>
-              <Text style={styles.infoValue}>
-                {formatters.dateTime(booking.startTime)}
-                {booking.endTime ? ` - ${formatters.time(booking.endTime)}` : ''}
-              </Text>
+              <Text style={styles.infoLabel}>Thoi gian vao bai</Text>
+              <Text style={styles.infoValue}>{formatters.dateTime(booking.startTime)}</Text>
             </View>
           </View>
 
           <View style={styles.infoRow}>
-            <Icon name="information-circle" size={24} color={COLORS.primary} />
+            <Icon name="information-circle-outline" size={24} color={COLORS.primary} />
             <View style={styles.infoContent}>
               <Text style={styles.infoLabel}>Trang thai</Text>
-              <Text style={styles.infoValue}>
-                {booking.statusName || booking.status}
-              </Text>
+              <Text style={styles.infoValue}>{booking.statusName || booking.status}</Text>
             </View>
           </View>
         </Card>
+
+        {isPendingAssignment && (
+          <Card style={styles.noticeCard}>
+            <Text style={styles.noticeTitle}>Slot chua duoc gan ngay</Text>
+            <Text style={styles.noticeText}>
+              Theo backend moi, booking se duoc tao truoc va slot se duoc he thong tu dong cap sau.
+            </Text>
+          </Card>
+        )}
 
         <Card style={styles.qrCard}>
           <Text style={styles.qrTitle}>Ma QR Check-in</Text>
@@ -182,12 +223,15 @@ const BookingConfirmScreen: React.FC = () => {
             variant="outline"
             style={styles.actionButton}
           />
-          <Button
-            title="Huy dat cho"
-            onPress={handleCancel}
-            variant="text"
-            style={styles.actionButton}
-          />
+          {canCancelBooking(booking) && (
+            <Button
+              title="Huy dat cho"
+              onPress={handleCancel}
+              variant="text"
+              style={styles.actionButton}
+              loading={isCancelling}
+            />
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -218,6 +262,7 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     textAlign: 'center',
     marginBottom: SPACING.lg,
+    lineHeight: 22,
   },
   infoCard: {
     width: '100%',
@@ -242,6 +287,21 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.fontSize.md,
     fontWeight: TYPOGRAPHY.fontWeight.semibold,
     color: COLORS.textPrimary,
+  },
+  noticeCard: {
+    width: '100%',
+    marginBottom: SPACING.lg,
+  },
+  noticeTitle: {
+    fontSize: TYPOGRAPHY.fontSize.md,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold,
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.xs,
+  },
+  noticeText: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    color: COLORS.textSecondary,
+    lineHeight: 20,
   },
   qrCard: {
     width: '100%',

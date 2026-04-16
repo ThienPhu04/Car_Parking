@@ -170,7 +170,16 @@ export const useParkingMap = (
   }, []);
 
   useEffect(() => {
+    // Gọi lần đầu
     loadParkingMap();
+
+    // Set interval 1 phút (60000 ms)
+    const interval = setInterval(() => {
+      loadParkingMap();
+    }, 5000);
+
+    // Cleanup khi unmount hoặc dependency change
+    return () => clearInterval(interval);
   }, [loadParkingMap]);
 
   return {

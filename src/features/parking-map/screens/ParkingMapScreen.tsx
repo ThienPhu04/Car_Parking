@@ -173,16 +173,13 @@ const ParkingMapScreen: React.FC = () => {
     (navigation as any).navigate('MainTabs', {
       screen: 'Booking',
       params: {
-        slotId: selectedSlot.id,
         vehicleId: route.params?.vehicleId,
         expectedArrivalTime: requestedArrivalTime?.toISOString(),
-        expectedLeaveTime: requestedLeaveTime?.toISOString(),
       },
     });
   }, [
     navigation,
     requestedArrivalTime,
-    requestedLeaveTime,
     route.params?.vehicleId,
     selectedSlot,
   ]);

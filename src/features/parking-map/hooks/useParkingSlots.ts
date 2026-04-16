@@ -36,7 +36,9 @@ export const useParkingSlots = (lotId: string, floor: number) => {
       const response = await apiClient.get<ParkingSlot[]>(
         ENDPOINTS.GET_SLOTS(lotId, floor),
       );
-      setSlots(response.data);
+      setSlots(
+        (response.data ?? []).filter(slot => slot.status === SlotStatus.AVAILABLE),
+      );
     } catch (err) {
       setError(err as Error);
     } finally {
