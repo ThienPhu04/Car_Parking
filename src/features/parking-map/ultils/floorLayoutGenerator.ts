@@ -9,7 +9,15 @@ import {
   EntryPoint,
   ExitPoint,
   SlotFeature,
+  EntranceDTO,
+  ExitDTO,
+  ZoneDTO,
 } from '@app-types/parking.types';
+
+type LegacyFloorDTO = FloorDTO & {
+  name?: string;
+  slots?: SlotDTO[];
+};
 
 /**
  * Generator for mock floor layout during development/testing.
@@ -20,23 +28,94 @@ export class FloorLayoutGenerator {
    * Generate mock floor layout.
    */
   static generateMockFloorLayout(floorLevel: number): FloorLayout {
-    const mockFloorDTO: FloorDTO = {
+    const mockSlots = this.generateMockSlots(floorLevel);
+    const mockFloorDTO: LegacyFloorDTO = {
       code: `MOCK-F${floorLevel}`,
-      name: `Tang ${floorLevel}`,
       nameFloor: `Tang ${floorLevel}`,
       level: floorLevel,
-      totalSlots: 30,
-      entrances: 2,
-      exits: 2,
-      availableSlots: 15,
-      occupiedSlots: 10,
-      reservedSlots: 5,
       status: 1,
       statusName: 'Hoat dong',
-      slots: this.generateMockSlots(floorLevel),
+      entrances: this.createMockEntrances(),
+      exits: this.createMockExits(),
+      lanes: [],
+      slotStandalone: [],
+      zones: this.createMockZones(mockSlots),
+      slots: mockSlots,
     };
 
     return this.generateFloorLayout(mockFloorDTO, 'MOCK');
+  }
+
+  private static createMockEntrances(): EntranceDTO[] {
+    return [
+      {
+        code: 'ENTRY-A',
+        positionX: 0,
+        positionY: 0,
+        height: 40,
+        witdh: 40,
+        rotation: 0,
+        status: 1,
+        statusName: 'Hoat dong',
+      },
+      {
+        code: 'ENTRY-B',
+        positionX: 0,
+        positionY: 0,
+        height: 40,
+        witdh: 40,
+        rotation: 0,
+        status: 1,
+        statusName: 'Hoat dong',
+      },
+    ];
+  }
+
+  private static createMockExits(): ExitDTO[] {
+    return [
+      {
+        code: 'EXIT-A',
+        positionX: 0,
+        positionY: 0,
+        height: 40,
+        witdh: 40,
+        rotation: 0,
+        status: 1,
+        statusName: 'Hoat dong',
+      },
+      {
+        code: 'EXIT-B',
+        positionX: 0,
+        positionY: 0,
+        height: 40,
+        witdh: 40,
+        rotation: 0,
+        status: 1,
+        statusName: 'Hoat dong',
+      },
+    ];
+  }
+
+  private static createMockZones(slots: SlotDTO[]): ZoneDTO[] {
+    const zoneMap = new Map<string, SlotDTO[]>();
+
+    slots.forEach(slot => {
+      const zoneName = slot.zone || slot.nameZone || 'Khong xac dinh';
+      const existing = zoneMap.get(zoneName) ?? [];
+      existing.push(slot);
+      zoneMap.set(zoneName, existing);
+    });
+
+    return Array.from(zoneMap.entries()).map(([zoneName, zoneSlots], index) => ({
+      code: `ZONE-${index + 1}`,
+      nameZone: zoneName,
+      color: index % 2 === 0 ? '#34C759' : '#5AC8FA',
+      status: 1,
+      statusName: 'Hoat dong',
+      points: [],
+      groupSlots: [],
+      slots: zoneSlots,
+    })) as ZoneDTO[];
   }
 
   /**
@@ -95,24 +174,24 @@ export class FloorLayoutGenerator {
   private static getStatusName(status: SlotStatus): string {
     switch (status) {
       case SlotStatus.AVAILABLE:
-        return 'Trong';
+        return 'Trống';
       case SlotStatus.RESERVED:
-        return 'Da dat';
+        return 'Đã đặt chỗ';
       case SlotStatus.OCCUPIED:
-        return 'Da co xe';
+        return 'Có xe';
       default:
         return 'Khong xac dinh';
     }
   }
 
-  private static getFloorName(floorDto: FloorDTO): string {
+  private static getFloorName(floorDto: LegacyFloorDTO): string {
     return floorDto.nameFloor || floorDto.name || `Tang ${floorDto.level}`;
   }
 
   /**
    * Supports both old shape (floor.slots) and new shape (floor.zones[].slots).
    */
-  private static extractSlotsFromFloor(floorDto: FloorDTO): SlotDTO[] {
+  private static extractSlotsFromFloor(floorDto: LegacyFloorDTO): SlotDTO[] {
     if (Array.isArray(floorDto.slots)) {
       return floorDto.slots;
     }
@@ -122,11 +201,12 @@ export class FloorLayoutGenerator {
     }
 
     return floorDto.zones.flatMap(zone => {
-      if (!Array.isArray(zone.slots)) {
+      const legacyZone = zone as ZoneDTO & { slots?: SlotDTO[] };
+      if (!Array.isArray(legacyZone.slots)) {
         return [];
       }
 
-      return zone.slots.map(slot => ({
+      return legacyZone.slots.map(slot => ({
         ...slot,
         zone: slot.zone || zone.nameZone,
         nameZone: slot.nameZone || zone.nameZone,
@@ -137,7 +217,7 @@ export class FloorLayoutGenerator {
   /**
    * Generate FloorLayout from FloorDTO.
    */
-  static generateFloorLayout(floorDto: FloorDTO, parkingCode: string): FloorLayout {
+  static generateFloorLayout(floorDto: LegacyFloorDTO, _parkingCode: string): FloorLayout {
     const slotDtos = this.extractSlotsFromFloor(floorDto);
     const { width, height } = this.calculateGridSize(slotDtos);
 
@@ -193,7 +273,7 @@ export class FloorLayoutGenerator {
   /**
    * Transform SlotDTO to ParkingSlot.
    */
-  private static transformSlot(dto: SlotDTO, floorDto: FloorDTO): ParkingSlot {
+  private static transformSlot(dto: SlotDTO, floorDto: LegacyFloorDTO): ParkingSlot {
     return {
       id: dto.code,
       code: dto.code,
@@ -207,7 +287,7 @@ export class FloorLayoutGenerator {
       statusName: dto.statusName,
       isActive: dto.isActive,
       isSensorReal: dto.isSensorReal,
-      sensorId: dto.sensorId,
+      sensorId: dto.sensorId ?? undefined,
       type: CellType.SLOT,
       walkable: false,
       features: this.detectSlotFeatures(dto),
@@ -324,15 +404,15 @@ export class FloorLayoutGenerator {
    * Generate entry points.
    */
   private static generateEntries(
-    floorDto: FloorDTO,
+    floorDto: LegacyFloorDTO,
     width: number,
-    height: number
+    _height: number
   ): EntryPoint[] {
     const entries: EntryPoint[] = [];
     const centerCol1 = Math.floor(width / 2) - 1;
     const centerCol2 = Math.floor(width / 2);
 
-    const numEntries = Math.min(floorDto.entrances || 2, 2);
+    const numEntries = Math.min(floorDto.entrances?.length || 2, 2);
 
     if (numEntries >= 1) {
       entries.push({
@@ -367,7 +447,7 @@ export class FloorLayoutGenerator {
    * Generate exit points.
    */
   private static generateExits(
-    floorDto: FloorDTO,
+    floorDto: LegacyFloorDTO,
     width: number,
     height: number
   ): ExitPoint[] {
@@ -375,7 +455,7 @@ export class FloorLayoutGenerator {
     const centerCol1 = Math.floor(width / 2) - 1;
     const centerCol2 = Math.floor(width / 2);
 
-    const numExits = Math.min(floorDto.exits || 2, 2);
+    const numExits = Math.min(floorDto.exits?.length || 2, 2);
 
     if (numExits >= 1) {
       exits.push({

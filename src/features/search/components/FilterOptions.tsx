@@ -10,6 +10,7 @@ interface FilterOptionsProps {
     floor?: number;
     features?: string[];
     status?: SlotStatus;
+    zone?: string;
   };
   onUpdateFilters: (filters: any) => void;
   onClearFilters: () => void;

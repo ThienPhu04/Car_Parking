@@ -67,7 +67,12 @@ export const SlotSuggestions: React.FC<SlotSuggestionsProps> = ({
             <View style={styles.details}>
               <View style={styles.detailItem}>
                 <Icon name="layers-outline" size={16} color={COLORS.textSecondary} />
-                <Text style={styles.detailText}>Tầng {slot.floor}</Text>
+                <Text style={styles.detailText}>Tầng {slot.floorLevel}</Text>
+              </View>
+
+              <View style={styles.detailItem}>
+                <Icon name="grid-outline" size={16} color={COLORS.textSecondary} />
+                <Text style={styles.detailText}>{slot.zone || 'Chưa rõ khu'}</Text>
               </View>
 
               {slot.features && slot.features.length > 0 && (

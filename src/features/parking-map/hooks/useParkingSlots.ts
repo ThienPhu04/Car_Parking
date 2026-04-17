@@ -1,50 +1,111 @@
 import { useState, useEffect, useCallback } from 'react';
-import { ParkingSlot, SlotStatus } from '../../../types/parking.types';
-import { apiClient } from '../../../services/api/apiClient';
-import { ENDPOINTS } from '../../../shared/constants/endpoints';
+import {
+  ParkingSlot,
+  SlotStatus,
+  ParkingMapDTO,
+  ParkingMapResponseDTO,
+} from '../../../types/parking.types';
 import { slotHelper } from '../../../shared/utils/slotHelper';
+import { parkingService } from '../services/parkingService';
+import { ParkingMapTransformer } from '../ultils/parkingMapTransformer';
 
-export const useParkingSlots = (lotId: string, floor: number) => {
+const resolveParkingFromResponse = (
+  payload: ParkingMapResponseDTO,
+  parkingCode: string,
+): ParkingMapDTO | null => {
+  const list = Array.isArray(payload) ? payload : [payload];
+  if (list.length === 0) {
+    return null;
+  }
+
+  return (
+    list.find(item => item?.code === parkingCode)
+    ?? list.find(item => Array.isArray(item?.floors) && item.floors.length > 0)
+    ?? list[0]
+  );
+};
+
+const toError = (err: unknown): Error => {
+  if (err instanceof Error) {
+    return err;
+  }
+
+  if (typeof err === 'object' && err !== null && 'message' in err) {
+    return new Error(String((err as { message?: unknown }).message ?? 'Unknown error'));
+  }
+
+  return new Error(String(err));
+};
+
+export const useParkingSlots = (parkingCode: string, floorLevel: number) => {
   const [slots, setSlots] = useState<ParkingSlot[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
-  // const fetchSlots = useCallback(async () => {
-  //   try {
-  //     setIsLoading(true);
-  //     setError(null);
-  //     const response = await apiClient.get<ParkingSlot[]>(ENDPOINTS.GET_SLOTS(lotId, floor));
-  //     setSlots(response.data);
-  //   } catch (err) {
-  //     setError(err as Error);
-  //     console.error('Error fetching slots:', err);
-  //   } finally {
-  //     setIsLoading(false);
-  //   }
-  // }, [lotId, floor]);
-
-
   const fetchSlots = useCallback(async () => {
     try {
-      if (!lotId) {
+      if (!parkingCode) {
         setSlots([]);
         return;
       }
 
       setIsLoading(true);
       setError(null);
-      const response = await apiClient.get<ParkingSlot[]>(
-        ENDPOINTS.GET_SLOTS(lotId, floor),
+
+      const response = await parkingService.getParkingMap({ parkingCode });
+
+      console.log(
+        `[useParkingSlots] raw getParkingMap response for ${parkingCode}:`,
+        JSON.stringify(response, null, 2),
       );
-      setSlots(
-        (response.data ?? []).filter(slot => slot.status === SlotStatus.AVAILABLE),
+
+      const rawPayload: any = response?.data;
+      const payload: any = rawPayload?.data ?? rawPayload;
+
+      console.log(
+        `[useParkingSlots] normalized payload for ${parkingCode}:`,
+        JSON.stringify(payload, null, 2),
       );
+
+      const parkingDto = resolveParkingFromResponse(payload, parkingCode);
+      if (!parkingDto) {
+        console.log(
+          `[useParkingSlots] no parking DTO found for parkingCode=${parkingCode}`,
+        );
+        setSlots([]);
+        return;
+      }
+
+      const transformedMap = ParkingMapTransformer.transformParkingMap(parkingDto);
+      const targetLayout = transformedMap.layouts.find(
+        layout => layout.floorLevel === floorLevel,
+      );
+
+      console.log('[useParkingSlots] parking DTO summary:', {
+        requestedParkingCode: parkingCode,
+        resolvedParkingCode: parkingDto.code,
+        requestedFloorLevel: floorLevel,
+        availableFloors: transformedMap.layouts.map(layout => ({
+          floorId: layout.floorId,
+          floorLevel: layout.floorLevel,
+          slotCount: layout.slots.length,
+        })),
+      });
+
+      console.log(
+        `[useParkingSlots] slots used by SearchScreen for ${parkingCode} floor ${floorLevel}:`,
+        JSON.stringify(targetLayout?.slots ?? [], null, 2),
+      );
+
+      setSlots(targetLayout?.slots ?? []);
     } catch (err) {
-      setError(err as Error);
+      console.error('[useParkingSlots] Error fetching slots:', err);
+      setError(toError(err));
+      setSlots([]);
     } finally {
       setIsLoading(false);
     }
-  }, [floor, lotId]);
+  }, [floorLevel, parkingCode]);
 
   useEffect(() => {
     fetchSlots();

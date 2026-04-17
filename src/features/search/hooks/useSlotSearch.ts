@@ -6,6 +6,7 @@ interface SearchFilters {
   floor?: number;
   features?: string[];
   status?: SlotStatus;
+  zone?: string;
 }
 
 export const useSlotSearch = (slots: ParkingSlot[]) => {
@@ -25,7 +26,7 @@ export const useSlotSearch = (slots: ParkingSlot[]) => {
 
     // Filter by floor
     if (filters.floor !== undefined) {
-      results = results.filter(slot => slot.floor === filters.floor);
+      results = results.filter(slot => slot.floorLevel === filters.floor);
     }
 
     // Filter by features
@@ -40,7 +41,12 @@ export const useSlotSearch = (slots: ParkingSlot[]) => {
       results = results.filter(slot => slot.status === filters.status);
     }
 
-    // Sort by availability
+    // Filter by zone
+    if (filters.zone) {
+      results = results.filter(slot => slot.zone === filters.zone);
+    }
+
+    // Sort by availability, then alphabetically for consistent grouping
     results.sort((a, b) => {
       if (a.status === SlotStatus.AVAILABLE && b.status !== SlotStatus.AVAILABLE) {
         return -1;
@@ -48,7 +54,11 @@ export const useSlotSearch = (slots: ParkingSlot[]) => {
       if (a.status !== SlotStatus.AVAILABLE && b.status === SlotStatus.AVAILABLE) {
         return 1;
       }
-      return 0;
+      const zoneCompare = (a.zone || '').localeCompare(b.zone || '');
+      if (zoneCompare !== 0) {
+        return zoneCompare;
+      }
+      return a.code.localeCompare(b.code);
     });
 
     return results;
