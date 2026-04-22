@@ -2,6 +2,8 @@ import { useCallback, useState } from 'react';
 import { Alert } from 'react-native';
 
 import { useAuth } from '../../../store/AuthContext';
+import { storage } from '../../../shared/utils/storage';
+import { CONFIG } from '../../../shared/constants/config';
 import {
   Wallet,
   WalletTopUpDraft,
@@ -14,6 +16,8 @@ const ADMIN_ACCOUNT_NUMBER = '2702868679';
 const ADMIN_ACCOUNT_NAME = 'NGUYEN VAN A';
 const TOP_UP_POLL_INTERVAL_MS = 3000;
 const TOP_UP_POLL_ATTEMPTS = 8;
+const GUEST_WALLET_KEY = CONFIG.STORAGE_KEYS.GUEST_WALLET;
+const GUEST_WALLET_HISTORY_KEY = CONFIG.STORAGE_KEYS.GUEST_WALLET_HISTORY;
 
 const sleep = (ms: number) =>
   new Promise(resolve => setTimeout(resolve, ms));
@@ -56,6 +60,33 @@ export const useWallet = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const fetchWalletData = useCallback(async () => {
+    if (user?.isGuest) {
+      const guestWallet = await storage.getItem<Wallet>(GUEST_WALLET_KEY);
+      const guestHistory =
+        await storage.getItem<WalletTransaction[]>(GUEST_WALLET_HISTORY_KEY);
+
+      const nextWallet = toWallet(
+        guestWallet || {
+          userId: user.id || 'guest-local-user',
+          balance: 0,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+      );
+      const nextHistory = Array.isArray(guestHistory) ? guestHistory : [];
+
+      setWallet(nextWallet);
+      setHistory(nextHistory);
+
+      await storage.setItem(GUEST_WALLET_KEY, nextWallet);
+      await storage.setItem(GUEST_WALLET_HISTORY_KEY, nextHistory);
+
+      return {
+        wallet: nextWallet,
+        history: nextHistory,
+      };
+    }
+
     if (!user?.code) {
       return {
         wallet: null,
@@ -90,10 +121,25 @@ export const useWallet = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [user?.code]);
+  }, [user?.code, user?.id, user?.isGuest]);
 
   const createTopUpDraft = useCallback(
     async (amount: number): Promise<WalletTopUpDraft> => {
+      if (user?.isGuest) {
+        const timestamp = new Date().toISOString();
+        return {
+          transactionId: `guest-topup-${Date.now()}`,
+          amount,
+          bankCode: ADMIN_BANK_CODE,
+          bankName: 'Vi khach local',
+          bankAccountNumber: ADMIN_ACCOUNT_NUMBER,
+          bankAccountName: ADMIN_ACCOUNT_NAME,
+          transferContent: `GUEST-${Date.now()}`,
+          qrValue: `guest-wallet-topup:${amount}:${timestamp}`,
+          createdAt: timestamp,
+        };
+      }
+
       if (!user?.code) {
         throw new Error('Khong tim thay ma nguoi dung');
       }
@@ -146,11 +192,58 @@ export const useWallet = () => {
         setIsCreatingTopUp(false);
       }
     },
-    [user?.code]
+    [user?.code, user?.isGuest]
   );
 
   const confirmTopUp = useCallback(
     async (draft: WalletTopUpDraft) => {
+      if (user?.isGuest) {
+        try {
+          setIsSubmitting(true);
+
+          const currentWallet = toWallet(
+            wallet || {
+              userId: user.id || 'guest-local-user',
+              balance: 0,
+              createdAt: new Date().toISOString(),
+            },
+          );
+
+          const balanceBefore = Number(currentWallet.balance || 0);
+          const balanceAfter = balanceBefore + Number(draft.amount || 0);
+          const now = new Date().toISOString();
+
+          const nextWallet: Wallet = {
+            ...currentWallet,
+            balance: balanceAfter,
+            updatedAt: now,
+          };
+
+          const nextTransaction: WalletTransaction = {
+            _id: `guest-wallet-tx-${Date.now()}`,
+            transactionId: draft.transactionId,
+            amount: draft.amount,
+            type: 'CREDIT',
+            balanceBefore,
+            balanceAfter,
+            description: 'Nap tien vao vi khach',
+            createdAt: now,
+            updatedAt: now,
+          };
+
+          const nextHistory = [nextTransaction, ...history];
+
+          setWallet(nextWallet);
+          setHistory(nextHistory);
+
+          await storage.setItem(GUEST_WALLET_KEY, nextWallet);
+          await storage.setItem(GUEST_WALLET_HISTORY_KEY, nextHistory);
+          return;
+        } finally {
+          setIsSubmitting(false);
+        }
+      }
+
       if (!user?.code) {
         throw new Error('Khong tim thay ma nguoi dung');
       }
@@ -185,7 +278,7 @@ export const useWallet = () => {
         setIsSubmitting(false);
       }
     },
-    [fetchWalletData, user?.code, wallet?.balance]
+    [fetchWalletData, history, user?.code, user?.id, user?.isGuest, wallet]
   );
 
   return {

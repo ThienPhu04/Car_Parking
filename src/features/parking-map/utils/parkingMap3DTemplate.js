@@ -722,41 +722,59 @@ export const generateThreeJSHTML = parkingData => {
         const routePoints = points.map(point => toWorldVector3(point, FLOOR_THICKNESS + 0.12));
         routeGroup = new THREE.Group();
         const curve = new THREE.CatmullRomCurve3(routePoints);
+        const tubularSegments = Math.max(routePoints.length * 8, 48);
 
         const glowTube = new THREE.Mesh(
-          new THREE.TubeGeometry(curve, Math.max(routePoints.length * 5, 24), 0.085, 10, false),
+          new THREE.TubeGeometry(curve, tubularSegments, 0.16, 14, false),
           new THREE.MeshBasicMaterial({
-            color: 0x41d8ff,
+            color: 0x0ea5e9,
             transparent: true,
-            opacity: 0.28
+            opacity: 0.2
           })
         );
+        glowTube.renderOrder = 80;
         routeGroup.add(glowTube);
 
-        const coreTube = new THREE.Mesh(
-          new THREE.TubeGeometry(curve, Math.max(routePoints.length * 5, 24), 0.04, 10, false),
+        const outerTube = new THREE.Mesh(
+          new THREE.TubeGeometry(curve, tubularSegments, 0.1, 14, false),
           new THREE.MeshStandardMaterial({
-            color: 0x7fe5ff,
-            emissive: 0x3fcfff,
+            color: 0xf8fafc,
+            emissive: 0x38bdf8,
             emissiveIntensity: 0.35,
-            roughness: 0.3,
-            metalness: 0.2
+            roughness: 0.24,
+            metalness: 0.12
           })
         );
+        outerTube.renderOrder = 81;
+        routeGroup.add(outerTube);
+
+        const coreTube = new THREE.Mesh(
+          new THREE.TubeGeometry(curve, tubularSegments, 0.058, 12, false),
+          new THREE.MeshStandardMaterial({
+            color: 0xfef08a,
+            emissive: 0xfacc15,
+            emissiveIntensity: 0.85,
+            roughness: 0.18,
+            metalness: 0.22
+          })
+        );
+        coreTube.renderOrder = 82;
         routeGroup.add(coreTube);
 
         const startMarker = new THREE.Mesh(
-          new THREE.SphereGeometry(0.14, 18, 18),
+          new THREE.SphereGeometry(0.18, 20, 20),
           new THREE.MeshStandardMaterial({ color: 0x4caf50, emissive: 0x4caf50, emissiveIntensity: 0.35 })
         );
         startMarker.position.copy(routePoints[0]);
+        startMarker.renderOrder = 83;
         routeGroup.add(startMarker);
 
         const endMarker = new THREE.Mesh(
-          new THREE.SphereGeometry(0.14, 18, 18),
+          new THREE.SphereGeometry(0.18, 20, 20),
           new THREE.MeshStandardMaterial({ color: 0xff5722, emissive: 0xff5722, emissiveIntensity: 0.35 })
         );
         endMarker.position.copy(routePoints[routePoints.length - 1]);
+        endMarker.renderOrder = 83;
         routeGroup.add(endMarker);
 
         root.add(routeGroup);

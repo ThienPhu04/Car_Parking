@@ -5,7 +5,7 @@ import React, {
   useState,
   ReactNode,
 } from 'react';
-import { User, AuthTokens } from '../types/auth.types';
+import { User, AuthTokens, UpdateUserPayload } from '../types/auth.types';
 import { authService } from '../features/auth/services/authService';
 import { storage } from '../shared/utils/storage';
 import { CONFIG } from '../shared/constants/config';
@@ -17,8 +17,11 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
+  guestLogin: () => Promise<void>;
   logout: () => Promise<void>;
-  updateUser: (userData: Partial<User>) => Promise<void>;
+  updateUser: (
+    userData: UpdateUserPayload
+  ) => Promise<{ user: User; message?: string }>;
   refreshUser: () => Promise<void>;
 }
 
@@ -51,6 +54,7 @@ const normalizeLoginPayload = (payload: any) => {
     phone: responseData.phone,
     avatar: responseData.avatar,
     createdAt: responseData.createdAt,
+    isGuest: false,
   };
 
   return {
@@ -64,6 +68,40 @@ const normalizeLoginPayload = (payload: any) => {
   };
 };
 
+const normalizeUserPayload = (payload: any, fallbackUser?: User | null): User => {
+  const responseData = payload?.data?.data ?? payload?.data ?? payload?.user ?? payload;
+
+  if (!responseData && !fallbackUser) {
+    throw new Error('Khong nhan duoc thong tin nguoi dung tu server');
+  }
+
+  return {
+    id: responseData?.id ?? responseData?._id ?? fallbackUser?.id,
+    code: responseData?.code ?? fallbackUser?.code,
+    name: responseData?.name || responseData?.userName || fallbackUser?.name,
+    userName:
+      responseData?.userName || responseData?.name || fallbackUser?.userName,
+    role: responseData?.role ?? fallbackUser?.role ?? 'user',
+    email: responseData?.email ?? fallbackUser?.email ?? '',
+    phone: responseData?.phone ?? fallbackUser?.phone,
+    avatar: responseData?.avatar ?? fallbackUser?.avatar,
+    createdAt: responseData?.createdAt ?? fallbackUser?.createdAt,
+    isVerified: responseData?.isVerified ?? fallbackUser?.isVerified,
+    isGuest: false,
+  };
+};
+
+const buildGuestUser = (): User => ({
+  id: 'guest-local-user',
+  code: 'GUEST',
+  name: 'Khach',
+  userName: 'Khach',
+  role: 'guest',
+  email: 'guest@local.smartparking',
+  isGuest: true,
+  createdAt: new Date().toISOString(),
+});
+
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   children,
 }) => {
@@ -75,6 +113,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     loadAuthData();
   }, []);
 
+  const persistUser = async (nextUser: User) => {
+    setUser(nextUser);
+    await storage.setItem(CONFIG.STORAGE_KEYS.USER_DATA, nextUser);
+  };
+
   const loadAuthData = async () => {
     try {
       const [savedUser, savedToken, savedRefreshToken] = await Promise.all([
@@ -83,12 +126,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         storage.getItem<string>(CONFIG.STORAGE_KEYS.REFRESH_TOKEN),
       ]);
 
-      if (savedUser && savedToken) {
-        apiClient.setAccessToken(savedToken);
+      if (savedUser && (savedUser.isGuest || savedToken)) {
+        apiClient.setAccessToken(savedUser.isGuest ? null : savedToken);
         setUser(savedUser);
         setTokens({
-          accessToken: savedToken,
-          ...(savedRefreshToken ? { refreshToken: savedRefreshToken } : {}),
+          accessToken: savedUser.isGuest ? 'guest-local-session' : savedToken!,
+          ...(savedUser.isGuest
+            ? {}
+            : (savedRefreshToken ? { refreshToken: savedRefreshToken } : {})),
         });
       }
     } catch (error) {
@@ -101,7 +146,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   const login = async (email: string, password: string) => {
     try {
       const response = await authService.login({ email, password });
-      console.log('LOGIN RESPONSE:', response);
       const normalized = normalizeLoginPayload(response);
       apiClient.setAccessToken(normalized.tokens?.accessToken ?? null);
 
@@ -113,14 +157,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
       if (normalized.tokens?.accessToken) {
         await storage.setItem(
           CONFIG.STORAGE_KEYS.AUTH_TOKEN,
-          normalized.tokens.accessToken
+          normalized.tokens.accessToken,
         );
       }
 
       if (normalized.tokens?.refreshToken) {
         await storage.setItem(
           CONFIG.STORAGE_KEYS.REFRESH_TOKEN,
-          normalized.tokens.refreshToken
+          normalized.tokens.refreshToken,
         );
       } else {
         await storage.removeItem(CONFIG.STORAGE_KEYS.REFRESH_TOKEN);
@@ -132,9 +176,26 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     }
   };
 
+  const guestLogin = async () => {
+    const guestUser = buildGuestUser();
+    const guestTokens: AuthTokens = {
+      accessToken: 'guest-local-session',
+    };
+
+    apiClient.setAccessToken(null);
+    setUser(guestUser);
+    setTokens(guestTokens);
+
+    await storage.setItem(CONFIG.STORAGE_KEYS.USER_DATA, guestUser);
+    await storage.removeItem(CONFIG.STORAGE_KEYS.AUTH_TOKEN);
+    await storage.removeItem(CONFIG.STORAGE_KEYS.REFRESH_TOKEN);
+  };
+
   const logout = async () => {
     try {
-      await authService.logout();
+      if (!user?.isGuest) {
+        await authService.logout();
+      }
     } catch (error) {
       console.error('Logout error:', error);
     } finally {
@@ -149,12 +210,29 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     }
   };
 
-  const updateUser = async (userData: Partial<User>) => {
+  const updateUser = async (userData: UpdateUserPayload) => {
+    if (user?.isGuest) {
+      const updatedGuestUser = { ...user, ...userData };
+      await persistUser(updatedGuestUser);
+      return {
+        user: updatedGuestUser,
+      };
+    }
+
+    if (!user?.code) {
+      throw new Error('Khong tim thay ma nguoi dung');
+    }
+
     try {
-      const response = await authService.updateProfile(userData);
-      const updatedUser = response.data;
-      setUser(updatedUser);
-      await storage.setItem(CONFIG.STORAGE_KEYS.USER_DATA, updatedUser);
+      const response = await authService.updateInfoAccount(user.code, userData);
+      const profileResponse = await authService.getInfoAccount(user.code);
+      const updatedUser = normalizeUserPayload(profileResponse.data, user);
+
+      await persistUser(updatedUser);
+      return {
+        user: updatedUser,
+        message: response.message,
+      };
     } catch (error) {
       console.error('Update user error:', error);
       throw error;
@@ -162,10 +240,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   };
 
   const refreshUser = async () => {
+    if (user?.isGuest) {
+      return;
+    }
+
     try {
-      const response = await authService.getProfile();
-      const userData = response.data;
-      updateUser(userData);
+      if (!user?.code) {
+        throw new Error('Khong tim thay ma nguoi dung');
+      }
+
+      const response = await authService.getInfoAccount(user.code);
+      const userData = normalizeUserPayload(response.data, user);
+      await persistUser(userData);
     } catch (error) {
       console.error('Refresh user error:', error);
       throw error;
@@ -175,9 +261,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   const value: AuthContextType = {
     user,
     tokens,
-    isAuthenticated: !!user && !!tokens?.accessToken,
+    isAuthenticated: !!user && (user.isGuest || !!tokens?.accessToken),
     isLoading,
     login,
+    guestLogin,
     logout,
     updateUser,
     refreshUser,

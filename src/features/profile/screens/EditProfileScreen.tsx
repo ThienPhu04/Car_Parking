@@ -1,12 +1,12 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
+  KeyboardAvoidingView,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
   View,
-  KeyboardAvoidingView,
-  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -17,74 +17,174 @@ import { Input } from '../../../shared/components/Input';
 import { COLORS } from '../../../shared/constants/colors';
 import { SPACING } from '../../../shared/constants/spacing';
 import { TYPOGRAPHY } from '../../../shared/constants/typography';
+import { validate } from '../../../shared/utils/validation';
 import { useAuth } from '../../../store/AuthContext';
+import { UpdateUserPayload } from '../../../types/auth.types';
+
+type FormState = {
+  userName: string;
+  email: string;
+  phone: string;
+};
+
+type FormErrors = Record<keyof FormState, string>;
+
+const createEmptyErrors = (): FormErrors => ({
+  userName: '',
+  email: '',
+  phone: '',
+});
 
 const EditProfileScreen: React.FC = () => {
   const navigation = useNavigation();
   const { user, updateUser } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
+  const isGuest = !!user?.isGuest;
 
-  const [formData, setFormData] = useState({
-    userName: user?.userName || user?.name || '',
-    email: user?.email || '',
-    phone: user?.phone?.toString() || '',
-  });
+  useEffect(() => {
+    if (!isGuest) {
+      return;
+    }
 
-  const [errors, setErrors] = useState({
-    userName: '',
-    phone: '',
+    Alert.alert(
+      'Thong bao',
+      'Tai khoan khach khong ho tro chinh sua ho so.',
+      [{ text: 'Da hieu', onPress: () => navigation.goBack() }]
+    );
+  }, [isGuest, navigation]);
+
+  const initialValues = useMemo(
+    () => ({
+      userName: user?.userName || user?.name || '',
+      email: user?.email || '',
+      phone: user?.phone?.toString() || '',
+    }),
+    [user?.email, user?.name, user?.phone, user?.userName]
+  );
+
+  const [formData, setFormData] = useState<FormState>({
+    ...initialValues,
   });
+  const [errors, setErrors] = useState<FormErrors>(createEmptyErrors());
+
+  const updateField = (field: keyof FormState, value: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+
+    setErrors((prev) => ({
+      ...prev,
+      [field]: '',
+    }));
+  };
 
   const validateForm = () => {
+    const nextErrors = createEmptyErrors();
     let isValid = true;
-    const newErrors = { userName: '', phone: '' };
 
     if (!formData.userName.trim()) {
-      newErrors.userName = 'Vui lòng nhập tên người dùng';
+      nextErrors.userName = 'Vui long nhap ten nguoi dung';
+      isValid = false;
+    }
+
+    if (!formData.email.trim()) {
+      nextErrors.email = 'Vui long nhap email';
+      isValid = false;
+    } else if (!validate.email(formData.email.trim())) {
+      nextErrors.email = 'Email khong hop le';
       isValid = false;
     }
 
     if (!formData.phone.trim()) {
-      newErrors.phone = 'Vui lòng nhập số điện thoại';
+      nextErrors.phone = 'Vui long nhap so dien thoai';
       isValid = false;
-    } else if (formData.phone.length < 10) {
-      newErrors.phone = 'Số điện thoại không hợp lệ';
+    } else if (!validate.phone(formData.phone.trim())) {
+      nextErrors.phone = 'So dien thoai khong hop le';
       isValid = false;
     }
 
-    setErrors(newErrors);
+    setErrors(nextErrors);
     return isValid;
   };
 
+  const buildPayload = (): UpdateUserPayload => {
+    const payload: UpdateUserPayload = {};
+    const nextUserName = formData.userName.trim();
+    const nextEmail = formData.email.trim();
+    const nextPhone = formData.phone.trim();
+    const currentUserName = initialValues.userName.trim();
+    const currentEmail = initialValues.email.trim().toLowerCase();
+    const currentPhone = initialValues.phone.trim();
+
+    if (nextUserName !== currentUserName) {
+      payload.userName = nextUserName;
+    }
+
+    if (nextPhone !== currentPhone) {
+      payload.phone = nextPhone;
+    }
+
+    if (nextEmail.toLowerCase() !== currentEmail) {
+      payload.email = nextEmail;
+    }
+
+    return payload;
+  };
+
   const handleSave = async () => {
-    if (!validateForm()) return;
+    if (isGuest) {
+      return;
+    }
+
+    if (!validateForm()) {
+      return;
+    }
+
+    const payload = buildPayload();
+    const emailChanged =
+      !!payload.email &&
+      payload.email.trim().toLowerCase() !==
+        initialValues.email.trim().toLowerCase();
+
+    if (Object.keys(payload).length === 0) {
+      Alert.alert('Thong bao', 'Khong co thong tin nao thay doi');
+      return;
+    }
 
     try {
       setIsLoading(true);
-      await updateUser({
-        userName: formData.userName,
-        phone: formData.phone,
-      });
-      Alert.alert('Thành công', 'Đã cập nhật thông tin cá nhân');
+      const result = await updateUser(payload);
+      Alert.alert(
+        'Thanh cong',
+        result.message ||
+          (emailChanged
+            ? 'Cap nhat thanh cong. Vui long kiem tra email de xac thuc dia chi moi.'
+            : 'Da cap nhat thong tin ca nhan')
+      );
       navigation.goBack();
     } catch (error: any) {
-      Alert.alert('Lỗi', error?.message || 'Không thể cập nhật thông tin');
+      Alert.alert('Loi', error?.message || 'Khong the cap nhat thong tin');
     } finally {
       setIsLoading(false);
     }
   };
 
+  if (isGuest) {
+    return null;
+  }
+
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
       <View style={styles.header}>
-        <Icon 
-          name="chevron-back" 
-          size={24} 
-          color={COLORS.textPrimary} 
-          onPress={() => navigation.goBack()} 
+        <Icon
+          name="chevron-back"
+          size={24}
+          color={COLORS.textPrimary}
+          onPress={() => navigation.goBack()}
         />
-        <Text style={styles.headerTitle}>Chỉnh sửa thông tin</Text>
-        <View style={{ width: 24 }} />
+        <Text style={styles.headerTitle}>Chinh sua thong tin</Text>
+        <View style={styles.headerSpacer} />
       </View>
 
       <KeyboardAvoidingView
@@ -96,53 +196,62 @@ const EditProfileScreen: React.FC = () => {
             <View style={styles.avatarPlaceholder}>
               <Icon name="person" size={50} color={COLORS.primary} />
             </View>
-            <Text style={styles.changeAvatarText}>Thay đổi ảnh đại diện</Text>
+            <Text style={styles.changeAvatarText}>
+              Cap nhat thong tin tai khoan
+            </Text>
           </View>
 
           <View style={styles.form}>
             <Input
-              label="Mã người dùng"
+              label="Ma nguoi dung"
               value={user?.code || ''}
               editable={false}
-              icon="id-card-outline"
+              leftIcon="id-card-outline"
             />
 
             <Input
-              label="Tên người dùng *"
-              placeholder="Nhập tên của bạn"
+              label="Ten nguoi dung *"
+              placeholder="Nhap ten cua ban"
               value={formData.userName}
-              onChangeText={(text) => setFormData({ ...formData, userName: text })}
+              onChangeText={(text) => updateField('userName', text)}
               error={errors.userName}
-              icon="person-outline"
+              leftIcon="person-outline"
             />
 
             <Input
-              label="Email"
+              label="Email *"
               value={formData.email}
-              editable={false}
-              icon="mail-outline"
+              onChangeText={(text) => updateField('email', text)}
+              error={errors.email}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              leftIcon="mail-outline"
             />
 
             <Input
-              label="Số điện thoại *"
-              placeholder="Nhập số điện thoại"
+              label="So dien thoai *"
+              placeholder="Nhap so dien thoai"
               value={formData.phone}
-              onChangeText={(text) => setFormData({ ...formData, phone: text })}
+              onChangeText={(text) => updateField('phone', text)}
               error={errors.phone}
               keyboardType="phone-pad"
-              icon="call-outline"
+              leftIcon="call-outline"
             />
 
             <View style={styles.infoBox}>
-              <Icon name="information-circle-outline" size={20} color={COLORS.textSecondary} />
+              <Icon
+                name="information-circle-outline"
+                size={20}
+                color={COLORS.textSecondary}
+              />
               <Text style={styles.infoText}>
-                Email và Mã người dùng không thể thay đổi để đảm bảo tính bảo mật.
+                Neu doi email, he thong se gui mail xac thuc toi dia chi moi.
               </Text>
             </View>
           </View>
 
           <Button
-            title="Lưu thay đổi"
+            title="Luu thay doi"
             onPress={handleSave}
             loading={isLoading}
             style={styles.saveButton}
@@ -174,6 +283,9 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.fontSize.lg,
     fontWeight: TYPOGRAPHY.fontWeight.bold,
     color: COLORS.textPrimary,
+  },
+  headerSpacer: {
+    width: 24,
   },
   scrollContent: {
     padding: SPACING.md,

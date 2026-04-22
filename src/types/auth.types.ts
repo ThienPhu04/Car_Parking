@@ -1,6 +1,6 @@
 export interface User {
   id?: string;
-  code?: string; // Mã người dùng backend cần
+  code?: string;
   name?: string;
   userName?: string;
   role: string;
@@ -8,6 +8,8 @@ export interface User {
   phone?: string;
   avatar?: string;
   createdAt?: string;
+  isVerified?: boolean;
+  isGuest?: boolean;
 }
 
 export interface AuthTokens {
@@ -36,6 +38,11 @@ export interface EmailVerificationRequest {
 export interface LoginResponseData extends User {
   accessToken?: string;
   refreshToken?: string;
+}
+
+export interface UpdateUserPayload extends Partial<User> {
+  oldPassword?: string;
+  password?: string;
 }
 
 export interface AuthState {

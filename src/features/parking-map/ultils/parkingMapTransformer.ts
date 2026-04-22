@@ -353,7 +353,6 @@ export class ParkingMapTransformer {
     // 7. Tạo mạng đường đi liên tục từ IN/OUT đến các khu slot
     this.connectAccessPointsToRoad(cells, [...entries, ...exits], laneRoadCells, width, height);
     this.connectSlotsToRoadNetwork(cells, allSlots, laneRoadCells, width, height);
-    this.promoteNonSlotCellsToRoad(cells, width, height);
 
     return {
       floorId,
@@ -747,18 +746,6 @@ export class ParkingMapTransformer {
 
   static inBounds(x: number, y: number, w: number, h: number): boolean {
     return x >= 0 && x < w && y >= 0 && y < h;
-  }
-
-  static promoteNonSlotCellsToRoad(cells: ParkingCell[][], w: number, h: number): void {
-    for (let y = 0; y < h; y++) {
-      for (let x = 0; x < w; x++) {
-        const cell = cells[y][x];
-        if (cell.type === CellType.SLOT || cell.type === CellType.ENTRY || cell.type === CellType.EXIT) {
-          continue;
-        }
-        cells[y][x] = { type: CellType.ROAD, walkable: true };
-      }
-    }
   }
 
   static buildEntries(dto: FloorDTO, ox: number, oy: number): EntryPoint[] {

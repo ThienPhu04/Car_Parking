@@ -6,6 +6,7 @@ import {
   LoginRequest,
   LoginResponseData,
   RegisterRequest,
+  UpdateUserPayload,
 } from '../../../types/auth.types';
 import { ApiResponse, AuthApiResponse } from '../../../types/api.types';
 
@@ -45,5 +46,19 @@ export const authService = {
 
   async updateProfile(data: Partial<User>): Promise<ApiResponse<User>> {
     return apiClient.put(ENDPOINTS.UPDATE_PROFILE, data);
+  },
+
+  async getInfoAccount(code: string): Promise<ApiResponse<User>> {
+    return apiClient.post(ENDPOINTS.GET_INFO_ACCOUNT, { code });
+  },
+
+  async updateInfoAccount(
+    code: string,
+    data: UpdateUserPayload
+  ): Promise<ApiResponse<User | null>> {
+    return apiClient.post(ENDPOINTS.UPDATE_INFO_ACCOUNT, {
+      code,
+      ...data,
+    });
   },
 };

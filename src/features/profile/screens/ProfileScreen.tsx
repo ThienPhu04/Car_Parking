@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   Alert,
   RefreshControl,
@@ -23,16 +23,15 @@ import { TYPOGRAPHY } from '../../../shared/constants/typography';
 import { useAuth } from '@store/AuthContext';
 import { WalletTopUpModal } from '../components/WalletTopUpModal';
 import { useWallet } from '../hooks/useWallet';
-import { WalletTransaction } from '../../../types/wallet.types';
 
 const ProfileScreen: React.FC = () => {
   const navigation = useNavigation();
   const { user, logout } = useAuth();
+  const isGuest = !!user?.isGuest;
   const insets = useSafeAreaInsets();
   const [showTopUpModal, setShowTopUpModal] = useState(false);
   const {
     wallet,
-    history,
     isLoading,
     isCreatingTopUp,
     isSubmitting,
@@ -50,7 +49,7 @@ const ProfileScreen: React.FC = () => {
     }, [fetchWalletData])
   );
 
-  const handleLogout = () => {
+  const handleLogout = useCallback(() => {
     Alert.alert('Dang xuat', 'Ban co chac muon dang xuat?', [
       { text: 'Huy', style: 'cancel' },
       {
@@ -61,68 +60,68 @@ const ProfileScreen: React.FC = () => {
         },
       },
     ]);
-  };
+  }, [logout]);
 
-  const recentTransactions = history.slice(0, 3);
-
-  const getTransactionMeta = (transaction: WalletTransaction) => {
-    const isCredit = transaction.type === 'CREDIT';
-
-    return {
-      icon: isCredit ? 'arrow-down-circle-outline' : 'arrow-up-circle-outline',
-      color: isCredit ? COLORS.success : COLORS.warning,
-      amount: `${isCredit ? '+' : '-'}${formatCurrency(transaction.amount)}`,
-      title:
-        transaction.description ||
-        (isCredit ? 'Nap tien vao vi' : 'Thanh toan bang vi'),
-    };
-  };
-
-  const menuItems = [
-    {
-      icon: 'settings-outline',
-      title: 'Cài đặt ứng dụng',
-      subtitle: 'Thông báo, giao diện và tùy chọn sử dụng',
-      onPress: () => (navigation as any).navigate('Settings'),
-    },
-    {
-      icon: 'car-outline',
-      title: 'Quản lý xe',
-      subtitle: 'Thêm và chỉnh sửa thông tin xe',
-      onPress: () => (navigation as any).navigate('VehicleManagement'),
-    },
-    {
-      icon: 'calendar-outline',
-      title: 'Lịch sử đặt chỗ',
-      subtitle: 'Xem thông tin đặt chỗ đã tạo',
-      onPress: () => (navigation as any).navigate('MyBookings'),
-    },
-    {
-      icon: 'notifications-outline',
-      title: 'Thông báo',
-      subtitle: 'Cài đặt thông báo và cập nhật',
-      onPress: () => (navigation as any).navigate('Notifications'),
-    },
-    {
-      icon: 'help-circle-outline',
-      title: 'Trợ giúp',
-      subtitle: 'Câu hỏi thường gặp và hỗ trợ',
-      onPress: () => Alert.alert('Trợ giúp', 'Email: support@smartparking.com'),
-    },
-    {
-      icon: 'document-text-outline',
-      title: 'Điều khoản và chính sách',
-      subtitle: 'Thông tin điều khoản sử dụng',
-      onPress: () =>
-        Alert.alert('Thông báo', 'Tính năng đang được phát triển'),
-    },
-    {
-      icon: 'log-out-outline',
-      title: 'Đăng xuất',
-      subtitle: 'Đăng xuất khỏi tài khoản hiện tại',
-      onPress: handleLogout,
-    },
-  ];
+  const menuItems = useMemo(
+    () =>
+      [
+        {
+          key: 'settings',
+          icon: 'settings-outline',
+          title: 'Cai dat ung dung',
+          subtitle: 'Thong bao, giao dien va tuy chon su dung',
+          hiddenForGuest: true,
+          onPress: () => (navigation as any).navigate('Settings'),
+        },
+        {
+          key: 'vehicles',
+          icon: 'car-outline',
+          title: 'Quan ly xe',
+          subtitle: 'Them va chinh sua thong tin xe',
+          hiddenForGuest: true,
+          onPress: () => (navigation as any).navigate('VehicleManagement'),
+        },
+        {
+          key: 'bookings',
+          icon: 'calendar-outline',
+          title: 'Lich su dat cho',
+          subtitle: 'Xem thong tin dat cho da tao',
+          hiddenForGuest: true,
+          onPress: () => (navigation as any).navigate('MyBookings'),
+        },
+        {
+          key: 'notifications',
+          icon: 'notifications-outline',
+          title: 'Thong bao',
+          subtitle: 'Cai dat thong bao va cap nhat',
+          hiddenForGuest: true,
+          onPress: () => (navigation as any).navigate('Notifications'),
+        },
+        {
+          key: 'help',
+          icon: 'help-circle-outline',
+          title: 'Tro giup',
+          subtitle: 'Cau hoi thuong gap va ho tro',
+          onPress: () => Alert.alert('Tro giup', 'Email: support@smartparking.com'),
+        },
+        {
+          key: 'policy',
+          icon: 'document-text-outline',
+          title: 'Dieu khoan va chinh sach',
+          subtitle: 'Thong tin dieu khoan su dung',
+          onPress: () =>
+            Alert.alert('Thong bao', 'Tinh nang dang duoc phat trien'),
+        },
+        {
+          key: 'logout',
+          icon: 'log-out-outline',
+          title: 'Dang xuat',
+          subtitle: 'Dang xuat khoi tai khoan hien tai',
+          onPress: handleLogout,
+        },
+      ].filter((item) => !(isGuest && item.hiddenForGuest)),
+    [handleLogout, isGuest, navigation]
+  );
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -141,103 +140,58 @@ const ProfileScreen: React.FC = () => {
       >
         <Card style={styles.profileCard}>
           <View style={styles.avatarContainer}>
-            <Icon name="person" size={40} color={"#FF9500"} />
+            <Icon name="person" size={40} color="#FF9500" />
           </View>
           <View style={styles.profileInfo}>
             <Text style={styles.userName}>
-              {user?.userName || user?.name || 'Người dùng'}
+              {user?.userName || user?.name || 'Nguoi dung'}
             </Text>
             <Text style={styles.userEmail}>{user?.email || ''}</Text>
             <Text style={styles.userPhone}>{user?.phone || ''}</Text>
           </View>
-          <TouchableOpacity
-            onPress={() => (navigation as any).navigate('EditProfile')}
-          >
-            <Icon name="create-outline" size={24} color={"#FF9500"} />
-          </TouchableOpacity>
-        </Card>
-
-        <Card style={styles.walletCard}>
-          <View style={styles.walletHeader}>
-            <View>
-              <Text style={styles.walletLabel}>Số dư tài khoản</Text>
-              <Text style={styles.walletBalance}>
-                {formatCurrency(wallet?.balance || 0)}
-              </Text>
-            </View>
-            <View style={styles.walletBadge}>
-              <Icon name="wallet-outline" size={18} color={"#FF9500"} />
-              <Text style={styles.walletBadgeText}>Ví Smart Parking</Text>
-            </View>
-          </View>
-
-          <Button
-            title="Nạp tiền"
-            onPress={() => setShowTopUpModal(true)}
-            fullWidth
-            style={styles.walletAction}
-          />
-        </Card>
-{/* History walleet */}
-        {/* <View style={styles.transactionSection}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionHeading}>Giao dich gan day</Text>
-            <TouchableOpacity onPress={fetchWalletData} activeOpacity={0.7}>
-              <Text style={styles.sectionAction}>Tai lai</Text>
+          {!isGuest ? (
+            <TouchableOpacity
+              onPress={() => (navigation as any).navigate('EditProfile')}
+            >
+              <Icon name="create-outline" size={24} color="#FF9500" />
             </TouchableOpacity>
-          </View>
+          ) : null}
+        </Card>
 
-          {recentTransactions.length > 0 ? (
-            recentTransactions.map((transaction, index) => {
-              const meta = getTransactionMeta(transaction);
+        {!isGuest ? (
+          <Card style={styles.walletCard}>
+            <View style={styles.walletHeader}>
+              <View>
+                <Text style={styles.walletLabel}>So du tai khoan</Text>
+                <Text style={styles.walletBalance}>
+                  {formatCurrency(wallet?.balance || 0)}
+                </Text>
+              </View>
+              <View style={styles.walletBadge}>
+                <Icon name="wallet-outline" size={18} color="#FF9500" />
+                <Text style={styles.walletBadgeText}>Vi Smart Parking</Text>
+              </View>
+            </View>
 
-              return (
-                <Card
-                  key={`${transaction.transactionId || transaction._id || index}`}
-                  style={styles.transactionCard}
-                >
-                  <View
-                    style={[
-                      styles.transactionIcon,
-                      { backgroundColor: `${meta.color}18` },
-                    ]}
-                  >
-                    <Icon name={meta.icon} size={22} color={meta.color} />
-                  </View>
-                  <View style={styles.transactionContent}>
-                    <Text style={styles.transactionTitle}>{meta.title}</Text>
-                    <Text style={styles.transactionSubtitle}>
-                      {transaction.transactionId || 'Khong co ma giao dich'}
-                    </Text>
-                  </View>
-                  <Text
-                    style={[styles.transactionAmount, { color: meta.color }]}
-                  >
-                    {meta.amount}
-                  </Text>
-                </Card>
-              );
-            })
-          ) : (
-            <Card style={styles.emptyCard}>
-              <Text style={styles.emptyTitle}>Chua co giao dich vi</Text>
-              <Text style={styles.emptySubtitle}>
-                Giao dich nap tien va thanh toan bang vi se hien thi tai day.
-              </Text>
-            </Card>
-          )}
-        </View> */}
+            <Button
+              title="Nap tien"
+              onPress={() => setShowTopUpModal(true)}
+              fullWidth
+              style={styles.walletAction}
+            />
+          </Card>
+        ) : null}
 
         <View style={styles.menuSection}>
-          {menuItems.map((item, index) => (
+          {menuItems.map((item) => (
             <TouchableOpacity
-              key={index}
+              key={item.key}
               onPress={item.onPress}
               activeOpacity={0.7}
             >
               <Card style={styles.menuItem}>
                 <View style={styles.menuItemIcon}>
-                  <Icon name={item.icon} size={24} color={"#FF9500"} />
+                  <Icon name={item.icon} size={24} color="#FF9500" />
                 </View>
                 <View style={styles.menuItemContent}>
                   <Text style={styles.menuItemTitle}>{item.title}</Text>
@@ -253,17 +207,19 @@ const ProfileScreen: React.FC = () => {
           ))}
         </View>
 
-        <Text style={styles.version}>Phiên bản 1.0.0</Text>
+        <Text style={styles.version}>Phien ban 1.0.0</Text>
       </ScrollView>
 
-      <WalletTopUpModal
-        visible={showTopUpModal}
-        loading={isSubmitting}
-        creating={isCreatingTopUp}
-        onClose={() => setShowTopUpModal(false)}
-        onCreateDraft={createTopUpDraft}
-        onConfirmSuccess={confirmTopUp}
-      />
+      {!isGuest ? (
+        <WalletTopUpModal
+          visible={showTopUpModal}
+          loading={isSubmitting}
+          creating={isCreatingTopUp}
+          onClose={() => setShowTopUpModal(false)}
+          onCreateDraft={createTopUpDraft}
+          onConfirmSuccess={confirmTopUp}
+        />
+      ) : null}
     </SafeAreaView>
   );
 };
@@ -343,79 +299,9 @@ const styles = StyleSheet.create({
     color: COLORS.black,
     fontWeight: TYPOGRAPHY.fontWeight.semibold,
   },
-  walletHint: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    color: COLORS.black,
-    lineHeight: 20,
-    marginTop: SPACING.md,
-  },
   walletAction: {
     marginTop: SPACING.md,
-    backgroundColor: "#FF9500",
-  },
-  transactionSection: {
-    marginBottom: SPACING.lg,
-    gap: SPACING.sm,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  sectionHeading: {
-    fontSize: TYPOGRAPHY.fontSize.lg,
-    fontWeight: TYPOGRAPHY.fontWeight.bold,
-    color: COLORS.textPrimary,
-  },
-  sectionAction: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    color: COLORS.primary,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold,
-  },
-  transactionCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.md,
-  },
-  transactionIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  transactionContent: {
-    flex: 1,
-  },
-  transactionTitle: {
-    fontSize: TYPOGRAPHY.fontSize.md,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold,
-    color: COLORS.textPrimary,
-    marginBottom: SPACING.xs,
-  },
-  transactionSubtitle: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    color: COLORS.textSecondary,
-  },
-  transactionAmount: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    fontWeight: TYPOGRAPHY.fontWeight.bold,
-  },
-  emptyCard: {
-    alignItems: 'center',
-    paddingVertical: SPACING.lg,
-  },
-  emptyTitle: {
-    fontSize: TYPOGRAPHY.fontSize.md,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold,
-    color: COLORS.textPrimary,
-    marginBottom: SPACING.xs,
-  },
-  emptySubtitle: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    color: COLORS.textSecondary,
-    textAlign: 'center',
-    lineHeight: 20,
+    backgroundColor: '#FF9500',
   },
   menuSection: {
     gap: SPACING.sm,

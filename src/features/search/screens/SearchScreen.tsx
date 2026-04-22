@@ -46,6 +46,12 @@ const getZoneSortKey = (zone: string) =>
     .trim()
     .toUpperCase();
 
+const compareAlphaNumeric = (left: string, right: string) =>
+  left.localeCompare(right, undefined, {
+    numeric: true,
+    sensitivity: 'base',
+  });
+
 const formatZoneLabel = (zone: string) => {
   const normalizedZone = normalizeZoneName(zone);
   if (/^khu\s+/i.test(normalizedZone)) {
@@ -142,7 +148,7 @@ const SearchScreen: React.FC = () => {
   const zoneOptions = useMemo(() => {
     return Array.from(
       new Set(slots.map(slot => normalizeZoneName(slot.zone))),
-    ).sort((a, b) => getZoneSortKey(a).localeCompare(getZoneSortKey(b)));
+    ).sort((a, b) => compareAlphaNumeric(getZoneSortKey(a), getZoneSortKey(b)));
   }, [slots]);
 
   const zoneGroups = useMemo<ZoneGroup[]>(() => {
@@ -157,11 +163,11 @@ const SearchScreen: React.FC = () => {
 
     return Object.entries(groups)
       .sort(([zoneA], [zoneB]) =>
-        getZoneSortKey(zoneA).localeCompare(getZoneSortKey(zoneB)),
+        compareAlphaNumeric(getZoneSortKey(zoneA), getZoneSortKey(zoneB)),
       )
       .map(([zone, zoneSlots]) => ({
         zone,
-        slots: [...zoneSlots].sort((a, b) => a.code.localeCompare(b.code)),
+        slots: [...zoneSlots].sort((a, b) => compareAlphaNumeric(a.code, b.code)),
       }));
   }, [filteredSlots]);
 

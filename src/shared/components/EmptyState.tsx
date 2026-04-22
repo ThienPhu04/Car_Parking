@@ -55,5 +55,6 @@ const styles = StyleSheet.create({
   },
   button: {
     marginTop: SPACING.lg,
+    backgroundColor: "#FF9500"
   },
 });

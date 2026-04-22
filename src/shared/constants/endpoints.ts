@@ -10,6 +10,8 @@ export const ENDPOINTS = {
   // User
   GET_PROFILE: '/users/profile',
   UPDATE_PROFILE: '/users/profile',
+  GET_INFO_ACCOUNT: '/api/us/getInfoAccount',
+  UPDATE_INFO_ACCOUNT: '/api/us/updateInfoAccount',
 
   // Vehicles
   GET_VEHICLES: '/api/us/getListVehicles',

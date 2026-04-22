@@ -153,6 +153,39 @@ const ParkingMapScreen: React.FC = () => {
     [currentLayout],
   );
 
+  const findSlotAccessPoint = useCallback(
+    (slot: ParkingSlot): Position | null => {
+      if (!currentLayout) {
+        return null;
+      }
+
+      const adjacentDirections = [
+        { x: 0, y: -1 },
+        { x: 1, y: 0 },
+        { x: 0, y: 1 },
+        { x: -1, y: 0 },
+      ];
+
+      for (const direction of adjacentDirections) {
+        const nextX = slot.x + direction.x;
+        const nextY = slot.y + direction.y;
+        const nextCell = currentLayout.cells[nextY]?.[nextX];
+
+        if (
+          nextCell
+          && (nextCell.type === CellType.ROAD
+            || nextCell.type === CellType.ENTRY
+            || nextCell.type === CellType.EXIT)
+        ) {
+          return { x: nextX, y: nextY };
+        }
+      }
+
+      return findNearestRoad({ x: slot.x, y: slot.y });
+    },
+    [currentLayout, findNearestRoad],
+  );
+
   const handleSlotPress = useCallback((slot: ParkingSlot) => {
     setSelectedSlot(slot);
     setNavRoute(null);
@@ -197,15 +230,15 @@ const ParkingMapScreen: React.FC = () => {
       }
 
       setShowEntryModal(false);
-      const nearestRoad = findNearestRoad({ x: selectedSlot.x, y: selectedSlot.y });
-      if (!nearestRoad) {
+      const slotAccessPoint = findSlotAccessPoint(selectedSlot);
+      if (!slotAccessPoint) {
         Alert.alert('Lỗi', 'Không thể tìm đường');
         return;
       }
 
       const routePath = new ParkingNavigator(currentLayout.cells).findPath(
         { x: entry.x, y: entry.y },
-        nearestRoad,
+        slotAccessPoint,
       );
 
       if (!routePath) {
@@ -216,7 +249,7 @@ const ParkingMapScreen: React.FC = () => {
       routePath.path.push({ x: selectedSlot.x, y: selectedSlot.y });
       setNavRoute(routePath);
     },
-    [currentLayout, findNearestRoad, selectedSlot],
+    [currentLayout, findSlotAccessPoint, selectedSlot],
   );
 
   const handleClearRoute = useCallback(() => {
@@ -274,12 +307,6 @@ const ParkingMapScreen: React.FC = () => {
     <SafeAreaView style={styles.container} edges={['bottom']}>
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <View
-            style={[
-              styles.dot,
-              { backgroundColor: isConnected ? COLORS.success : COLORS.error },
-            ]}
-          />
           <View style={styles.headerContent}>
             <Text style={styles.headerTitle} numberOfLines={1}>
               {parkingMap.name || `Bãi xe ${parkingCode}`}
@@ -295,7 +322,7 @@ const ParkingMapScreen: React.FC = () => {
         <View style={styles.headerRight}>
           {navRoute && (
             <TouchableOpacity style={styles.iconBtn} onPress={handleClearRoute}>
-              <Icon name="close-circle" size={24} color={COLORS.error} />
+              {/* <Icon name="close-circle" size={24} color={COLORS.error} /> */}
             </TouchableOpacity>
           )}
           <TouchableOpacity
@@ -307,7 +334,6 @@ const ParkingMapScreen: React.FC = () => {
               )
             }
           >
-            <Icon name="help-circle-outline" size={24} color={COLORS.primary} />
           </TouchableOpacity>
         </View>
       </View>

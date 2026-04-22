@@ -2,12 +2,19 @@ import { useState, useCallback } from 'react';
 import { Alert } from 'react-native';
 import { Vehicle } from '../../../types/vehicle.types';
 import { useAuth } from '../../../store/AuthContext';
+import { storage } from '../../../shared/utils/storage';
+import { CONFIG } from '../../../shared/constants/config';
 import { vehicleService } from '../services/vehicleService';
 import {
   buildVehicleName,
   normalizeVehicleList,
   normalizeVehicleResponse,
 } from '../utils/vehicleAdapters';
+
+const GUEST_VEHICLES_KEY = CONFIG.STORAGE_KEYS.GUEST_VEHICLES;
+
+const createGuestVehicleId = () =>
+  `guest-vehicle-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
 export const useProfile = () => {
   const { user, updateUser, refreshUser } = useAuth();
@@ -17,6 +24,14 @@ export const useProfile = () => {
 
   const fetchVehicles = useCallback(async () => {
     try {
+      if (user?.isGuest) {
+        setIsLoading(true);
+        setError(null);
+        const guestVehicles = await storage.getItem<Vehicle[]>(GUEST_VEHICLES_KEY);
+        setVehicles(Array.isArray(guestVehicles) ? guestVehicles : []);
+        return;
+      }
+
       if (!user?.code) {
         console.error('[useProfile] Missing user.code in Auth Context');
         Alert.alert(
@@ -36,10 +51,26 @@ export const useProfile = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [user?.code]);
+  }, [user?.code, user?.isGuest]);
 
   const addVehicle = useCallback(async (vehicle: Omit<Vehicle, 'id' | 'userId'>) => {
     try {
+      if (user?.isGuest) {
+        setIsLoading(true);
+        setError(null);
+
+        const createdVehicle: Vehicle = {
+          ...vehicle,
+          id: createGuestVehicleId(),
+          userId: user.id || 'guest-local-user',
+        };
+
+        const nextVehicles = [...vehicles, createdVehicle];
+        setVehicles(nextVehicles);
+        await storage.setItem(GUEST_VEHICLES_KEY, nextVehicles);
+        return createdVehicle;
+      }
+
       if (!user?.code) {
         Alert.alert('Loi', 'Khong tim thay ma nguoi dung de gui len server.');
         throw new Error('Missing user code');
@@ -92,10 +123,23 @@ export const useProfile = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [fetchVehicles, user?.code]);
+  }, [fetchVehicles, user?.code, user?.id, user?.isGuest, vehicles]);
 
   const updateVehicle = useCallback(async (id: string, data: Partial<Vehicle>) => {
     try {
+      if (user?.isGuest) {
+        setIsLoading(true);
+        setError(null);
+
+        const nextVehicles = vehicles.map(vehicle =>
+          vehicle.id === id ? { ...vehicle, ...data } : vehicle,
+        );
+
+        setVehicles(nextVehicles);
+        await storage.setItem(GUEST_VEHICLES_KEY, nextVehicles);
+        return nextVehicles.find(vehicle => vehicle.id === id);
+      }
+
       setIsLoading(true);
       setError(null);
 
@@ -132,10 +176,19 @@ export const useProfile = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [fetchVehicles, vehicles]);
+  }, [fetchVehicles, user?.isGuest, vehicles]);
 
   const deleteVehicle = useCallback(async (id: string) => {
     try {
+      if (user?.isGuest) {
+        setIsLoading(true);
+        setError(null);
+        const nextVehicles = vehicles.filter(vehicle => vehicle.id !== id);
+        setVehicles(nextVehicles);
+        await storage.setItem(GUEST_VEHICLES_KEY, nextVehicles);
+        return;
+      }
+
       setIsLoading(true);
       setError(null);
       await vehicleService.deleteVehicle(id);
@@ -147,10 +200,22 @@ export const useProfile = () => {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [user?.isGuest, vehicles]);
 
   const setDefaultVehicle = useCallback(async (id: string) => {
     try {
+      if (user?.isGuest) {
+        setIsLoading(true);
+        setError(null);
+        const nextVehicles = vehicles.map(vehicle => ({
+          ...vehicle,
+          isDefault: vehicle.id === id,
+        }));
+        setVehicles(nextVehicles);
+        await storage.setItem(GUEST_VEHICLES_KEY, nextVehicles);
+        return;
+      }
+
       setIsLoading(true);
       setError(null);
       await vehicleService.setDefaultVehicle(id);
@@ -164,7 +229,7 @@ export const useProfile = () => {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [user?.isGuest, vehicles]);
 
   return {
     user,

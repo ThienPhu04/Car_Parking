@@ -9,6 +9,12 @@ interface SearchFilters {
   zone?: string;
 }
 
+const compareAlphaNumeric = (left: string, right: string) =>
+  left.localeCompare(right, undefined, {
+    numeric: true,
+    sensitivity: 'base',
+  });
+
 export const useSlotSearch = (slots: ParkingSlot[]) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filters, setFilters] = useState<SearchFilters>({});
@@ -54,11 +60,11 @@ export const useSlotSearch = (slots: ParkingSlot[]) => {
       if (a.status !== SlotStatus.AVAILABLE && b.status === SlotStatus.AVAILABLE) {
         return 1;
       }
-      const zoneCompare = (a.zone || '').localeCompare(b.zone || '');
+      const zoneCompare = compareAlphaNumeric(a.zone || '', b.zone || '');
       if (zoneCompare !== 0) {
         return zoneCompare;
       }
-      return a.code.localeCompare(b.code);
+      return compareAlphaNumeric(a.code, b.code);
     });
 
     return results;
