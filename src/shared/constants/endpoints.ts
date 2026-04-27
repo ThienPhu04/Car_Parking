@@ -43,6 +43,7 @@ export const ENDPOINTS = {
   GET_BOOKING: (id: string) => `/bookings/${id}`,
   CANCEL_BOOKING: '/api/us/cancelBooking',
   GET_ACTIVE_BOOKING: '/bookings/active',
+  GET_PARKING_SESSIONS: '/api/us/getParkingSessions',
 
   // Notifications
   GET_NOTIFICATIONS: '/notifications',

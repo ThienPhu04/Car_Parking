@@ -236,7 +236,7 @@ const ParkingMapScreen: React.FC = () => {
         return;
       }
 
-      const routePath = new ParkingNavigator(currentLayout.cells).findPath(
+      const routePath = new ParkingNavigator(currentLayout.lanes).findPath(
         { x: entry.x, y: entry.y },
         slotAccessPoint,
       );

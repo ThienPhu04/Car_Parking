@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   ScrollView,
   StyleSheet,
@@ -21,9 +22,15 @@ import { TYPOGRAPHY } from '../../../shared/constants/typography';
 import { formatters } from '../../../shared/utils/formatters';
 import { Booking, BookingStatus } from '../../../types/booking.types';
 import { MainStackParamList } from '../../../types/navigation.types';
+import {
+  ParkingPaymentStatus,
+  ParkingSession,
+} from '../../../types/parkingSession.types';
 import { CountdownTimer } from '../components/CountdownTimer';
 import { bookingService } from '../services/bookingService';
 import { normalizeBookingList } from '../utils/bookingAdapters';
+import { parkingSessionService } from '../services/parkingSessionService';
+import { normalizeParkingSessionList } from '../utils/parkingSessionAdapters';
 
 type BookingConfirmRouteProp = RouteProp<MainStackParamList, 'BookingConfirm'>;
 
@@ -37,6 +44,51 @@ const buildHoldExpiryTime = (booking: Booking) => {
 const canCancelBooking = (booking: Booking) =>
   booking.status === BookingStatus.ACTIVE || booking.status === BookingStatus.PENDING;
 
+const buildSessionLookupDate = (booking: Booking) => {
+  const bookingDate = booking.startTime || booking.createdAt;
+  if (!bookingDate) {
+    return undefined;
+  }
+
+  const parsedDate = new Date(bookingDate);
+  if (Number.isNaN(parsedDate.getTime())) {
+    return undefined;
+  }
+
+  const year = parsedDate.getFullYear();
+  const month = `${parsedDate.getMonth() + 1}`.padStart(2, '0');
+  const day = `${parsedDate.getDate()}`.padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const findMatchingParkingSession = (
+  sessions: ParkingSession[],
+  booking: Booking,
+) => {
+  if (!sessions.length) {
+    return null;
+  }
+
+  const matchedByBookingCode = booking.code
+    ? sessions.find(session => session.bookingCode === booking.code)
+    : undefined;
+
+  if (matchedByBookingCode) {
+    return matchedByBookingCode;
+  }
+
+  const bookingTime = new Date(booking.startTime).getTime();
+  if (Number.isNaN(bookingTime)) {
+    return sessions[0];
+  }
+
+  return [...sessions].sort((firstSession, secondSession) => {
+    const firstDelta = Math.abs(new Date(firstSession.checkInTime).getTime() - bookingTime);
+    const secondDelta = Math.abs(new Date(secondSession.checkInTime).getTime() - bookingTime);
+    return firstDelta - secondDelta;
+  })[0];
+};
+
 const BookingConfirmScreen: React.FC = () => {
   const navigation = useNavigation();
   const route = useRoute<BookingConfirmRouteProp>();
@@ -46,6 +98,8 @@ const BookingConfirmScreen: React.FC = () => {
   const [booking, setBooking] = useState<Booking | null>(initialBooking ?? null);
   const [isLoading, setIsLoading] = useState(!initialBooking);
   const [isCancelling, setIsCancelling] = useState(false);
+  const [parkingSession, setParkingSession] = useState<ParkingSession | null>(null);
+  const [isLoadingParkingSession, setIsLoadingParkingSession] = useState(false);
 
   const loadBooking = useCallback(async () => {
     try {
@@ -76,6 +130,42 @@ const BookingConfirmScreen: React.FC = () => {
 
     loadBooking();
   }, [initialBooking, loadBooking]);
+
+  const loadParkingSession = useCallback(async (targetBooking: Booking) => {
+    if (
+      !user?.code
+      || targetBooking.status !== BookingStatus.COMPLETED
+    ) {
+      setParkingSession(null);
+      return;
+    }
+
+    try {
+      setIsLoadingParkingSession(true);
+      const lookupDate = buildSessionLookupDate(targetBooking);
+      const response = await parkingSessionService.getParkingSessions({
+        userCode: user.code,
+        plateNumber: targetBooking.vehicle?.licensePlate || targetBooking.licensePlate,
+        fromDate: lookupDate,
+        toDate: lookupDate,
+      });
+      const sessions = normalizeParkingSessionList(response.data);
+      setParkingSession(findMatchingParkingSession(sessions, targetBooking));
+    } catch (error) {
+      setParkingSession(null);
+    } finally {
+      setIsLoadingParkingSession(false);
+    }
+  }, [user?.code]);
+
+  useEffect(() => {
+    if (!booking) {
+      setParkingSession(null);
+      return;
+    }
+
+    loadParkingSession(booking);
+  }, [booking, loadParkingSession]);
 
   const handleCancel = async () => {
     if (!booking?.code || !user?.code) {
@@ -133,6 +223,11 @@ const BookingConfirmScreen: React.FC = () => {
   }
 
   const isPendingAssignment = !booking.slot?.code && !booking.slotId;
+  const showHoldTimer = canCancelBooking(booking);
+  const showParkingSession = booking.status === BookingStatus.COMPLETED;
+  const paymentStatusColor = parkingSession?.paymentStatus === ParkingPaymentStatus.PAID
+    ? COLORS.success
+    : COLORS.warning;
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
@@ -141,15 +236,21 @@ const BookingConfirmScreen: React.FC = () => {
           <Icon name="checkmark-circle" size={80} color={COLORS.success} />
         </View>
 
-        <Text style={styles.title}>Dat lich thanh cong</Text>
+        <Text style={styles.title}>
+          {showParkingSession ? 'Chi tiet dat cho' : 'Dat lich thanh cong'}
+        </Text>
         <Text style={styles.subtitle}>
-          He thong se tu dong sap xep slot cho ban khi den thoi diem phu hop.
+          {showParkingSession
+            ? 'Thong tin phien do duoc gan voi lich dat cho da hoan thanh.'
+            : 'He thong se tu dong sap xep slot cho ban khi den thoi diem phu hop.'}
         </Text>
 
-        <CountdownTimer
-          endTime={buildHoldExpiryTime(booking)}
-          onTimeout={handleTimeout}
-        />
+        {showHoldTimer && (
+          <CountdownTimer
+            endTime={buildHoldExpiryTime(booking)}
+            onTimeout={handleTimeout}
+          />
+        )}
 
         <Card style={styles.infoCard}>
           <View style={styles.infoRow}>
@@ -197,7 +298,7 @@ const BookingConfirmScreen: React.FC = () => {
           </View>
         </Card>
 
-        {isPendingAssignment && (
+        {isPendingAssignment && showHoldTimer && (
           <Card style={styles.noticeCard}>
             <Text style={styles.noticeTitle}>Slot chua duoc gan ngay</Text>
             <Text style={styles.noticeText}>
@@ -206,15 +307,107 @@ const BookingConfirmScreen: React.FC = () => {
           </Card>
         )}
 
-        <Card style={styles.qrCard}>
-          <Text style={styles.qrTitle}>Ma QR Check-in</Text>
-          <View style={styles.qrPlaceholder}>
-            <Icon name="qr-code" size={120} color={COLORS.textSecondary} />
-          </View>
-          <Text style={styles.qrSubtitle}>
-            Backend hien tai chua tra ve QR code, day la khung cho san.
-          </Text>
-        </Card>
+        {showParkingSession && (
+          <Card style={styles.infoCard}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Thong tin phien do</Text>
+              {isLoadingParkingSession && (
+                <ActivityIndicator color={COLORS.primary} size="small" />
+              )}
+            </View>
+
+            {parkingSession ? (
+              <>
+                <View style={styles.infoRow}>
+                  <Icon name="clipboard-outline" size={24} color={COLORS.primary} />
+                  <View style={styles.infoContent}>
+                    <Text style={styles.infoLabel}>Ma phien do</Text>
+                    <Text style={styles.infoValue}>
+                      {parkingSession.code || parkingSession.id}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.infoRow}>
+                  <Icon name="location-outline" size={24} color={COLORS.primary} />
+                  <View style={styles.infoContent}>
+                    <Text style={styles.infoLabel}>Vi tri thuc te</Text>
+                    <Text style={styles.infoValue}>
+                      {parkingSession.slotCode || parkingSession.slotName || 'Dang cap nhat'}
+                    </Text>
+                    {parkingSession.floorLabel ? (
+                      <Text style={styles.infoHint}>{parkingSession.floorLabel}</Text>
+                    ) : null}
+                  </View>
+                </View>
+
+                <View style={styles.infoRow}>
+                  <Icon name="car-outline" size={24} color={COLORS.primary} />
+                  <View style={styles.infoContent}>
+                    <Text style={styles.infoLabel}>Bien so</Text>
+                    <Text style={styles.infoValue}>
+                      {parkingSession.plateNumber || booking.vehicle?.licensePlate || booking.licensePlate || 'N/A'}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.infoRow}>
+                  <Icon name="log-in-outline" size={24} color={COLORS.primary} />
+                  <View style={styles.infoContent}>
+                    <Text style={styles.infoLabel}>Check-in</Text>
+                    <Text style={styles.infoValue}>
+                      {formatters.dateTime(parkingSession.checkInTime)}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.infoRow}>
+                  <Icon name="log-out-outline" size={24} color={COLORS.primary} />
+                  <View style={styles.infoContent}>
+                    <Text style={styles.infoLabel}>Check-out</Text>
+                    <Text style={styles.infoValue}>
+                      {parkingSession.checkOutTime
+                        ? formatters.dateTime(parkingSession.checkOutTime)
+                        : 'Chua check-out'}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.infoRow}>
+                  <Icon name="wallet-outline" size={24} color={COLORS.primary} />
+                  <View style={styles.infoContent}>
+                    <Text style={styles.infoLabel}>Thanh toan</Text>
+                    <Text style={[styles.infoValue, { color: paymentStatusColor }]}>
+                      {parkingSession.paymentStatusName || 'Dang cap nhat'}
+                    </Text>
+                    <Text style={styles.infoHint}>
+                      {formatters.currency(parkingSession.price || 0)}
+                    </Text>
+                  </View>
+                </View>
+              </>
+            ) : (
+              <View style={styles.emptySessionState}>
+                <Icon name="document-text-outline" size={24} color={COLORS.textSecondary} />
+                <Text style={styles.emptySessionText}>
+                  Chua tim thay thong tin phien do cho lich dat cho nay.
+                </Text>
+              </View>
+            )}
+          </Card>
+        )}
+
+        {!showParkingSession && (
+          <Card style={styles.qrCard}>
+            <Text style={styles.qrTitle}>Ma QR Check-in</Text>
+            <View style={styles.qrPlaceholder}>
+              <Icon name="qr-code" size={120} color={COLORS.textSecondary} />
+            </View>
+            <Text style={styles.qrSubtitle}>
+              Backend hien tai chua tra ve QR code, day la khung cho san.
+            </Text>
+          </Card>
+        )}
 
         <View style={styles.actions}>
           <Button
@@ -268,6 +461,17 @@ const styles = StyleSheet.create({
     width: '100%',
     marginVertical: SPACING.lg,
   },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.sm,
+  },
+  sectionTitle: {
+    fontSize: TYPOGRAPHY.fontSize.lg,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold,
+    color: COLORS.textPrimary,
+  },
   infoRow: {
     flexDirection: 'row',
     paddingVertical: SPACING.md,
@@ -287,6 +491,11 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.fontSize.md,
     fontWeight: TYPOGRAPHY.fontWeight.semibold,
     color: COLORS.textPrimary,
+  },
+  infoHint: {
+    marginTop: SPACING.xs,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    color: COLORS.textSecondary,
   },
   noticeCard: {
     width: '100%',
@@ -327,6 +536,18 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.fontSize.sm,
     color: COLORS.textSecondary,
     textAlign: 'center',
+  },
+  emptySessionState: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    paddingVertical: SPACING.md,
+  },
+  emptySessionText: {
+    flex: 1,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    color: COLORS.textSecondary,
+    lineHeight: 20,
   },
   actions: {
     width: '100%',

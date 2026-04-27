@@ -50,10 +50,10 @@ const ProfileScreen: React.FC = () => {
   );
 
   const handleLogout = useCallback(() => {
-    Alert.alert('Dang xuat', 'Ban co chac muon dang xuat?', [
-      { text: 'Huy', style: 'cancel' },
+    Alert.alert('Đăng xuất', 'Bạn có chắc muốn đăng xuất?', [
+      { text: 'Hủy', style: 'cancel' },
       {
-        text: 'Dang xuat',
+        text: 'Đăng xuất',
         style: 'destructive',
         onPress: async () => {
           await logout();
@@ -68,55 +68,55 @@ const ProfileScreen: React.FC = () => {
         {
           key: 'settings',
           icon: 'settings-outline',
-          title: 'Cai dat ung dung',
-          subtitle: 'Thong bao, giao dien va tuy chon su dung',
+          title: 'Cài đặt ứng dụng',
+          subtitle: 'Thông báo, giao diện và tùy chọn sử dụng',
           hiddenForGuest: true,
           onPress: () => (navigation as any).navigate('Settings'),
         },
         {
           key: 'vehicles',
           icon: 'car-outline',
-          title: 'Quan ly xe',
-          subtitle: 'Them va chinh sua thong tin xe',
+          title: 'Quản lý xe',
+          subtitle: 'Thêm và chỉnh sửa thông tin xe',
           hiddenForGuest: true,
           onPress: () => (navigation as any).navigate('VehicleManagement'),
         },
         {
           key: 'bookings',
           icon: 'calendar-outline',
-          title: 'Lich su dat cho',
-          subtitle: 'Xem thong tin dat cho da tao',
+          title: 'Lịch sử đặt chỗ',
+          subtitle: 'Xem thông tin đặt chỗ đã tạo',
           hiddenForGuest: true,
           onPress: () => (navigation as any).navigate('MyBookings'),
         },
         {
           key: 'notifications',
           icon: 'notifications-outline',
-          title: 'Thong bao',
-          subtitle: 'Cai dat thong bao va cap nhat',
+          title: 'Thông báo',
+          subtitle: 'Cài đặt thông báo và cập nhật',
           hiddenForGuest: true,
           onPress: () => (navigation as any).navigate('Notifications'),
         },
         {
           key: 'help',
           icon: 'help-circle-outline',
-          title: 'Tro giup',
-          subtitle: 'Cau hoi thuong gap va ho tro',
-          onPress: () => Alert.alert('Tro giup', 'Email: support@smartparking.com'),
+          title: 'Trợ giúp',
+          subtitle: 'Câu hỏi thường gặp và hỗ trợ',
+          onPress: () => Alert.alert('Trợ giúp', 'Email: support@smartparking.com'),
         },
         {
           key: 'policy',
           icon: 'document-text-outline',
-          title: 'Dieu khoan va chinh sach',
-          subtitle: 'Thong tin dieu khoan su dung',
+          title: 'Điều khoản và chính sách',
+          subtitle: 'Thông tin điều khoản sử dụng',
           onPress: () =>
-            Alert.alert('Thong bao', 'Tinh nang dang duoc phat trien'),
+            Alert.alert('Thông báo', 'Tính năng đang được phát triển'),
         },
         {
           key: 'logout',
           icon: 'log-out-outline',
-          title: 'Dang xuat',
-          subtitle: 'Dang xuat khoi tai khoan hien tai',
+          title: 'Đăng xuất',
+          subtitle: 'Đăng xuất khỏi tài khoản hiện tại',
           onPress: handleLogout,
         },
       ].filter((item) => !(isGuest && item.hiddenForGuest)),
