@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
+  Image,
   ScrollView,
   StyleSheet,
   Text,
@@ -31,6 +32,11 @@ const formatCurrency = (value: number) =>
 
 const QUICK_AMOUNTS = [50000, 100000, 200000, 500000];
 
+const isRemoteImageUrl = (value?: string | null) =>
+  typeof value === 'string' &&
+  /^https?:\/\//i.test(value) &&
+  /\.(png|jpg|jpeg|webp|gif)(\?.*)?$/i.test(value);
+
 export const WalletTopUpModal: React.FC<WalletTopUpModalProps> = ({
   visible,
   loading = false,
@@ -53,13 +59,20 @@ export const WalletTopUpModal: React.FC<WalletTopUpModalProps> = ({
     () => Number(amountInput.replace(/[^\d]/g, '')) || 0,
     [amountInput]
   );
-  const qrValue = draft?.qrValue || draft?.qrUrl || draft?.transferContent || '';
-  const isQrUrlFallback =
-    Boolean(draft?.qrUrl) && draft?.qrValue === draft?.qrUrl;
+  const qrValue =
+    draft?.qrValue || draft?.qrUrl || draft?.transferContent || '';
+  const shouldRenderQrImage = isRemoteImageUrl(draft?.qrUrl);
+  const isQrContentFallback =
+    Boolean(draft) &&
+    !shouldRenderQrImage &&
+    qrValue === draft?.transferContent;
 
   const handleCreateTransaction = async () => {
     if (parsedAmount < 10000) {
-      Alert.alert('Số tiền không hợp lệ', 'Vui lòng nhập ít nhất 10.000 VND');
+      Alert.alert(
+        'So tien khong hop le',
+        'Vui long nhap it nhat 10.000 VND'
+      );
       return;
     }
 
@@ -67,7 +80,7 @@ export const WalletTopUpModal: React.FC<WalletTopUpModalProps> = ({
       const nextDraft = await onCreateDraft(parsedAmount);
       setDraft(nextDraft);
     } catch (error: any) {
-      Alert.alert('Lỗi', error?.message || 'Không thể tạo mã QR nạp tiền');
+      Alert.alert('Loi', error?.message || 'Khong the tao ma QR nap tien');
     }
   };
 
@@ -79,22 +92,28 @@ export const WalletTopUpModal: React.FC<WalletTopUpModalProps> = ({
     try {
       await onConfirmSuccess(draft);
       Alert.alert(
-        'Đã ghi nhận',
-        'Yêu cầu nạp tiền đã được ghi nhận. Số dư sẽ được cập nhật sau khi hệ thống xác nhận giao dịch.'
+        'Da ghi nhan',
+        'Yeu cau nap tien da duoc ghi nhan. So du se duoc cap nhat sau khi he thong xac nhan giao dich.'
       );
       onClose();
     } catch (error: any) {
-      Alert.alert('Lỗi', error?.message || 'Không thể xác nhận giao dịch');
+      Alert.alert('Loi', error?.message || 'Khong the xac nhan giao dich');
     }
   };
 
   return (
     <Modal visible={visible} onClose={onClose} title="Nạp tiền vào ví">
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        bounces
+      >
         {!draft ? (
           <View>
             <Input
-              label="Số tiền nạp"
+              label="So tien nap"
               placeholder="Vi du: 100000"
               keyboardType="number-pad"
               value={amountInput}
@@ -117,7 +136,7 @@ export const WalletTopUpModal: React.FC<WalletTopUpModalProps> = ({
               ))}
             </View>
             <Button
-              title="Tạo mã QR"
+              title="Tao ma QR"
               onPress={handleCreateTransaction}
               loading={creating}
               fullWidth
@@ -126,57 +145,71 @@ export const WalletTopUpModal: React.FC<WalletTopUpModalProps> = ({
         ) : (
           <View>
             <View style={styles.qrCard}>
-              <QRCodeStyled
-                data={qrValue}
-                style={styles.qrCode}
-                padding={18}
-                // pieceSize={7}
-                pieceBorderRadius={2}
-                isPiecesGlued
-                color={COLORS.primaryDark}
-                outerEyesOptions={{
-                  topLeft: { color: COLORS.primaryDark },
-                  topRight: { color: COLORS.primaryDark },
-                  bottomLeft: { color: COLORS.primaryDark },
-                }}
-              />
+              {shouldRenderQrImage ? (
+                <Image
+                  source={{ uri: draft?.qrUrl }}
+                  style={styles.qrCode}
+                  resizeMode="contain"
+                />
+              ) : (
+                <QRCodeStyled
+                  data={qrValue}
+                  style={styles.qrCode}
+                  padding={18}
+                  pieceBorderRadius={2}
+                  isPiecesGlued
+                  color={COLORS.primaryDark}
+                  outerEyesOptions={{
+                    topLeft: { color: COLORS.primaryDark },
+                    topRight: { color: COLORS.primaryDark },
+                    bottomLeft: { color: COLORS.primaryDark },
+                  }}
+                />
+              )}
+              {isQrContentFallback ? (
+                <Text style={styles.qrFallbackNote}>
+                  QR tu backend chua co du lieu chuan de quet. Neu ung dung ngan
+                  hang khong nhan ma, vui long chuyen khoan thu cong dung noi
+                  dung ben duoi.
+                </Text>
+              ) : null}
             </View>
 
-            <View style={styles.infoBlock}>
-              <Text style={styles.infoLabel}>Tài khoản đích</Text>
+            {/* <View style={styles.infoBlock}>
+              <Text style={styles.infoLabel}>Tai khoan dich</Text>
               <Text style={styles.infoValue}>{draft.bankName}</Text>
             </View>
             <View style={styles.infoBlock}>
-              <Text style={styles.infoLabel}>Mã ngân hàng</Text>
+              <Text style={styles.infoLabel}>Ma ngan hang</Text>
               <Text style={styles.infoValue}>{draft.bankCode}</Text>
             </View>
             <View style={styles.infoBlock}>
-              <Text style={styles.infoLabel}>Số tài khoản</Text>
+              <Text style={styles.infoLabel}>So tai khoan</Text>
               <Text style={styles.infoValue}>{draft.bankAccountNumber}</Text>
             </View>
             <View style={styles.infoBlock}>
-              <Text style={styles.infoLabel}>Chủ tài khoản</Text>
+              <Text style={styles.infoLabel}>Chu tai khoan</Text>
               <Text style={styles.infoValue}>
-                {draft.bankAccountName || 'Đang cập nhật'}
+                {draft.bankAccountName || 'Dang cap nhat'}
               </Text>
             </View>
             <View style={styles.infoBlock}>
-              <Text style={styles.infoLabel}>Số tiền</Text>
+              <Text style={styles.infoLabel}>So tien</Text>
               <Text style={[styles.infoValue, styles.amountValue]}>
                 {formatCurrency(draft.amount)}
               </Text>
             </View>
             <View style={styles.infoBlock}>
-              <Text style={styles.infoLabel}>Mã giao dịch</Text>
+              <Text style={styles.infoLabel}>Ma giao dich</Text>
               <Text style={styles.infoValue}>{draft.transactionId}</Text>
             </View>
             <View style={styles.infoBlock}>
-              <Text style={styles.infoLabel}>Nội dung chuyển khoản</Text>
+              <Text style={styles.infoLabel}>Noi dung chuyen khoan</Text>
               <Text style={styles.infoValue}>{draft.transferContent}</Text>
-            </View>
+            </View> */}
             {draft.expireAt ? (
               <View style={styles.infoBlock}>
-                <Text style={styles.infoLabel}>Hết hạn</Text>
+                <Text style={styles.infoLabel}>Het han</Text>
                 <Text style={styles.infoValue}>
                   {new Date(draft.expireAt).toLocaleString('vi-VN')}
                 </Text>
@@ -184,13 +217,13 @@ export const WalletTopUpModal: React.FC<WalletTopUpModalProps> = ({
             ) : null}
 
             <Button
-              title="Tôi đã chuyển tiền, kiểm tra lại"
+              title="Hoan tat"
               onPress={handleConfirm}
               loading={loading}
               fullWidth
             />
             <Button
-              title="Tạo lại"
+              title="Tao lai"
               onPress={() => setDraft(null)}
               variant="outline"
               fullWidth
@@ -204,11 +237,14 @@ export const WalletTopUpModal: React.FC<WalletTopUpModalProps> = ({
 };
 
 const styles = StyleSheet.create({
-  description: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    color: COLORS.textSecondary,
-    lineHeight: 20,
-    marginBottom: SPACING.md,
+  scrollView: {
+    marginHorizontal: -SPACING.lg,
+    marginBottom: -SPACING.lg,
+  },
+  scrollContent: {
+    paddingHorizontal: SPACING.lg,
+    paddingTop: SPACING.lg,
+    paddingBottom: SPACING.xl + SPACING.md,
   },
   quickAmountRow: {
     flexDirection: 'row',
@@ -229,12 +265,6 @@ const styles = StyleSheet.create({
     color: COLORS.primary,
     fontWeight: TYPOGRAPHY.fontWeight.semibold,
   },
-  amountPreview: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    color: COLORS.textPrimary,
-    marginBottom: SPACING.md,
-    fontWeight: TYPOGRAPHY.fontWeight.medium,
-  },
   infoBlock: {
     backgroundColor: COLORS.background,
     borderRadius: 12,
@@ -254,11 +284,6 @@ const styles = StyleSheet.create({
     width: 220,
     height: 220,
     marginBottom: SPACING.sm,
-  },
-  qrCaption: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    color: COLORS.textSecondary,
-    textAlign: 'center',
   },
   qrFallbackNote: {
     marginTop: SPACING.sm,

@@ -20,7 +20,9 @@ const resolveDevHost = () => {
 };
 
 const DEV_HOST = resolveDevHost();
-const DEV_API_BASE_URL = `http://${DEV_HOST}:3000/`;
+// const DEV_API_BASE_URL = `http://${DEV_HOST}:3000/`;
+const DEV_API_BASE_URL = 'http://192.168.1.7:3000/';
+
 const DEV_MQTT_BROKER_URL = `mqtt://${DEV_HOST}:1883`;
 const PROD_API_BASE_URL = 'https://be-smartparking.onrender.com/';
 

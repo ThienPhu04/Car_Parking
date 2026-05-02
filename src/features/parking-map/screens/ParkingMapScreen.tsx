@@ -136,7 +136,7 @@ const ParkingMapScreen: React.FC = () => {
 
       const entry = currentLayout.entries[entryIndex];
       if (!entry) {
-        Alert.alert('Lá»—i', 'KhÃ´ng tÃ¬m tháº¥y lá»‘i vÃ o');
+        Alert.alert('Lỗi', 'Không tìm thấy lối vào');
         return;
       }
 
@@ -146,7 +146,7 @@ const ParkingMapScreen: React.FC = () => {
         .findPathFromEntryToSlot(entry, selectedSlot);
 
       if (!routePath) {
-        Alert.alert('Lá»—i', 'KhÃ´ng tÃ¬m tháº¥y Ä‘Æ°á»ng Ä‘i');
+        Alert.alert('Lỗi', 'Không tìm thấy đường đi');
         return;
       }
 
@@ -233,8 +233,8 @@ const ParkingMapScreen: React.FC = () => {
             style={styles.iconBtn}
             onPress={() =>
               Alert.alert(
-                'HÆ°á»›ng dáº«n',
-                'KÃ©o 1 ngÃ³n Ä‘á»ƒ xoay báº£n Ä‘á»“ 3D\nDÃ¹ng 2 ngÃ³n Ä‘á»ƒ di chuyá»ƒn trÃ¡i/pháº£i/lÃªn/xuá»‘ng vÃ  chá»¥m/má»Ÿ Ä‘á»ƒ thu phÃ³ng\nXanh: Trá»‘ng\nÄá»: ÄÃ£ cÃ³ xe\nVÃ ng: ÄÃ£ Ä‘áº·t\nIN: Lá»‘i vÃ o | OUT: Lá»‘i ra',
+                'Hướng dẫn',
+                'Kéo 1 ngón để xoay bản đồ 3D\nDùng 2 ngón để di chuyển trái/phải/lên/xuống và chụm/mở để thu phóng\nXanh: Trống\nĐỏ: Đã có xe\nVàng: Đã đặt\nIN: Lối vào | OUT: Lối ra',
               )
             }
           />
@@ -252,17 +252,17 @@ const ParkingMapScreen: React.FC = () => {
           <StatChip
             icon="checkmark-circle"
             color={COLORS.success}
-            label={`${currentFloorInfo?.availableSlots ?? 0} trá»‘ng`}
+            label={`${currentFloorInfo?.availableSlots ?? 0} trống`}
           />
           <StatChip
             icon="car"
             color={COLORS.error}
-            label={`${currentFloorInfo?.occupiedSlots ?? 0} cÃ³ xe`}
+            label={`${currentFloorInfo?.occupiedSlots ?? 0} có xe`}
           />
           <StatChip
             icon="time"
             color={COLORS.warning}
-            label={`${currentFloorInfo?.reservedSlots ?? 0} Ä‘Ã£ Ä‘áº·t`}
+            label={`${currentFloorInfo?.reservedSlots ?? 0} đã đặt`}
           />
         </View>
       </Card>
@@ -297,7 +297,7 @@ const ParkingMapScreen: React.FC = () => {
         ) : (
           <View style={styles.center}>
             <Icon name="map-outline" size={48} color={COLORS.textSecondary} />
-            <Text style={styles.loadingText}>BÃ£i xe chÆ°a cÃ³ sÆ¡ Ä‘á»“ táº§ng</Text>
+            <Text style={styles.loadingText}>Bãi xe chưa có sơ đồ tầng</Text>
           </View>
         )}
       </View>
@@ -325,7 +325,7 @@ const ParkingMapScreen: React.FC = () => {
         <View style={styles.modalOverlay}>
           <View style={styles.modalSheet}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Chá»n lá»‘i vÃ o</Text>
+              <Text style={styles.modalTitle}>Chọn lối vào</Text>
               <TouchableOpacity onPress={() => setShowEntryModal(false)}>
                 <Icon name="close" size={22} color={COLORS.textPrimary} />
               </TouchableOpacity>

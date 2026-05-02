@@ -159,9 +159,9 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({
     }
   };
 
-  const refreshNotifications = async () => {
+  const refreshNotifications = useCallback(async () => {
     await loadNotifications();
-  };
+  }, [loadNotifications]);
 
   const notifications = useMemo(() => {
     const merged = [...localNotifications, ...remoteNotifications].map((item) =>

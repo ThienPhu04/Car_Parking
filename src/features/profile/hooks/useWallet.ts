@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import { Alert } from 'react-native';
 
 import { useAuth } from '../../../store/AuthContext';
+import { useNotifications } from '../../../store/NotificationContext';
 import { storage } from '../../../shared/utils/storage';
 import { CONFIG } from '../../../shared/constants/config';
 import {
@@ -9,39 +10,14 @@ import {
   WalletTopUpDraft,
   WalletTransaction,
 } from '../../../types/wallet.types';
+import { NotificationType } from '../../../types/notification.types';
 import { walletService } from '../services/walletService';
 
 const ADMIN_BANK_CODE = '970422';
 const ADMIN_ACCOUNT_NUMBER = '2702868679';
 const ADMIN_ACCOUNT_NAME = 'NGUYEN VAN A';
-const TOP_UP_POLL_INTERVAL_MS = 3000;
-const TOP_UP_POLL_ATTEMPTS = 8;
 const GUEST_WALLET_KEY = CONFIG.STORAGE_KEYS.GUEST_WALLET;
 const GUEST_WALLET_HISTORY_KEY = CONFIG.STORAGE_KEYS.GUEST_WALLET_HISTORY;
-
-const sleep = (ms: number) =>
-  new Promise(resolve => setTimeout(resolve, ms));
-
-const isMatchingTopUp = (
-  transactions: WalletTransaction[],
-  draft: WalletTopUpDraft
-) => {
-  const draftCreatedAt = Date.parse(draft.createdAt || '');
-  const transactionMatched = transactions.some(transaction => {
-    const transactionCreatedAt = Date.parse(transaction.createdAt || '');
-
-    return (
-      transaction.type === 'CREDIT' &&
-      Number(transaction.amount) === Number(draft.amount) &&
-      (!Number.isNaN(draftCreatedAt)
-        ? !Number.isNaN(transactionCreatedAt) &&
-          transactionCreatedAt >= draftCreatedAt - 60_000
-        : true)
-    );
-  });
-
-  return transactionMatched;
-};
 
 const toWallet = (wallet?: Partial<Wallet> | null): Wallet => ({
   _id: wallet?._id,
@@ -53,6 +29,7 @@ const toWallet = (wallet?: Partial<Wallet> | null): Wallet => ({
 
 export const useWallet = () => {
   const { user } = useAuth();
+  const { addNotification, refreshNotifications } = useNotifications();
   const [wallet, setWallet] = useState<Wallet | null>(null);
   const [history, setHistory] = useState<WalletTransaction[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -71,7 +48,7 @@ export const useWallet = () => {
           balance: 0,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
-        },
+        }
       );
       const nextHistory = Array.isArray(guestHistory) ? guestHistory : [];
 
@@ -163,7 +140,6 @@ export const useWallet = () => {
         const qrValue =
           qrPayment?.qrValue ||
           qrPayment?.qrData ||
-          qrUrl ||
           qrPayment?.content ||
           transactionId;
 
@@ -206,7 +182,7 @@ export const useWallet = () => {
               userId: user.id || 'guest-local-user',
               balance: 0,
               createdAt: new Date().toISOString(),
-            },
+            }
           );
 
           const balanceBefore = Number(currentWallet.balance || 0);
@@ -250,27 +226,31 @@ export const useWallet = () => {
 
       try {
         setIsSubmitting(true);
-        const baselineBalance = Number(wallet?.balance || 0);
 
-        for (let attempt = 0; attempt < TOP_UP_POLL_ATTEMPTS; attempt += 1) {
-          if (attempt > 0) {
-            await sleep(TOP_UP_POLL_INTERVAL_MS);
-          }
+        await walletService.simulateTopUpWebhook({
+          amount: Number(draft.amount || 0),
+          content: draft.transferContent || draft.transactionId,
+        });
 
-          const latestData = await fetchWalletData();
-          const latestBalance = Number(latestData.wallet?.balance || 0);
-
-          if (
-            latestBalance > baselineBalance ||
-            isMatchingTopUp(latestData.history, draft)
-          ) {
-            return;
-          }
+        await fetchWalletData();
+        try {
+          await refreshNotifications();
+        } catch (notificationError) {
+          console.error(
+            '[useWallet] Error refreshing notifications after top up:',
+            notificationError
+          );
+          addNotification({
+            type: NotificationType.SYSTEM,
+            title: 'Nap tien thanh cong',
+            message: `+${Number(draft.amount || 0).toLocaleString('vi-VN')} VND vao vi`,
+            data: {
+              amount: draft.amount,
+              transactionId: draft.transactionId,
+              paymentCode: draft.transferContent,
+            },
+          });
         }
-
-        throw new Error(
-          'He thong chua ghi nhan giao dich. Vui long doi them it phut roi thu kiem tra lai.'
-        );
       } catch (error: any) {
         console.error('[useWallet] Error confirming top up:', error);
         throw error;
@@ -278,7 +258,16 @@ export const useWallet = () => {
         setIsSubmitting(false);
       }
     },
-    [fetchWalletData, history, user?.code, user?.id, user?.isGuest, wallet]
+    [
+      addNotification,
+      fetchWalletData,
+      history,
+      refreshNotifications,
+      user?.code,
+      user?.id,
+      user?.isGuest,
+      wallet,
+    ]
   );
 
   return {

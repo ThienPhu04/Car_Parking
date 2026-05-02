@@ -26,6 +26,7 @@ export const ENDPOINTS = {
   GET_WALLET_HISTORY: '/api/us/wallet/getHistory',
   PAY_WITH_WALLET: '/api/us/wallet/pay',
   CREATE_TOPUP_QR: '/api/us/payment/create-qr',
+  TOPUP_WEBHOOK: '/api/us/payment/webhook',
 
   // Parking
   GET_PARKING_LOTS: '/parking/lots',

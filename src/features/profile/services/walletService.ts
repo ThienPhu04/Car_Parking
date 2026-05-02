@@ -14,6 +14,11 @@ interface CreateTopUpQrPayload extends WalletPayload {
   amount: number;
 }
 
+interface SimulateTopUpWebhookPayload {
+  amount: number;
+  content: string;
+}
+
 interface CreateTopUpQrResponse {
   transaction?: {
     _id?: string;
@@ -72,6 +77,11 @@ const WALLET_ENDPOINTS = {
     '/api/us/create-qr',
     '/api/us/payment/createTopupQR',
   ],
+  simulateTopUpWebhook: [
+    ENDPOINTS.TOPUP_WEBHOOK,
+    '/api/us/payment/webhook',
+    '/api/us/webhook',
+  ],
 } as const;
 
 export const walletService = {
@@ -89,6 +99,13 @@ export const walletService = {
   createTopUpQr(payload: CreateTopUpQrPayload) {
     return postWithFallback<CreateTopUpQrResponse>(
       [...WALLET_ENDPOINTS.createTopUpQr],
+      payload
+    );
+  },
+
+  simulateTopUpWebhook(payload: SimulateTopUpWebhookPayload) {
+    return postWithFallback<unknown>(
+      [...WALLET_ENDPOINTS.simulateTopUpWebhook],
       payload
     );
   },
