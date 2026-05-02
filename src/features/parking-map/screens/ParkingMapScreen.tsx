@@ -14,23 +14,18 @@ import Icon from 'react-native-vector-icons/Ionicons';
 
 import { Card } from '../../../shared/components/Card';
 import { COLORS } from '../../../shared/constants/colors';
-import { MQTT_TOPICS } from '../../../shared/constants/mqttTopics';
 import { SPACING } from '../../../shared/constants/spacing';
 import { TYPOGRAPHY } from '../../../shared/constants/typography';
 import { MainStackParamList } from '../../../types/navigation.types';
 import {
-  CellType,
   NavigationRoute,
   ParkingSlot,
-  Position,
-  SlotStatus,
 } from '../../../types/parking.types';
 import { EnhancedParkingGrid } from '../components/EnhancedParkingGrid';
 import { FloorSelector } from '../components/FloorSelector';
 import { NavigationPanel } from '../components/NavigationPanel';
 import { SlotActionModal } from '../components/SlotActionModal';
 import { SlotLegend } from '../components/SlotLegend';
-import { useMQTT } from '../hooks/useMQTT';
 import { useParkingMap } from '../hooks/useParkingMap';
 import { ParkingNavigator } from '../ultils/navigationHelper';
 
@@ -66,7 +61,6 @@ const ParkingMapScreen: React.FC = () => {
     isLoading,
     error,
     switchFloor,
-    updateSlotStatus,
     refresh,
   } = useParkingMap(
     parkingCode,
@@ -82,30 +76,6 @@ const ParkingMapScreen: React.FC = () => {
   const [navRoute, setNavRoute] = useState<NavigationRoute | null>(null);
   const [showEntryModal, setShowEntryModal] = useState(false);
   const [showSlotActionModal, setShowSlotActionModal] = useState(false);
-
-  const statusLabel = (status: number) => {
-    switch (status) {
-      case SlotStatus.AVAILABLE:
-        return 'Trống';
-      case SlotStatus.RESERVED:
-        return 'Đã đặt';
-      case SlotStatus.OCCUPIED:
-        return 'Đã có xe';
-      default:
-        return 'Không xác định';
-    }
-  };
-
-  const mqttTopic = currentLayout
-    ? MQTT_TOPICS.SLOT_STATUS(parkingCode, currentLayout.floorLevel)
-    : '';
-  const { isConnected } = useMQTT(mqttTopic, message => {
-    updateSlotStatus(
-      message.slotId,
-      message.status as SlotStatus,
-      statusLabel(message.status),
-    );
-  });
 
   const currentFloorInfo =
     parkingMap?.floors.find(floor => floor.id === currentLayout?.floorId)
@@ -126,65 +96,6 @@ const ParkingMapScreen: React.FC = () => {
       setSelectedSlot(matchedSlot);
     }
   }, [currentLayout, route.params?.selectedSlot]);
-
-  const findNearestRoad = useCallback(
-    (position: Position): Position | null => {
-      if (!currentLayout) {
-        return null;
-      }
-
-      let bestPosition: Position | null = null;
-      let minimumDistance = Infinity;
-
-      currentLayout.cells.forEach((row, y) =>
-        row.forEach((cell, x) => {
-          if (cell.type === CellType.ROAD || cell.type === CellType.ENTRY) {
-            const distance = Math.abs(x - position.x) + Math.abs(y - position.y);
-            if (distance < minimumDistance) {
-              minimumDistance = distance;
-              bestPosition = { x, y };
-            }
-          }
-        }),
-      );
-
-      return bestPosition;
-    },
-    [currentLayout],
-  );
-
-  const findSlotAccessPoint = useCallback(
-    (slot: ParkingSlot): Position | null => {
-      if (!currentLayout) {
-        return null;
-      }
-
-      const adjacentDirections = [
-        { x: 0, y: -1 },
-        { x: 1, y: 0 },
-        { x: 0, y: 1 },
-        { x: -1, y: 0 },
-      ];
-
-      for (const direction of adjacentDirections) {
-        const nextX = slot.x + direction.x;
-        const nextY = slot.y + direction.y;
-        const nextCell = currentLayout.cells[nextY]?.[nextX];
-
-        if (
-          nextCell
-          && (nextCell.type === CellType.ROAD
-            || nextCell.type === CellType.ENTRY
-            || nextCell.type === CellType.EXIT)
-        ) {
-          return { x: nextX, y: nextY };
-        }
-      }
-
-      return findNearestRoad({ x: slot.x, y: slot.y });
-    },
-    [currentLayout, findNearestRoad],
-  );
 
   const handleSlotPress = useCallback((slot: ParkingSlot) => {
     setSelectedSlot(slot);
@@ -225,31 +136,24 @@ const ParkingMapScreen: React.FC = () => {
 
       const entry = currentLayout.entries[entryIndex];
       if (!entry) {
-        Alert.alert('Lỗi', 'Không tìm thấy lối vào');
+        Alert.alert('Lá»—i', 'KhÃ´ng tÃ¬m tháº¥y lá»‘i vÃ o');
         return;
       }
 
       setShowEntryModal(false);
-      const slotAccessPoint = findSlotAccessPoint(selectedSlot);
-      if (!slotAccessPoint) {
-        Alert.alert('Lỗi', 'Không thể tìm đường');
-        return;
-      }
 
-      const routePath = new ParkingNavigator(currentLayout.lanes).findPath(
-        { x: entry.x, y: entry.y },
-        slotAccessPoint,
-      );
+      const routePath = new ParkingNavigator(currentLayout)
+        .findPathFromEntryToSlot(entry, selectedSlot);
 
       if (!routePath) {
-        Alert.alert('Lỗi', 'Không tìm thấy đường đi');
+        Alert.alert('Lá»—i', 'KhÃ´ng tÃ¬m tháº¥y Ä‘Æ°á»ng Ä‘i');
         return;
       }
 
       routePath.path.push({ x: selectedSlot.x, y: selectedSlot.y });
       setNavRoute(routePath);
     },
-    [currentLayout, findSlotAccessPoint, selectedSlot],
+    [currentLayout, selectedSlot],
   );
 
   const handleClearRoute = useCallback(() => {
@@ -276,7 +180,7 @@ const ParkingMapScreen: React.FC = () => {
     return (
       <View style={styles.center}>
         <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={styles.loadingText}>Đang tải bản đồ...</Text>
+        <Text style={styles.loadingText}>Äang táº£i báº£n Ä‘á»“...</Text>
       </View>
     );
   }
@@ -285,10 +189,10 @@ const ParkingMapScreen: React.FC = () => {
     return (
       <SafeAreaView style={styles.center}>
         <Icon name="alert-circle-outline" size={56} color={COLORS.error} />
-        <Text style={styles.errorTitle}>Không thể tải bản đồ</Text>
+        <Text style={styles.errorTitle}>KhÃ´ng thá»ƒ táº£i báº£n Ä‘á»“</Text>
         <Text style={styles.errorMsg}>{error.message}</Text>
         <TouchableOpacity style={styles.retryBtn} onPress={refresh}>
-          <Text style={styles.retryText}>Thử lại</Text>
+          <Text style={styles.retryText}>Thá»­ láº¡i</Text>
         </TouchableOpacity>
       </SafeAreaView>
     );
@@ -298,7 +202,7 @@ const ParkingMapScreen: React.FC = () => {
     return (
       <SafeAreaView style={styles.center}>
         <Icon name="map-outline" size={56} color={COLORS.textSecondary} />
-        <Text style={styles.errorTitle}>Không có dữ liệu</Text>
+        <Text style={styles.errorTitle}>KhÃ´ng cÃ³ dá»¯ liá»‡u</Text>
       </SafeAreaView>
     );
   }
@@ -309,7 +213,7 @@ const ParkingMapScreen: React.FC = () => {
         <View style={styles.headerLeft}>
           <View style={styles.headerContent}>
             <Text style={styles.headerTitle} numberOfLines={1}>
-              {parkingMap.name || `Bãi xe ${parkingCode}`}
+              {parkingMap.name || `BÃ£i xe ${parkingCode}`}
             </Text>
             {!!parkingMap.location && (
               <Text style={styles.headerSub} numberOfLines={1}>
@@ -329,12 +233,11 @@ const ParkingMapScreen: React.FC = () => {
             style={styles.iconBtn}
             onPress={() =>
               Alert.alert(
-                'Hướng dẫn',
-                'Kéo 1 ngón để xoay bản đồ 3D\nDùng 2 ngón để di chuyển trái/phải/lên/xuống và chụm/mở để thu phóng\nXanh: Trống\nĐỏ: Đã có xe\nVàng: Đã đặt\nIN: Lối vào | OUT: Lối ra',
+                'HÆ°á»›ng dáº«n',
+                'KÃ©o 1 ngÃ³n Ä‘á»ƒ xoay báº£n Ä‘á»“ 3D\nDÃ¹ng 2 ngÃ³n Ä‘á»ƒ di chuyá»ƒn trÃ¡i/pháº£i/lÃªn/xuá»‘ng vÃ  chá»¥m/má»Ÿ Ä‘á»ƒ thu phÃ³ng\nXanh: Trá»‘ng\nÄá»: ÄÃ£ cÃ³ xe\nVÃ ng: ÄÃ£ Ä‘áº·t\nIN: Lá»‘i vÃ o | OUT: Lá»‘i ra',
               )
             }
-          >
-          </TouchableOpacity>
+          />
         </View>
       </View>
 
@@ -344,23 +247,22 @@ const ParkingMapScreen: React.FC = () => {
         floors={parkingMap.floors}
       />
 
-
       <Card style={styles.statsCard}>
         <View style={styles.statsRow}>
           <StatChip
             icon="checkmark-circle"
             color={COLORS.success}
-            label={`${currentFloorInfo?.availableSlots ?? 0} trống`}
+            label={`${currentFloorInfo?.availableSlots ?? 0} trá»‘ng`}
           />
           <StatChip
             icon="car"
             color={COLORS.error}
-            label={`${currentFloorInfo?.occupiedSlots ?? 0} có xe`}
+            label={`${currentFloorInfo?.occupiedSlots ?? 0} cÃ³ xe`}
           />
           <StatChip
             icon="time"
             color={COLORS.warning}
-            label={`${currentFloorInfo?.reservedSlots ?? 0} đã đặt`}
+            label={`${currentFloorInfo?.reservedSlots ?? 0} Ä‘Ã£ Ä‘áº·t`}
           />
         </View>
       </Card>
@@ -395,7 +297,7 @@ const ParkingMapScreen: React.FC = () => {
         ) : (
           <View style={styles.center}>
             <Icon name="map-outline" size={48} color={COLORS.textSecondary} />
-            <Text style={styles.loadingText}>Bãi xe chưa có sơ đồ tầng</Text>
+            <Text style={styles.loadingText}>BÃ£i xe chÆ°a cÃ³ sÆ¡ Ä‘á»“ táº§ng</Text>
           </View>
         )}
       </View>
@@ -423,7 +325,7 @@ const ParkingMapScreen: React.FC = () => {
         <View style={styles.modalOverlay}>
           <View style={styles.modalSheet}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Chọn lối vào</Text>
+              <Text style={styles.modalTitle}>Chá»n lá»‘i vÃ o</Text>
               <TouchableOpacity onPress={() => setShowEntryModal(false)}>
                 <Icon name="close" size={22} color={COLORS.textPrimary} />
               </TouchableOpacity>

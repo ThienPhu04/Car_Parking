@@ -25,6 +25,8 @@ import { TYPOGRAPHY } from '../../../shared/constants/typography';
 
 type LoginScreenNavigationProp = NativeStackNavigationProp<AuthStackParamList, 'Login'>;
 
+const INVALID_LOGIN_MESSAGE = 'Email hoặc mật khẩu không đúng';
+
 const LoginScreen: React.FC = () => {
   const navigation = useNavigation<LoginScreenNavigationProp>();
   const { login, guestLogin } = useAuth();
@@ -32,6 +34,20 @@ const LoginScreen: React.FC = () => {
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState({ email: '', password: '' });
   const [isLoading, setIsLoading] = useState(false);
+
+  const clearLoginErrors = () => {
+    setErrors({ email: '', password: '' });
+  };
+
+  const handleEmailChange = (value: string) => {
+    setEmail(value);
+    clearLoginErrors();
+  };
+
+  const handlePasswordChange = (value: string) => {
+    setPassword(value);
+    clearLoginErrors();
+  };
 
   const validateForm = () => {
     const newErrors = { email: '', password: '' };
@@ -55,6 +71,8 @@ const LoginScreen: React.FC = () => {
   };
 
   const handleLogin = async () => {
+    clearLoginErrors();
+
     if (!validateForm()) {
       return;
     }
@@ -63,7 +81,11 @@ const LoginScreen: React.FC = () => {
       setIsLoading(true);
       await login(email, password);
     } catch (error: any) {
-      Alert.alert('Lỗi đăng nhập', error.message || MESSAGES.ERROR.UNKNOWN);
+      const loginErrorMessage = error?.message || INVALID_LOGIN_MESSAGE;
+      setErrors({
+        email: loginErrorMessage,
+        password: loginErrorMessage,
+      });
     } finally {
       setIsLoading(false);
     }
@@ -99,8 +121,9 @@ const LoginScreen: React.FC = () => {
           label="Email"
           placeholder="Nhập email"
           value={email}
-          onChangeText={setEmail}
+          onChangeText={handleEmailChange}
           keyboardType="email-address"
+          autoCapitalize="none"
           error={errors.email}
         />
 
@@ -108,7 +131,7 @@ const LoginScreen: React.FC = () => {
           label="Mật khẩu"
           placeholder="Nhập mật khẩu"
           value={password}
-          onChangeText={setPassword}
+          onChangeText={handlePasswordChange}
           secureTextEntry
           error={errors.password}
         />
@@ -207,7 +230,7 @@ const styles = StyleSheet.create({
     width: '100%',
     borderRadius: SPACING.sm,
     height: 58,
-    borderColor: "#df7f02",
+    borderColor: '#df7f02',
     borderWidth: 1,
     justifyContent: 'center',
     alignItems: 'center',
@@ -216,7 +239,7 @@ const styles = StyleSheet.create({
   guestButtonText: {
     fontSize: TYPOGRAPHY.fontSize.md,
     fontWeight: TYPOGRAPHY.fontWeight.semibold,
-    color: "#df7f02",
+    color: '#df7f02',
   },
   disabledButton: {
     opacity: 0.5,

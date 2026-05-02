@@ -16,7 +16,7 @@ interface NotificationItemProps {
 export const NotificationItem: React.FC<NotificationItemProps> = ({
   notification,
 }) => {
-  const { markAsRead, deleteNotification } = useNotifications();
+  const { markAsRead } = useNotifications();
 
   const getIcon = () => {
     switch (notification.type) {
@@ -53,11 +53,6 @@ export const NotificationItem: React.FC<NotificationItemProps> = ({
       await markAsRead(notification.id);
     }
   };
-
-  const handleDelete = async () => {
-    await deleteNotification(notification.id);
-  };
-
   return (
     <TouchableOpacity onPress={handlePress} activeOpacity={0.7}>
       <Card
@@ -86,13 +81,6 @@ export const NotificationItem: React.FC<NotificationItemProps> = ({
               {formatters.relativeTime(notification.createdAt)}
             </Text>
           </View>
-
-          <TouchableOpacity
-            style={styles.deleteButton}
-            onPress={handleDelete}
-          >
-            <Icon name="close" size={20} color={COLORS.textSecondary} />
-          </TouchableOpacity>
         </View>
       </Card>
     </TouchableOpacity>
@@ -149,8 +137,5 @@ const styles = StyleSheet.create({
   time: {
     fontSize: TYPOGRAPHY.fontSize.xs,
     color: COLORS.textSecondary,
-  },
-  deleteButton: {
-    padding: SPACING.xs,
   },
 });

@@ -10,6 +10,7 @@ import { authService } from '../features/auth/services/authService';
 import { storage } from '../shared/utils/storage';
 import { CONFIG } from '../shared/constants/config';
 import { apiClient } from '../services/api/apiClient';
+import { ApiError } from '../types/api.types';
 
 interface AuthContextType {
   user: User | null;
@@ -26,6 +27,9 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+const isNotFoundError = (error: unknown) =>
+  Boolean((error as ApiError | undefined)?.statusCode === 404);
 
 const normalizeLoginPayload = (payload: any) => {
   const responseData = payload?.data?.data ?? payload?.data ?? payload?.user ?? payload;
@@ -171,7 +175,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
       }
     } catch (error) {
       apiClient.setAccessToken(null);
-      console.error('Login error:', error);
       throw error;
     }
   };
@@ -197,7 +200,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         await authService.logout();
       }
     } catch (error) {
-      console.error('Logout error:', error);
+      if (!isNotFoundError(error)) {
+        console.error('Logout error:', error);
+      }
     } finally {
       apiClient.setAccessToken(null);
       await Promise.all([

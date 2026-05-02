@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { ParkingSlot, Floor } from '../types/parking.types';
-import { mqttService } from '../services/mqtt/mqttClient';
 import { SlotUpdateMessage } from '../types/mqtt.types';
 import { MQTT_TOPICS } from '../shared/constants/mqttTopics';
 import { ENDPOINTS } from '@shared/constants/endpoints';
@@ -30,38 +29,6 @@ export const ParkingProvider: React.FC<{ children: ReactNode; lotId: string }> =
   const [floors, setFloors] = useState<Floor[]>([]);
   const [isConnected, setIsConnected] = useState(false);
 
-  useEffect(() => {
-    initializeMQTT();
-    return () => {
-      mqttService.disconnect();
-    };
-  }, [lotId]);
-
-  useEffect(() => {
-    if (isConnected) {
-      subscribeToFloor(selectedFloor);
-    }
-  }, [selectedFloor, isConnected]);
-
-  const initializeMQTT = async () => {
-    try {
-      await mqttService.connect();
-      setIsConnected(true);
-    } catch (error) {
-      console.error('MQTT connection error:', error);
-      setIsConnected(false);
-    }
-  };
-
-  const subscribeToFloor = (floor: number) => {
-    const topic = MQTT_TOPICS.SLOT_STATUS(lotId, floor);
-
-    const unsubscribe = mqttService.subscribe(topic, (message: SlotUpdateMessage) => {
-      updateSlotStatus(message.slotId, message.status);
-    });
-
-    return unsubscribe;
-  };
 
   const updateSlotStatus = (slotId: string, status: any) => {
     setSlots((prevSlots) =>

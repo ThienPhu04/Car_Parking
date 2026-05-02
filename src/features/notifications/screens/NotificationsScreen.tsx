@@ -16,6 +16,7 @@ import { EmptyState } from '../../../shared/components/EmptyState';
 import { Loading } from '../../../shared/components/Loading';
 import { SPACING } from '../../../shared/constants/spacing';
 import { TYPOGRAPHY } from '../../../shared/constants/typography';
+import { useAuth } from '../../../store/AuthContext';
 
 const NotificationsScreen: React.FC = () => {
   const {
@@ -25,11 +26,12 @@ const NotificationsScreen: React.FC = () => {
     markAllAsRead,
     refreshNotifications,
   } = useNotifications();
+  const { user } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     refreshNotifications();
-  }, []);
+  }, [refreshNotifications]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -58,6 +60,19 @@ const NotificationsScreen: React.FC = () => {
           </TouchableOpacity>
         )}
       </View>
+
+      {user?.isGuest ? (
+        <View style={styles.guestBanner}>
+          <Icon
+            name="information-circle-outline"
+            size={20}
+            color={COLORS.warning}
+          />
+          <Text style={styles.guestBannerText}>
+            Dang nhap tai khoan de xem thong bao tu he thong.
+          </Text>
+        </View>
+      ) : null}
 
       {unreadCount > 0 && (
         <View style={styles.unreadBanner}>
@@ -123,6 +138,19 @@ const styles = StyleSheet.create({
     backgroundColor: `${COLORS.primary}10`,
     padding: SPACING.md,
     gap: SPACING.sm,
+  },
+  guestBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: `${COLORS.warning}12`,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    gap: SPACING.sm,
+  },
+  guestBannerText: {
+    flex: 1,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    color: COLORS.textPrimary,
   },
   unreadText: {
     fontSize: TYPOGRAPHY.fontSize.sm,

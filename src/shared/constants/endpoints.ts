@@ -46,10 +46,8 @@ export const ENDPOINTS = {
   GET_PARKING_SESSIONS: '/api/us/getParkingSessions',
 
   // Notifications
-  GET_NOTIFICATIONS: '/notifications',
-  MARK_AS_READ: (id: string) => `/notifications/${id}/read`,
-  MARK_ALL_AS_READ: '/notifications/read-all',
-  DELETE_NOTIFICATION: (id: string) => `/notifications/${id}`,
+  GET_NOTIFICATIONS: '/api/us/getNotification',
+  MARK_ALL_AS_READ: '/api/us/notifications/read-all',
 
   // Statistics
   GET_STATS: '/stats/dashboard',

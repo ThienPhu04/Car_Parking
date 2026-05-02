@@ -15,3 +15,17 @@ export interface Notification {
   isRead: boolean;
   createdAt: string;
 }
+
+export interface NotificationDto {
+  _id?: string;
+  id?: string;
+  userId?: string;
+  title?: string;
+  message?: string;
+  type?: string;
+  isRead?: boolean;
+  metadata?: Record<string, any>;
+  data?: Record<string, any>;
+  createdAt?: string;
+  updatedAt?: string;
+}

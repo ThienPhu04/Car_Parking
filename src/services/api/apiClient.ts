@@ -10,6 +10,15 @@ class ApiClient {
   private failedQueue: any[] = [];
   private accessToken: string | null = null;
 
+  private createAuthError(message: string, statusCode = 401): ApiError {
+    return {
+      success: false,
+      error: 'AUTH_ERROR',
+      message,
+      statusCode,
+    };
+  }
+
   constructor() {
     this.client = axios.create({
       baseURL: CONFIG.API_BASE_URL,
@@ -87,7 +96,7 @@ class ApiClient {
             );
 
             if (!refreshToken) {
-              throw new Error('No refresh token');
+              throw this.createAuthError('No refresh token');
             }
 
             const response = await this.client.post<AuthApiResponse<{ accessToken?: string }>>(
@@ -100,8 +109,8 @@ class ApiClient {
             const accessToken =
               response?.data?.accessToken || response?.data?.data?.accessToken;
             if (!accessToken) {
-               throw new Error('No access token in refresh response'); 
-              }
+              throw this.createAuthError('No access token in refresh response');
+            }
             this.accessToken = accessToken;
             await storage.setItem(CONFIG.STORAGE_KEYS.AUTH_TOKEN, accessToken);
 
@@ -120,7 +129,13 @@ class ApiClient {
             await storage.removeItem(CONFIG.STORAGE_KEYS.USER_DATA);
             this.accessToken = null;
 
-            return Promise.reject(refreshError);
+            return Promise.reject(
+              (refreshError as ApiError)?.statusCode
+                ? refreshError
+                : this.createAuthError(
+                    (refreshError as Error)?.message || 'Session expired'
+                  )
+            );
           } finally {
             this.isRefreshing = false;
           }

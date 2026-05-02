@@ -18,6 +18,7 @@ import { COLORS } from '../../../shared/constants/colors';
 import { parkingService } from '../../parking-map/services/parkingService';
 import { ParkingMapDTO } from '../../../types/parking.types';
 import { SPACING } from '../../../shared/constants/spacing';
+import { useNotifications } from '../../../store/NotificationContext';
 
 type HomeScreenNavigationProp = NativeStackNavigationProp<any>;
 
@@ -44,6 +45,7 @@ const HomeScreen: React.FC = () => {
   const [parkingLots, setParkingLots] = useState<ParkingMapDTO[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const { unreadCount } = useNotifications();
 
   const featuredParkingLot = parkingLots[0] ?? null;
 
@@ -157,6 +159,13 @@ const HomeScreen: React.FC = () => {
             onPress={() => navigation.navigate('Notifications')}
           >
             <Icon name="notifications" size={24} color="#FF9500" />
+            {unreadCount > 0 ? (
+              <View style={styles.notificationBadge}>
+                <Text style={styles.notificationBadgeText}>
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </Text>
+              </View>
+            ) : null}
           </TouchableOpacity>
         </View>
 
@@ -281,6 +290,24 @@ const styles = StyleSheet.create({
     backgroundColor: '#E5E5EA',
     justifyContent: 'center',
     alignItems: 'center',
+    position: 'relative',
+  },
+  notificationBadge: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: COLORS.error,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+  },
+  notificationBadgeText: {
+    color: COLORS.white,
+    fontSize: 10,
+    fontWeight: '700',
   },
   heroSection: {
     marginBottom: SPACING.xl,
