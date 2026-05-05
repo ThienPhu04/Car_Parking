@@ -126,8 +126,8 @@ const MainNavigator: React.FC = () => {
         name="Settings"
         component={SettingsScreen}
         options={{
-          title: 'Cai dat',
-          headerBackTitle: 'Quay lai',
+          title: 'Cài đặt',
+          headerBackTitle: 'Quay lại',
         }}
       />
     </MainStack.Navigator>
@@ -138,7 +138,7 @@ export const AppNavigator: React.FC = () => {
   const { isAuthenticated, isLoading } = useAuth();
 
   if (isLoading) {
-    return <Loading fullscreen text="Dang tai..." />;
+    return <Loading fullscreen text="Đang tải..." />;
   }
 
   return (

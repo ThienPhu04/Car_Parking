@@ -50,7 +50,6 @@ const NotificationsScreen: React.FC = () => {
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
       <View style={styles.header}>
-        <Text style={styles.title}>Thông báo</Text>
         {unreadCount > 0 && (
           <TouchableOpacity
             style={styles.markAllButton}
@@ -69,7 +68,7 @@ const NotificationsScreen: React.FC = () => {
             color={COLORS.warning}
           />
           <Text style={styles.guestBannerText}>
-            Dang nhap tai khoan de xem thong bao tu he thong.
+            Đăng nhập tài khoản để xem thông báo từ hệ thống.
           </Text>
         </View>
       ) : null}

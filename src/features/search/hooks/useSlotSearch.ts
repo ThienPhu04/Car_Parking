@@ -15,13 +15,23 @@ const compareAlphaNumeric = (left: string, right: string) =>
     sensitivity: 'base',
   });
 
+const isHiddenSlot = (slot: Pick<ParkingSlot, 'status' | 'statusName'>) => {
+  const normalizedStatusName = (slot.statusName ?? '').trim().toLowerCase();
+  return slot.statusName === 'Vị trí lỗi/ đang chỉnh sửa'
+    || slot.statusName === 'Vị trí lỗi/ Vị trí đang chỉnh sửa'
+    || normalizedStatusName.includes('vi tri loi')
+    || normalizedStatusName.includes('vị trí lỗi')
+    || normalizedStatusName.includes('chinh sua')
+    || normalizedStatusName.includes('chỉnh sửa');
+};
+
 export const useSlotSearch = (slots: ParkingSlot[]) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filters, setFilters] = useState<SearchFilters>({});
   const debouncedQuery = useDebounce(searchQuery, 300);
 
   const filteredSlots = useMemo(() => {
-    let results = [...slots];
+    let results = slots.filter(slot => !isHiddenSlot(slot));
 
     // Filter by search query (slot code)
     if (debouncedQuery) {
@@ -43,7 +53,7 @@ export const useSlotSearch = (slots: ParkingSlot[]) => {
     }
 
     // Filter by status
-    if (filters.status) {
+    if (filters.status !== undefined) {
       results = results.filter(slot => slot.status === filters.status);
     }
 

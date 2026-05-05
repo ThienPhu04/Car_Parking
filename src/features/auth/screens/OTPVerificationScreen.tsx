@@ -46,7 +46,7 @@ const OTPVerificationScreen: React.FC = () => {
     const token = extractToken(tokenInput);
 
     if (!token) {
-      Alert.alert('Loi', 'Vui long nhap token hoac dan link xac thuc tu email');
+      Alert.alert('Lỗi', 'Vui lòng nhập link xác thực từ email');
       return;
     }
 
@@ -55,19 +55,19 @@ const OTPVerificationScreen: React.FC = () => {
       await authService.verifyEmail(token);
 
       Alert.alert(
-        'Thanh cong',
-        'Email da duoc xac thuc. Ban co the dang nhap ngay bay gio.',
+        'Thành công',
+        'Email đã được xác thực. Bạn có thể đăng nhập ngay bây giờ.',
         [
           {
-            text: 'Dang nhap',
+            text: 'Đăng nhập',
             onPress: () => navigation.navigate('Login'),
           },
         ]
       );
     } catch (error: any) {
       Alert.alert(
-        'Xac thuc that bai',
-        error.message || 'Token xac thuc khong hop le hoac da het han'
+        'Xác thực thất bại',
+        error.message || 'Token xác thực không hợp lệ hoặc đã hết hạn'
       );
     } finally {
       setIsLoading(false);
@@ -85,15 +85,10 @@ const OTPVerificationScreen: React.FC = () => {
 
       <View style={styles.content}>
         <Icon name="mail-outline" size={64} color={COLORS.primary} />
-        <Text style={styles.title}>Xac thuc email</Text>
+        <Text style={styles.title}>Xác thực email</Text>
         <Text style={styles.subtitle}>
-          Chung toi da gui email xac thuc toi{'\n'}
+          Chúng tôi đã gửi email xác thực tới{'\n'}
           <Text style={styles.email}>{email}</Text>
-        </Text>
-
-        <Text style={styles.helperText}>
-          Mo email de lay token hoac sao chep toan bo link xac thuc roi dan vao
-          o ben duoi.
         </Text>
 
         <TextInput
@@ -102,14 +97,14 @@ const OTPVerificationScreen: React.FC = () => {
           onChangeText={setTokenInput}
           autoCapitalize="none"
           autoCorrect={false}
-          placeholder="Nhap token hoac dan link xac thuc"
+          placeholder="Dán link xác thực"
           placeholderTextColor={COLORS.textSecondary}
           multiline
           textAlignVertical="top"
         />
 
         <Button
-          title="Xac nhan email"
+          title="Xác nhận email"
           onPress={handleVerify}
           loading={isLoading}
           fullWidth
@@ -117,7 +112,7 @@ const OTPVerificationScreen: React.FC = () => {
         />
 
         <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-          <Text style={styles.loginLink}>Toi da xac thuc, quay lai dang nhap</Text>
+          <Text style={styles.loginLink}>Tôi đã xác thực, quay lại đăng nhập</Text>
         </TouchableOpacity>
       </View>
     </View>

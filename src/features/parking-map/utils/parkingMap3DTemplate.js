@@ -913,6 +913,8 @@ export const generateThreeJSHTML = parkingData => {
       let lastPointerX = 0;
       let lastPointerY = 0;
       let movedDuringGesture = false;
+      const TAP_MOVE_THRESHOLD = 12;
+      const TAP_DURATION_THRESHOLD = 350;
       let pinchDistance = 0;
       let lastPanIntersection = null;
       let lastPinchCenterIntersection = null;
@@ -988,7 +990,9 @@ export const generateThreeJSHTML = parkingData => {
 
         const dx = event.clientX - lastPointerX;
         const dy = event.clientY - lastPointerY;
-        movedDuringGesture = movedDuringGesture || Math.abs(dx) > 2 || Math.abs(dy) > 2;
+        movedDuringGesture = movedDuringGesture
+          || Math.abs(dx) > TAP_MOVE_THRESHOLD
+          || Math.abs(dy) > TAP_MOVE_THRESHOLD;
 
         if (interactionMode === 'rotate') {
           applyRotation(dx, dy);
@@ -1054,7 +1058,9 @@ export const generateThreeJSHTML = parkingData => {
           const dx = touch.clientX - lastPointerX;
           const dy = touch.clientY - lastPointerY;
 
-          movedDuringGesture = movedDuringGesture || Math.abs(dx) > 2 || Math.abs(dy) > 2;
+          movedDuringGesture = movedDuringGesture
+            || Math.abs(dx) > TAP_MOVE_THRESHOLD
+            || Math.abs(dy) > TAP_MOVE_THRESHOLD;
           applyRotation(dx, dy);
 
           lastPointerX = touch.clientX;
@@ -1088,7 +1094,7 @@ export const generateThreeJSHTML = parkingData => {
 
         if (
           touchStart &&
-          Date.now() - touchStart.time < 220 &&
+          Date.now() - touchStart.time < TAP_DURATION_THRESHOLD &&
           !movedDuringGesture &&
           event.changedTouches &&
           event.changedTouches[0]

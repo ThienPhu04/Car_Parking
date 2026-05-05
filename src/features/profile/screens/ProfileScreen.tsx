@@ -66,14 +66,6 @@ const ProfileScreen: React.FC = () => {
     () =>
       [
         {
-          key: 'settings',
-          icon: 'settings-outline',
-          title: 'Cài đặt ứng dụng',
-          subtitle: 'Thông báo, giao diện và tùy chọn sử dụng',
-          hiddenForGuest: true,
-          onPress: () => (navigation as any).navigate('Settings'),
-        },
-        {
           key: 'vehicles',
           icon: 'car-outline',
           title: 'Quản lý xe',
@@ -174,7 +166,7 @@ const ProfileScreen: React.FC = () => {
             </View>
 
             <Button
-              title="Nap tien"
+              title="Nạp tiền"
               onPress={() => setShowTopUpModal(true)}
               fullWidth
               style={styles.walletAction}

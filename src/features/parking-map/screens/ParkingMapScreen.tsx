@@ -28,6 +28,7 @@ import { SlotActionModal } from '../components/SlotActionModal';
 import { SlotLegend } from '../components/SlotLegend';
 import { useParkingMap } from '../hooks/useParkingMap';
 import { ParkingNavigator } from '../ultils/navigationHelper';
+import { useAuth } from '../../../store/AuthContext';
 
 type ParkingMapRouteProp = RouteProp<MainStackParamList, 'ParkingMap'>;
 
@@ -48,7 +49,9 @@ const isSameCalendarDay = (firstDate: Date, secondDate: Date) =>
 const ParkingMapScreen: React.FC = () => {
   const navigation = useNavigation();
   const route = useRoute<ParkingMapRouteProp>();
+  const { user } = useAuth();
   const parkingCode = route.params?.parkingCode ?? 'PK001';
+  const isGuest = Boolean(user?.isGuest);
 
   const requestedArrivalTime = toValidDate(route.params?.expectedArrivalTime);
   const requestedLeaveTime = toValidDate(route.params?.expectedLeaveTime);
@@ -94,6 +97,7 @@ const ParkingMapScreen: React.FC = () => {
 
     if (matchedSlot) {
       setSelectedSlot(matchedSlot);
+      setShowSlotActionModal(true);
     }
   }, [currentLayout, route.params?.selectedSlot]);
 
@@ -109,7 +113,7 @@ const ParkingMapScreen: React.FC = () => {
   }, []);
 
   const handleBookSlot = useCallback(() => {
-    if (!selectedSlot) {
+    if (!selectedSlot || isGuest) {
       return;
     }
 
@@ -122,6 +126,7 @@ const ParkingMapScreen: React.FC = () => {
       },
     });
   }, [
+    isGuest,
     navigation,
     requestedArrivalTime,
     route.params?.vehicleId,
@@ -180,7 +185,7 @@ const ParkingMapScreen: React.FC = () => {
     return (
       <View style={styles.center}>
         <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={styles.loadingText}>Äang táº£i báº£n Ä‘á»“...</Text>
+        <Text style={styles.loadingText}>Đang tải bản đồ...</Text>
       </View>
     );
   }
@@ -189,10 +194,10 @@ const ParkingMapScreen: React.FC = () => {
     return (
       <SafeAreaView style={styles.center}>
         <Icon name="alert-circle-outline" size={56} color={COLORS.error} />
-        <Text style={styles.errorTitle}>KhÃ´ng thá»ƒ táº£i báº£n Ä‘á»“</Text>
+        <Text style={styles.errorTitle}>Không tìm thấy bản đồ</Text>
         <Text style={styles.errorMsg}>{error.message}</Text>
         <TouchableOpacity style={styles.retryBtn} onPress={refresh}>
-          <Text style={styles.retryText}>Thá»­ láº¡i</Text>
+          <Text style={styles.retryText}>Thử lại</Text>
         </TouchableOpacity>
       </SafeAreaView>
     );
@@ -202,7 +207,7 @@ const ParkingMapScreen: React.FC = () => {
     return (
       <SafeAreaView style={styles.center}>
         <Icon name="map-outline" size={56} color={COLORS.textSecondary} />
-        <Text style={styles.errorTitle}>KhÃ´ng cÃ³ dá»¯ liá»‡u</Text>
+        <Text style={styles.errorTitle}>Không có dữ liệu</Text>
       </SafeAreaView>
     );
   }
@@ -213,7 +218,7 @@ const ParkingMapScreen: React.FC = () => {
         <View style={styles.headerLeft}>
           <View style={styles.headerContent}>
             <Text style={styles.headerTitle} numberOfLines={1}>
-              {parkingMap.name || `BÃ£i xe ${parkingCode}`}
+              {parkingMap.name || `Bãi xe ${parkingCode}`}
             </Text>
             {!!parkingMap.location && (
               <Text style={styles.headerSub} numberOfLines={1}>
@@ -223,22 +228,6 @@ const ParkingMapScreen: React.FC = () => {
           </View>
         </View>
 
-        <View style={styles.headerRight}>
-          {navRoute && (
-            <TouchableOpacity style={styles.iconBtn} onPress={handleClearRoute}>
-              {/* <Icon name="close-circle" size={24} color={COLORS.error} /> */}
-            </TouchableOpacity>
-          )}
-          <TouchableOpacity
-            style={styles.iconBtn}
-            onPress={() =>
-              Alert.alert(
-                'Hướng dẫn',
-                'Kéo 1 ngón để xoay bản đồ 3D\nDùng 2 ngón để di chuyển trái/phải/lên/xuống và chụm/mở để thu phóng\nXanh: Trống\nĐỏ: Đã có xe\nVàng: Đã đặt\nIN: Lối vào | OUT: Lối ra',
-              )
-            }
-          />
-        </View>
       </View>
 
       <FloorSelector
@@ -314,6 +303,7 @@ const ParkingMapScreen: React.FC = () => {
         onClose={() => setShowSlotActionModal(false)}
         onFindRoute={handleOpenEntrySelector}
         onBookSlot={handleBookSlot}
+        canBook={!isGuest}
       />
 
       <Modal
@@ -444,11 +434,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: SPACING.xs,
   },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
   headerTitle: {
     fontSize: TYPOGRAPHY.fontSize.md,
     fontWeight: TYPOGRAPHY.fontWeight.semibold,
@@ -461,23 +446,6 @@ const styles = StyleSheet.create({
   },
   iconBtn: {
     padding: SPACING.xs,
-  },
-  modeCard: {
-    marginHorizontal: SPACING.md,
-    marginTop: SPACING.sm,
-    paddingVertical: SPACING.sm,
-    paddingHorizontal: SPACING.md,
-  },
-  modeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  modeText: {
-    flex: 1,
-    marginLeft: SPACING.sm,
-    color: COLORS.textPrimary,
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    lineHeight: 20,
   },
   statsCard: {
     marginHorizontal: SPACING.md,

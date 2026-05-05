@@ -31,12 +31,9 @@ export const CONFIG = {
   API_BASE_URL: __DEV__
     ? DEV_API_BASE_URL
     : PROD_API_BASE_URL,
-  API_TIMEOUT: 30000, // 30 seconds
+  API_TIMEOUT: 60000, // 60 seconds
   
   // MQTT Configuration
-  MQTT_BROKER_URL: __DEV__
-    ? DEV_MQTT_BROKER_URL
-    : 'mqtt://broker.smartparking.com:1883',
   MQTT_USERNAME: 'smartparking',
   MQTT_PASSWORD: 'secure_password',
   MQTT_RECONNECT_PERIOD: 5000,

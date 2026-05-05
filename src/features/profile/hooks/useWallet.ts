@@ -144,7 +144,7 @@ export const useWallet = () => {
           transactionId;
 
         if (!transactionId || !qrValue) {
-          throw new Error('Backend chua tra ve du thong tin QR nap tien');
+          throw new Error('Backend chưa trả về đủ thông tin QR nạp tiền');
         }
 
         return {
@@ -202,7 +202,7 @@ export const useWallet = () => {
             type: 'CREDIT',
             balanceBefore,
             balanceAfter,
-            description: 'Nap tien vao vi khach',
+            description: 'Nạp tiền vào ví khách',
             createdAt: now,
             updatedAt: now,
           };
@@ -242,8 +242,8 @@ export const useWallet = () => {
           );
           addNotification({
             type: NotificationType.SYSTEM,
-            title: 'Nap tien thanh cong',
-            message: `+${Number(draft.amount || 0).toLocaleString('vi-VN')} VND vao vi`,
+            title: 'Nạp tiền thành công',
+            message: `+${Number(draft.amount || 0).toLocaleString('vi-VN')} VND vào ví`,
             data: {
               amount: draft.amount,
               transactionId: draft.transactionId,

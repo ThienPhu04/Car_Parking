@@ -15,6 +15,7 @@ import Icon from 'react-native-vector-icons/Ionicons';
 
 import { Input } from '../../../shared/components/Input';
 import { Button } from '../../../shared/components/Button';
+import { Modal } from '../../../shared/components/Modal';
 import { COLORS } from '../../../shared/constants/colors';
 import { validate } from '../../../shared/utils/validation';
 import { useAuth } from '../../../store/AuthContext';
@@ -22,6 +23,7 @@ import { AuthStackParamList } from '../../../types/navigation.types';
 import { MESSAGES } from '../../../shared/constants/messages';
 import { SPACING } from '../../../shared/constants/spacing';
 import { TYPOGRAPHY } from '../../../shared/constants/typography';
+import { authService } from '../services/authService';
 
 type LoginScreenNavigationProp = NativeStackNavigationProp<AuthStackParamList, 'Login'>;
 
@@ -34,6 +36,10 @@ const LoginScreen: React.FC = () => {
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState({ email: '', password: '' });
   const [isLoading, setIsLoading] = useState(false);
+  const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false);
+  const [forgotPasswordEmail, setForgotPasswordEmail] = useState('');
+  const [forgotPasswordError, setForgotPasswordError] = useState('');
+  const [isSendingResetEmail, setIsSendingResetEmail] = useState(false);
 
   const clearLoginErrors = () => {
     setErrors({ email: '', password: '' });
@@ -102,6 +108,59 @@ const LoginScreen: React.FC = () => {
     }
   };
 
+  const handleOpenForgotPasswordModal = () => {
+    setForgotPasswordEmail(email.trim());
+    setForgotPasswordError('');
+    setShowForgotPasswordModal(true);
+  };
+
+  const handleCloseForgotPasswordModal = () => {
+    if (isSendingResetEmail) {
+      return;
+    }
+
+    setShowForgotPasswordModal(false);
+    setForgotPasswordError('');
+  };
+
+  const handleForgotPasswordEmailChange = (value: string) => {
+    setForgotPasswordEmail(value);
+    if (forgotPasswordError) {
+      setForgotPasswordError('');
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    const normalizedEmail = forgotPasswordEmail.trim();
+
+    if (!validate.required(normalizedEmail)) {
+      setForgotPasswordError(MESSAGES.VALIDATION.EMAIL_REQUIRED);
+      return;
+    }
+
+    if (!validate.email(normalizedEmail)) {
+      setForgotPasswordError(MESSAGES.VALIDATION.EMAIL_INVALID);
+      return;
+    }
+
+    try {
+      setIsSendingResetEmail(true);
+      setForgotPasswordError('');
+      await authService.forgotPassword(normalizedEmail);
+      setShowForgotPasswordModal(false);
+      Alert.alert(
+        'Đã gửi email',
+        'Liên kết khôi phục mật khẩu đã được gửi tới email của bạn.',
+      );
+    } catch (error: any) {
+      setForgotPasswordError(
+        error?.message || 'Không thể gửi email khôi phục mật khẩu',
+      );
+    } finally {
+      setIsSendingResetEmail(false);
+    }
+  };
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
@@ -136,7 +195,10 @@ const LoginScreen: React.FC = () => {
           error={errors.password}
         />
 
-        <TouchableOpacity style={styles.forgotPassword}>
+        <TouchableOpacity
+          style={styles.forgotPassword}
+          onPress={handleOpenForgotPasswordModal}
+        >
           <Text style={styles.forgotPasswordText}>Quên mật khẩu</Text>
         </TouchableOpacity>
 
@@ -159,33 +221,49 @@ const LoginScreen: React.FC = () => {
           </Text>
         </TouchableOpacity>
 
-        <View style={styles.divider}>
-          <View style={styles.line} />
-          <Text style={styles.dividerText}>Hoặc đăng nhập với</Text>
-          <View style={styles.line} />
-        </View>
-
-        <View style={styles.socialContainer}>
-          <TouchableOpacity style={styles.socialButton}>
-            <Icon name="logo-apple" size={28} />
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.socialButton}>
-            <Icon name="logo-google" size={28} color="#DB4437" />
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.socialButton}>
-            <Icon name="logo-facebook" size={28} color="#1877F2" />
-          </TouchableOpacity>
-        </View>
-
         <View style={styles.footer}>
-          <Text>Bạn chưa có tài khoản? </Text>
+          <Text style={styles.registerHint}>
+            Bạn chưa có tài khoản? 
+          </Text>
           <TouchableOpacity onPress={() => navigation.navigate('Register')}>
             <Text style={styles.register}>Đăng ký</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      <Modal
+        visible={showForgotPasswordModal}
+        onClose={handleCloseForgotPasswordModal}
+        title="Quên mật khẩu"
+      >
+
+        <Input
+          label="Email"
+          placeholder="Nhập email"
+          value={forgotPasswordEmail}
+          onChangeText={handleForgotPasswordEmailChange}
+          keyboardType="email-address"
+          autoCapitalize="none"
+          error={forgotPasswordError}
+          containerStyle={styles.modalInput}
+        />
+
+        <View style={styles.modalActions}>
+          <Button
+            title="Hủy"
+            onPress={handleCloseForgotPasswordModal}
+            variant="outline"
+            style={styles.modalSecondaryButton}
+            disabled={isSendingResetEmail}
+          />
+          <Button
+            title="Gửi email"
+            onPress={handleForgotPassword}
+            loading={isSendingResetEmail}
+            style={styles.modalPrimaryButton}
+          />
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 };
@@ -218,6 +296,27 @@ const styles = StyleSheet.create({
   forgotPasswordText: {
     fontSize: TYPOGRAPHY.fontSize.sm,
     color: COLORS.textSecondary,
+  },
+  modalDescription: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    color: COLORS.textSecondary,
+    marginBottom: SPACING.md,
+    lineHeight: 20,
+  },
+  modalInput: {
+    marginBottom: SPACING.sm,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: SPACING.sm,
+    marginTop: SPACING.sm,
+  },
+  modalPrimaryButton: {
+    minWidth: 120,
+  },
+  modalSecondaryButton: {
+    minWidth: 90,
   },
   loginButton: {
     backgroundColor: COLORS.accent,
@@ -288,6 +387,12 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.fontSize.md,
     color: COLORS.accent,
     fontWeight: TYPOGRAPHY.fontWeight.semibold,
+  },
+  registerHint: {
+    fontSize: TYPOGRAPHY.fontSize.md,
+    color: COLORS.textSecondary,
+    marginRight: SPACING.xs,
+    fontWeight: TYPOGRAPHY.fontWeight.bold,
   },
 });
 

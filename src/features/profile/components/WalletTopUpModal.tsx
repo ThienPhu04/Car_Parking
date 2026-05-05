@@ -80,7 +80,7 @@ export const WalletTopUpModal: React.FC<WalletTopUpModalProps> = ({
       const nextDraft = await onCreateDraft(parsedAmount);
       setDraft(nextDraft);
     } catch (error: any) {
-      Alert.alert('Loi', error?.message || 'Khong the tao ma QR nap tien');
+      Alert.alert('Loi', error?.message || 'Không thể tạo mã QR nạp tiền');
     }
   };
 
@@ -92,12 +92,12 @@ export const WalletTopUpModal: React.FC<WalletTopUpModalProps> = ({
     try {
       await onConfirmSuccess(draft);
       Alert.alert(
-        'Da ghi nhan',
-        'Yeu cau nap tien da duoc ghi nhan. So du se duoc cap nhat sau khi he thong xac nhan giao dich.'
+        'Đã ghi nhận',
+        'Yêu cầu nạp tiền đã được ghi nhận. Số dư sẽ được cập nhật sau khi hệ thống xác nhận giao dịch.'
       );
       onClose();
     } catch (error: any) {
-      Alert.alert('Loi', error?.message || 'Khong the xac nhan giao dich');
+      Alert.alert('Loi', error?.message || 'Không thể xác nhận giao dịch');
     }
   };
 
@@ -113,8 +113,8 @@ export const WalletTopUpModal: React.FC<WalletTopUpModalProps> = ({
         {!draft ? (
           <View>
             <Input
-              label="So tien nap"
-              placeholder="Vi du: 100000"
+              label="Số tiền nạp"
+              placeholder="Ví dụ: 100000"
               keyboardType="number-pad"
               value={amountInput}
               onChangeText={value =>
@@ -136,7 +136,7 @@ export const WalletTopUpModal: React.FC<WalletTopUpModalProps> = ({
               ))}
             </View>
             <Button
-              title="Tao ma QR"
+              title="Tạo mã QR"
               onPress={handleCreateTransaction}
               loading={creating}
               fullWidth
@@ -168,9 +168,7 @@ export const WalletTopUpModal: React.FC<WalletTopUpModalProps> = ({
               )}
               {isQrContentFallback ? (
                 <Text style={styles.qrFallbackNote}>
-                  QR tu backend chua co du lieu chuan de quet. Neu ung dung ngan
-                  hang khong nhan ma, vui long chuyen khoan thu cong dung noi
-                  dung ben duoi.
+                
                 </Text>
               ) : null}
             </View>

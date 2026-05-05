@@ -183,7 +183,7 @@ const EditProfileScreen: React.FC = () => {
           color={COLORS.textPrimary}
           onPress={() => navigation.goBack()}
         />
-        <Text style={styles.headerTitle}>Chinh sua thong tin</Text>
+        <Text style={styles.headerTitle}>Chỉnh sửa thông tin</Text>
         <View style={styles.headerSpacer} />
       </View>
 
@@ -197,21 +197,21 @@ const EditProfileScreen: React.FC = () => {
               <Icon name="person" size={50} color={COLORS.primary} />
             </View>
             <Text style={styles.changeAvatarText}>
-              Cap nhat thong tin tai khoan
+              Cập nhật thông tin tài khoản
             </Text>
           </View>
 
           <View style={styles.form}>
             <Input
-              label="Ma nguoi dung"
+              label="Mã người dùng"
               value={user?.code || ''}
               editable={false}
               leftIcon="id-card-outline"
             />
 
             <Input
-              label="Ten nguoi dung *"
-              placeholder="Nhap ten cua ban"
+              label="Tên người dùng *"
+              placeholder="Nhập tên của bạn"
               value={formData.userName}
               onChangeText={(text) => updateField('userName', text)}
               error={errors.userName}
@@ -229,8 +229,8 @@ const EditProfileScreen: React.FC = () => {
             />
 
             <Input
-              label="So dien thoai *"
-              placeholder="Nhap so dien thoai"
+              label="Số điện thoại *"
+              placeholder="Nhập số điện thoại"
               value={formData.phone}
               onChangeText={(text) => updateField('phone', text)}
               error={errors.phone}
@@ -245,13 +245,13 @@ const EditProfileScreen: React.FC = () => {
                 color={COLORS.textSecondary}
               />
               <Text style={styles.infoText}>
-                Neu doi email, he thong se gui mail xac thuc toi dia chi moi.
+                Nếu đổi email, hệ thống sẽ gửi mail xác thực tới địa chỉ mới.
               </Text>
             </View>
           </View>
 
           <Button
-            title="Luu thay doi"
+            title="Lưu thay đổi"
             onPress={handleSave}
             loading={isLoading}
             style={styles.saveButton}

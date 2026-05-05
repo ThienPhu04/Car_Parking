@@ -198,6 +198,18 @@ function calcGridSize(dto: FloorDTO, ox: number, oy: number): { width: number; h
 // ─── TRANSFORMER CLASS ────────────────────────────────────────────────────────
 
 export class ParkingMapTransformer {
+  private static isHiddenSlot(raw: RawSlotDTO): boolean {
+    if (raw.status === 3) {
+      return true;
+    }
+
+    const normalizedStatusName = (raw.statusName ?? '').trim().toLowerCase();
+    return normalizedStatusName.includes('vi tri loi')
+      || normalizedStatusName.includes('vị trí lỗi')
+      || normalizedStatusName.includes('chinh sua')
+      || normalizedStatusName.includes('chỉnh sửa');
+  }
+
   private static getSlotStatusFromSensor(raw: RawSlotDTO): {
     status: SlotStatus;
     statusName: string;
@@ -231,19 +243,19 @@ export class ParkingMapTransformer {
 
     if (typeof raw.sensorStatus === 'boolean') {
       return raw.sensorStatus
-        ? { status: SlotStatus.OCCUPIED, statusName: 'Da co xe' }
-        : { status: SlotStatus.AVAILABLE, statusName: 'Trong' };
+        ? { status: SlotStatus.OCCUPIED, statusName: 'Đã có xe' }
+        : { status: SlotStatus.AVAILABLE, statusName: 'Trống' };
     }
 
     switch (raw.status) {
       case 0:
-        return { status: SlotStatus.AVAILABLE, statusName: 'Trong' };
+        return { status: SlotStatus.AVAILABLE, statusName: 'Trống' };
       case 1:
-        return { status: SlotStatus.OCCUPIED, statusName: 'Da co xe' };
+        return { status: SlotStatus.OCCUPIED, statusName: 'Đã có xe' };
       case 2:
-        return { status: SlotStatus.RESERVED, statusName: 'Da dat' };
+        return { status: SlotStatus.RESERVED, statusName: 'Đã đặt' };
       default:
-        return { status: SlotStatus.AVAILABLE, statusName: raw.statusName || 'Trong' };
+        return { status: SlotStatus.AVAILABLE, statusName: raw.statusName || 'Trống' };
     }
   }
 
@@ -270,7 +282,9 @@ export class ParkingMapTransformer {
   static buildFloor(dto: FloorDTO): Floor {
     const floorId = dto._id ?? dto.code;
     const allSlots = (dto.zones ?? []).flatMap(zone =>
-      (zone.groupSlots ?? []).flatMap(group => group.slots ?? []),
+      (zone.groupSlots ?? []).flatMap(group =>
+        (group.slots ?? []).filter(slot => !this.isHiddenSlot(slot))
+      ),
     );
     let available = 0;
     let occupied = 0;
@@ -446,8 +460,9 @@ export class ParkingMapTransformer {
         const originY = centerY - group.height / 2;
 
         rawSlots.forEach((raw, idx) => {
+          if (this.isHiddenSlot(raw)) return;
+
           const mappedStatus = this.mapApiSlotStatus(raw);
-          if (mappedStatus.status !== SlotStatus.AVAILABLE) return;
 
           // Tọa độ tâm ô slot trong canvas
           const rawX = isHorizontal

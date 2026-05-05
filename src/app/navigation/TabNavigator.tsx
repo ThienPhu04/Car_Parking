@@ -2,10 +2,10 @@ import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { View, StyleSheet, Platform, Text } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
+
 import { COLORS } from '../../shared/constants/colors';
 import { TabParamList } from '../../types/navigation.types';
-
-// Screens
+import { useAuth } from '../../store/AuthContext';
 import HomeScreen from '../../features/home/screens/HomeScreen';
 import SearchScreen from '../../features/search/screens/SearchScreen';
 import BookingScreen from '../../features/booking/screens/BookingScreen';
@@ -53,14 +53,15 @@ const renderTabIcon = (routeName: TabRouteName, focused: boolean) => {
           color={focused ? COLORS.accent : COLORS.black}
         />
       </View>
-      {focused && (
-        <Text style={styles.tabLabel}>{tabConfig.label}</Text>
-      )}
+      {focused && <Text style={styles.tabLabel}>{tabConfig.label}</Text>}
     </View>
   );
 };
 
 export const TabNavigator: React.FC = () => {
+  const { user } = useAuth();
+  const isGuest = Boolean(user?.isGuest);
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -74,10 +75,7 @@ export const TabNavigator: React.FC = () => {
     >
       <Tab.Screen name="Home" component={HomeScreen} />
       <Tab.Screen name="Search" component={SearchScreen} />
-      <Tab.Screen
-        name="Booking"
-        component={BookingScreen}
-      />
+      {!isGuest && <Tab.Screen name="Booking" component={BookingScreen} />}
       <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>
   );
@@ -87,7 +85,7 @@ const styles = StyleSheet.create({
   tabBar: {
     backgroundColor: COLORS.white,
     borderWidth: 1,
-    borderColor: '#FF9500', // COLORS.accent
+    borderColor: '#FF9500',
     height: Platform.OS === 'ios' ? 96 : 88,
     paddingBottom: Platform.OS === 'ios' ? 24 : 12,
     borderTopLeftRadius: 28,
@@ -106,7 +104,6 @@ const styles = StyleSheet.create({
   },
   tabBarItem: {
     justifyContent: 'center',
-
   },
   tabItemContent: {
     alignItems: 'center',

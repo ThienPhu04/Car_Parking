@@ -39,6 +39,18 @@ const extractParkingLots = (rawResponse: unknown): ParkingMapDTO[] => {
   return payload ? [payload as ParkingMapDTO] : [];
 };
 
+const isHiddenSlot = (slot: { status?: number; statusName?: string }) => {
+  if (slot.status === 3) {
+    return true;
+  }
+
+  const normalizedStatusName = (slot.statusName ?? '').trim().toLowerCase();
+  return normalizedStatusName.includes('vi tri loi')
+    || normalizedStatusName.includes('vị trí lỗi')
+    || normalizedStatusName.includes('chinh sua')
+    || normalizedStatusName.includes('chỉnh sửa');
+};
+
 const HomeScreen: React.FC = () => {
   const navigation = useNavigation<HomeScreenNavigationProp>();
   const [refreshing, setRefreshing] = useState(false);
@@ -105,6 +117,10 @@ const HomeScreen: React.FC = () => {
       floor.zones?.forEach(zone => {
         zone.groupSlots?.forEach(groupSlot => {
           groupSlot.slots?.forEach(slot => {
+            if (isHiddenSlot(slot)) {
+              return;
+            }
+
             total++;
             if (slot.sensorStatus === true || slot.status === 2) {
               occupied++;
@@ -120,9 +136,14 @@ const HomeScreen: React.FC = () => {
       lot.floors?.forEach(floor => {
         floor.zones?.forEach(zone => {
           zone.groupSlots?.forEach(groupSlot => {
-            total += groupSlot.slots?.length || 0;
-            available += groupSlot.availableSlots || 0;
-            occupied += groupSlot.occupiedSlots || 0;
+            const visibleSlots = (groupSlot.slots ?? []).filter(slot => !isHiddenSlot(slot));
+            total += visibleSlots.length;
+            available += visibleSlots.filter(
+              slot => slot.status === 0 || slot.sensorStatus === false
+            ).length;
+            occupied += visibleSlots.filter(
+              slot => slot.sensorStatus === true || slot.status === 2
+            ).length;
           });
         });
       });
@@ -147,7 +168,7 @@ const HomeScreen: React.FC = () => {
         <View style={styles.header}>
           <View style={styles.locationGroup}>
             <View style={styles.locationIconContainer}>
-              <Icon name="location" size={20} color="#FF9500" />
+              <Icon name="car" size={20} color="#FF9500" />
             </View>
             <View style={styles.locationTextContainer}>
               <Text style={styles.locationLabel}>Vị trí của bạn</Text>
@@ -180,11 +201,11 @@ const HomeScreen: React.FC = () => {
             placeholderTextColor="rgba(255, 255, 255, 0.6)"
             value={searchQuery}
             onChangeText={setSearchQuery}
-            onSubmitEditing={handleSearch}
             returnKeyType="search"
+            onSubmitEditing={handleSearch}
           />
           <TouchableOpacity onPress={handleSearch}>
-            <Icon name="locate-outline" size={22} color={COLORS.white} />
+            <Icon name="search" size={22} color={COLORS.white} />
           </TouchableOpacity>
         </View>
 

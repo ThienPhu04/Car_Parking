@@ -13,7 +13,6 @@ import Icon from 'react-native-vector-icons/Ionicons';
 
 import { COLORS } from '../../../shared/constants/colors';
 import { SearchBar } from '../components/SearchBar';
-import { FilterOptions } from '../components/FilterOptions';
 import { useSlotSearch } from '../hooks/useSlotSearch';
 import { useParkingSlots } from '../../parking-map/hooks/useParkingSlots';
 import { ParkingSlot, SlotStatus } from '../../../types/parking.types';
@@ -34,7 +33,7 @@ const ZONE_SLOT_VERTICAL_PADDING = 16;
 const normalizeZoneName = (zone?: string) => {
   const trimmed = zone?.trim();
   if (!trimmed) {
-    return 'Khac';
+    return 'Khác';
   }
 
   return trimmed;
@@ -95,14 +94,7 @@ const SearchScreen: React.FC = () => {
   const selectedFloor = 1;
   const { slots, isLoading, error } = useParkingSlots(parkingCode, selectedFloor);
 
-  const {
-    searchQuery,
-    setSearchQuery,
-    filters,
-    updateFilters,
-    clearFilters,
-    filteredSlots,
-  } = useSlotSearch(slots);
+  const { searchQuery, setSearchQuery, filteredSlots } = useSlotSearch(slots);
 
   useEffect(() => {
     if (initialQuery) {
@@ -115,41 +107,22 @@ const SearchScreen: React.FC = () => {
       parkingCode,
       selectedFloor,
       searchQuery,
-      filters,
       slotCount: slots.length,
       filteredSlotCount: filteredSlots.length,
       errorMessage: error?.message ?? null,
       isLoading,
     });
-
-    console.log(
-      '[SearchScreen] slots currently rendered:',
-      JSON.stringify(slots, null, 2),
-    );
-
-    console.log(
-      '[SearchScreen] filtered slots currently rendered:',
-      JSON.stringify(filteredSlots, null, 2),
-    );
   }, [
     error,
-    filteredSlots,
-    filters,
+    filteredSlots.length,
     isLoading,
     parkingCode,
     searchQuery,
     selectedFloor,
-    slots,
+    slots.length,
   ]);
 
-  const [showFilters, setShowFilters] = useState(false);
   const [zoneGridWidth, setZoneGridWidth] = useState(0);
-
-  const zoneOptions = useMemo(() => {
-    return Array.from(
-      new Set(slots.map(slot => normalizeZoneName(slot.zone))),
-    ).sort((a, b) => compareAlphaNumeric(getZoneSortKey(a), getZoneSortKey(b)));
-  }, [slots]);
 
   const zoneGroups = useMemo<ZoneGroup[]>(() => {
     const groups = filteredSlots.reduce<Record<string, ParkingSlot[]>>((acc, slot) => {
@@ -171,24 +144,10 @@ const SearchScreen: React.FC = () => {
       }));
   }, [filteredSlots]);
 
-  const zoneSummary = useMemo(() => {
-    return slots.reduce<Record<string, number>>((acc, slot) => {
-      const zoneName = normalizeZoneName(slot.zone);
-      acc[zoneName] = (acc[zoneName] || 0) + 1;
-      return acc;
-    }, {});
-  }, [slots]);
-
   const handleSlotSelect = (slot: ParkingSlot) => {
     if (slot.status === SlotStatus.AVAILABLE) {
       (navigation as any).navigate('ParkingMap', { selectedSlot: slot.id });
     }
-  };
-
-  const handleZonePress = (zone: string) => {
-    updateFilters({
-      zone: filters.zone === zone ? undefined : zone,
-    });
   };
 
   const slotPillWidth = useMemo(() => {
@@ -214,7 +173,7 @@ const SearchScreen: React.FC = () => {
           <View style={styles.legendRow}>
             <View style={styles.legendItem}>
               <View style={[styles.legendDot, { backgroundColor: COLORS.available }]} />
-              <Text style={styles.legendText}>Trong</Text>
+              <Text style={styles.legendText}>Trống</Text>
             </View>
             <View style={styles.legendItem}>
               <View style={[styles.legendDot, { backgroundColor: COLORS.occupied }]} />
@@ -233,53 +192,11 @@ const SearchScreen: React.FC = () => {
         </View>
       </View>
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.zoneFilterContent}
-        style={styles.zoneFilterScroll}
-      >
-        <TouchableOpacity
-          style={[
-            styles.zoneFilterChip,
-            !filters.zone && styles.zoneFilterChipActive,
-          ]}
-          onPress={() => updateFilters({ zone: undefined })}
-        >
-          <Text
-            style={[
-              styles.zoneFilterText,
-              !filters.zone && styles.zoneFilterTextActive,
-            ]}
-          >
-            Tất cả
-          </Text>
-        </TouchableOpacity>
-
-        {zoneOptions.map(zone => (
-          <TouchableOpacity
-            key={zone}
-            style={[
-              styles.zoneFilterChip,
-              filters.zone === zone && styles.zoneFilterChipActive,
-            ]}
-            onPress={() => handleZonePress(zone)}
-          >
-            <Text
-              style={[
-                styles.zoneFilterText,
-                filters.zone === zone && styles.zoneFilterTextActive,
-              ]}
-            >
-              {formatZoneLabel(zone)} ({zoneSummary[zone] || 0})
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-
       {zoneGroups.length === 0 ? (
         <View style={styles.zoneEmptyState}>
-          <Text style={styles.zoneEmptyText}>Không có vị trí phù hợp với bộ lọc hiện tại.</Text>
+          <Text style={styles.zoneEmptyText}>
+            Không có vị trí phù hợp với từ khóa tìm kiếm hiện tại.
+          </Text>
         </View>
       ) : (
         zoneGroups.map(group => (
@@ -344,40 +261,9 @@ const SearchScreen: React.FC = () => {
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <Text style={styles.title}>Tìm chỗ đỗ xe</Text>
-        <Text style={styles.subtitle}>Nhập mã chỗ hoặc sử dụng bộ lọc</Text>
+        <Text style={styles.subtitle}>Nhập mã chỗ để tìm nhanh vị trí</Text>
       </View>
 
-      <View style={styles.searchSection}>
-        <View style={styles.searchRow}>
-          <SearchBar
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            placeholder="VD: A1, B2..."
-          />
-
-          <TouchableOpacity
-            style={[
-              styles.filterButton,
-              showFilters && styles.filterButtonActive,
-            ]}
-            onPress={() => setShowFilters(!showFilters)}
-          >
-            <Icon
-              name="options-outline"
-              size={20}
-              color={showFilters ? COLORS.white : COLORS.primary}
-            />
-          </TouchableOpacity>
-        </View>
-
-        {showFilters && (
-          <FilterOptions
-            filters={filters}
-            onUpdateFilters={updateFilters}
-            onClearFilters={clearFilters}
-          />
-        )}
-      </View>
 
       <ScrollView
         contentContainerStyle={styles.scrollContent}
@@ -386,23 +272,18 @@ const SearchScreen: React.FC = () => {
         <View style={styles.resultHeader}>
           <Text style={styles.resultText}>{filteredSlots.length} chỗ phù hợp</Text>
 
-          {(searchQuery || Object.keys(filters).length > 0) && (
-            <TouchableOpacity
-              onPress={() => {
-                setSearchQuery('');
-                clearFilters();
-              }}
-            >
-              <Text style={styles.clearText}>Xóa lọc</Text>
+          {searchQuery ? (
+            <TouchableOpacity onPress={() => setSearchQuery('')}>
+              <Text style={styles.clearText}>Xóa tìm kiếm</Text>
             </TouchableOpacity>
-          )}
+          ) : null}
         </View>
 
         {filteredSlots.length === 0 ? (
           <EmptyState
             icon="search-outline"
             title="Không tìm thấy"
-            description="Thử lại với từ khóa hoặc bộ lọc khác"
+            description="Thử lại với từ khóa khác"
           />
         ) : (
           renderZonePanel()
@@ -445,21 +326,6 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 4 },
     elevation: 2,
-  },
-  searchRow: {
-    flexDirection: 'row',
-    gap: SPACING.sm,
-  },
-  filterButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: `${COLORS.primary}15`,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  filterButtonActive: {
-    backgroundColor: COLORS.primary,
   },
   resultHeader: {
     flexDirection: 'row',
@@ -539,33 +405,6 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.fontSize.md,
     fontWeight: TYPOGRAPHY.fontWeight.semibold,
     color: COLORS.textPrimary,
-  },
-  zoneFilterScroll: {
-    marginTop: SPACING.md,
-  },
-  zoneFilterContent: {
-    paddingRight: SPACING.sm,
-    gap: SPACING.sm,
-  },
-  zoneFilterChip: {
-    paddingHorizontal: SPACING.md,
-    paddingVertical: 10,
-    borderRadius: 999,
-    backgroundColor: COLORS.background,
-    borderWidth: 1,
-    borderColor: COLORS.borderLight,
-  },
-  zoneFilterChipActive: {
-    backgroundColor: `${COLORS.primary}15`,
-    borderColor: COLORS.primary,
-  },
-  zoneFilterText: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    color: COLORS.textSecondary,
-    fontWeight: TYPOGRAPHY.fontWeight.medium,
-  },
-  zoneFilterTextActive: {
-    color: COLORS.primary,
   },
   zoneEmptyState: {
     paddingVertical: SPACING.lg,

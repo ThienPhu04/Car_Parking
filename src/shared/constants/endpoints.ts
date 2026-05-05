@@ -45,6 +45,7 @@ export const ENDPOINTS = {
   CANCEL_BOOKING: '/api/us/cancelBooking',
   GET_ACTIVE_BOOKING: '/bookings/active',
   GET_PARKING_SESSIONS: '/api/us/getParkingSessions',
+  HANDLE_PARKING_SESSION: '/api/us/handleParkingSession',
 
   // Notifications
   GET_NOTIFICATIONS: '/api/us/getNotification',

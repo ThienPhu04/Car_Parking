@@ -209,28 +209,6 @@ const RegisterScreen: React.FC = () => {
           style={styles.registerButton}
         />
 
-        {/* Divider */}
-        <View style={styles.divider}>
-          <View style={styles.line} />
-          <Text style={styles.dividerText}>Hoặc đăng ký với</Text>
-          <View style={styles.line} />
-        </View>
-
-        {/* Social login */}
-        <View style={styles.socialContainer}>
-          <TouchableOpacity style={styles.socialButton}>
-            <Icon name="logo-apple" size={28} color={COLORS.textPrimary} />
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.socialButton}>
-            <Icon name="logo-google" size={28} color="#DB4437" />
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.socialButton}>
-            <Icon name="logo-facebook" size={28} color="#1877F2" />
-          </TouchableOpacity>
-        </View>
-
         <View style={styles.footer}>
           <Text style={styles.footerText}>Bạn đã có tài khoản? </Text>
 
@@ -250,7 +228,7 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     backgroundColor: COLORS.background,
     paddingHorizontal: SPACING.lg,
-    paddingTop: SPACING.xxl
+    paddingTop: SPACING.xl
   },
 
   title: {
@@ -273,7 +251,7 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.lg,
     backgroundColor: COLORS.accent,
     borderRadius: SPACING.sm,
-    height: 48,
+    height: 58,
     justifyContent: 'center'
   },
 
@@ -319,7 +297,8 @@ const styles = StyleSheet.create({
 
   footerText: {
     fontSize: TYPOGRAPHY.fontSize.md,
-    color: COLORS.textSecondary
+    color: COLORS.textSecondary,
+    fontWeight: TYPOGRAPHY.fontWeight.bold
   },
 
   footerLink: {
