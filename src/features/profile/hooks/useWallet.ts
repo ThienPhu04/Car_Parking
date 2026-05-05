@@ -93,7 +93,7 @@ export const useWallet = () => {
       };
     } catch (error: any) {
       console.error('[useWallet] Error fetching wallet:', error);
-      Alert.alert('Loi', error?.message || 'Khong the tai thong tin vi');
+      Alert.alert('Lỗi', error?.message || 'Không thể tải thông tin ví');
       throw error;
     } finally {
       setIsLoading(false);
@@ -108,7 +108,7 @@ export const useWallet = () => {
           transactionId: `guest-topup-${Date.now()}`,
           amount,
           bankCode: ADMIN_BANK_CODE,
-          bankName: 'Vi khach local',
+          bankName: 'Ví khách local',
           bankAccountNumber: ADMIN_ACCOUNT_NUMBER,
           bankAccountName: ADMIN_ACCOUNT_NAME,
           transferContent: `GUEST-${Date.now()}`,
@@ -118,7 +118,7 @@ export const useWallet = () => {
       }
 
       if (!user?.code) {
-        throw new Error('Khong tim thay ma nguoi dung');
+        throw new Error('Không tìm thấy mã người dùng');
       }
 
       try {
@@ -151,7 +151,7 @@ export const useWallet = () => {
           transactionId,
           amount: Number(qrPayment?.amount || transaction?.amount || amount),
           bankCode: qrPayment?.bankCode || ADMIN_BANK_CODE,
-          bankName: 'Tai khoan nhan tien admin',
+          bankName: 'Tài khoản nhận tiền admin',
           bankAccountNumber:
             qrPayment?.accountNumber || ADMIN_ACCOUNT_NUMBER,
           bankAccountName: qrPayment?.accountName || ADMIN_ACCOUNT_NAME,
@@ -221,7 +221,7 @@ export const useWallet = () => {
       }
 
       if (!user?.code) {
-        throw new Error('Khong tim thay ma nguoi dung');
+        throw new Error('Không tìm thấy mã người dùng');
       }
 
       try {

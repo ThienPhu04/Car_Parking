@@ -12,7 +12,6 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Ionicons';
 
 import { COLORS } from '../../../shared/constants/colors';
-import { SearchBar } from '../components/SearchBar';
 import { useSlotSearch } from '../hooks/useSlotSearch';
 import { useParkingSlots } from '../../parking-map/hooks/useParkingSlots';
 import { ParkingSlot, SlotStatus } from '../../../types/parking.types';
@@ -57,7 +56,7 @@ const formatZoneLabel = (zone: string) => {
     return normalizedZone;
   }
 
-  return ` ${normalizedZone}`;
+  return `Khu ${normalizedZone}`;
 };
 
 const getSlotStatusStyle = (status: SlotStatus) => {
@@ -261,9 +260,7 @@ const SearchScreen: React.FC = () => {
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <Text style={styles.title}>Tìm chỗ đỗ xe</Text>
-        <Text style={styles.subtitle}>Nhập mã chỗ để tìm nhanh vị trí</Text>
       </View>
-
 
       <ScrollView
         contentContainerStyle={styles.scrollContent}

@@ -57,10 +57,10 @@ export const VehicleFormModal: React.FC<VehicleFormModalProps> = ({
     let isValid = true;
 
     if (!validate.required(formData.licensePlate)) {
-      newErrors.licensePlate = 'Vui long nhap bien so xe';
+      newErrors.licensePlate = 'Vui lòng nhập biển số xe';
       isValid = false;
     } else if (!validate.licensePlate(formData.licensePlate)) {
-      newErrors.licensePlate = 'Bien so xe khong hop le';
+      newErrors.licensePlate = 'Biển số xe không hợp lệ';
       isValid = false;
     }
 
@@ -84,7 +84,7 @@ export const VehicleFormModal: React.FC<VehicleFormModalProps> = ({
 
       onSuccess();
     } catch (error: any) {
-      Alert.alert('Loi', error?.message || 'Khong the luu thong tin xe');
+      Alert.alert('Lỗi', error?.message || 'Không thể lưu thông tin xe');
     } finally {
       setIsLoading(false);
     }
@@ -94,7 +94,7 @@ export const VehicleFormModal: React.FC<VehicleFormModalProps> = ({
     <Modal
       visible={visible}
       onClose={onClose}
-      title={vehicle ? 'Chinh sua xe' : 'Them xe moi'}
+      title={vehicle ? 'Chỉnh sửa xe' : 'Thêm xe mới'}
     >
       <View style={styles.form}>
         <Input
@@ -123,14 +123,14 @@ export const VehicleFormModal: React.FC<VehicleFormModalProps> = ({
         />
 
         <Input
-          label="Mau sac"
-          placeholder="VD: Trang"
+          label="Màu sắc"
+          placeholder="VD: Trắng"
           value={formData.color}
           onChangeText={text => setFormData({ ...formData, color: text })}
         />
 
         <Button
-          title={vehicle ? 'Cap nhat' : 'Them xe'}
+          title={vehicle ? 'Cập nhật' : 'Thêm xe'}
           onPress={handleSubmit}
           loading={isLoading}
           fullWidth

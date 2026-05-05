@@ -47,9 +47,9 @@ const EditProfileScreen: React.FC = () => {
     }
 
     Alert.alert(
-      'Thong bao',
-      'Tai khoan khach khong ho tro chinh sua ho so.',
-      [{ text: 'Da hieu', onPress: () => navigation.goBack() }]
+      'Thông báo',
+      'Tài khoản khách không hỗ trợ chỉnh sửa hồ sơ.',
+      [{ text: 'Đã hiểu', onPress: () => navigation.goBack() }]
     );
   }, [isGuest, navigation]);
 
@@ -84,23 +84,23 @@ const EditProfileScreen: React.FC = () => {
     let isValid = true;
 
     if (!formData.userName.trim()) {
-      nextErrors.userName = 'Vui long nhap ten nguoi dung';
+      nextErrors.userName = 'Vui lòng nhập tên người dùng';
       isValid = false;
     }
 
     if (!formData.email.trim()) {
-      nextErrors.email = 'Vui long nhap email';
+      nextErrors.email = 'Vui lòng nhập email';
       isValid = false;
     } else if (!validate.email(formData.email.trim())) {
-      nextErrors.email = 'Email khong hop le';
+      nextErrors.email = 'Email không hợp lệ';
       isValid = false;
     }
 
     if (!formData.phone.trim()) {
-      nextErrors.phone = 'Vui long nhap so dien thoai';
+      nextErrors.phone = 'Vui lòng nhập số điện thoại';
       isValid = false;
     } else if (!validate.phone(formData.phone.trim())) {
-      nextErrors.phone = 'So dien thoai khong hop le';
+      nextErrors.phone = 'Số điện thoại không hợp lệ';
       isValid = false;
     }
 
@@ -148,7 +148,7 @@ const EditProfileScreen: React.FC = () => {
         initialValues.email.trim().toLowerCase();
 
     if (Object.keys(payload).length === 0) {
-      Alert.alert('Thong bao', 'Khong co thong tin nao thay doi');
+      Alert.alert('Thông báo', 'Không có thông tin nào thay đổi');
       return;
     }
 
@@ -156,15 +156,15 @@ const EditProfileScreen: React.FC = () => {
       setIsLoading(true);
       const result = await updateUser(payload);
       Alert.alert(
-        'Thanh cong',
+        'Thành công',
         result.message ||
           (emailChanged
-            ? 'Cap nhat thanh cong. Vui long kiem tra email de xac thuc dia chi moi.'
-            : 'Da cap nhat thong tin ca nhan')
+            ? 'Cập nhật thành công. Vui lòng kiểm tra email để xác thực địa chỉ mới.'
+            : 'Đã cập nhật thông tin cá nhân')
       );
       navigation.goBack();
     } catch (error: any) {
-      Alert.alert('Loi', error?.message || 'Khong the cap nhat thong tin');
+      Alert.alert('Lỗi', error?.message || 'Không thể cập nhật thông tin');
     } finally {
       setIsLoading(false);
     }

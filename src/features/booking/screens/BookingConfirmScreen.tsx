@@ -103,7 +103,7 @@ const buildParkingPaymentDescription = (session: ParkingSession | null) => {
     return 'Phí giữ xe sẽ được tính và trừ tự động khi hệ thống ghi nhận checkout.';
   }
 
-  return 'Nếu ví không đủ số dư khi checkout, sẽ tạo QR để người dùng thanh toán bổ sung.';
+  return 'Nếu ví không đủ số dư khi checkout, hệ thống sẽ tạo QR để người dùng thanh toán bổ sung.';
 };
 
 const BookingConfirmScreen: React.FC = () => {
@@ -202,7 +202,7 @@ const BookingConfirmScreen: React.FC = () => {
           ? {
               ...prev,
               status: BookingStatus.CANCELLED,
-              statusName: 'Da huy',
+              statusName: 'Đã hủy',
               slotId: undefined,
             }
           : prev,
@@ -255,7 +255,7 @@ const BookingConfirmScreen: React.FC = () => {
         </View>
 
         <Text style={styles.title}>
-          {showParkingSession ? 'Chi tiet dat cho' : 'Dat lich thanh cong'}
+          {showParkingSession ? 'Chi tiết đặt chỗ' : 'Đặt lịch thành công'}
         </Text>
         <Text style={styles.subtitle}>
           {showParkingSession
@@ -284,7 +284,7 @@ const BookingConfirmScreen: React.FC = () => {
             <View style={styles.infoContent}>
               <Text style={styles.infoLabel}>Vị trí</Text>
               <Text style={styles.infoValue}>
-                {booking.slot?.code || booking.slotId || 'Hệ thống sẽ tự động gắn'}
+                {booking.slot?.code || booking.slotId || 'Hệ thống sẽ tự động gán'}
               </Text>
             </View>
           </View>
@@ -318,7 +318,7 @@ const BookingConfirmScreen: React.FC = () => {
 
         {isPendingAssignment && showHoldTimer && (
           <Card style={styles.noticeCard}>
-            <Text style={styles.noticeTitle}>Slot chưa được gắn</Text>
+            <Text style={styles.noticeTitle}>Slot chưa được gán</Text>
             <Text style={styles.noticeText}>
               Theo backend mới, booking sẽ được tạo trước và slot sẽ được hệ thống tự động cấp sau.
             </Text>
@@ -351,7 +351,7 @@ const BookingConfirmScreen: React.FC = () => {
                   <View style={styles.infoContent}>
                     <Text style={styles.infoLabel}>Vị trí thực tế</Text>
                     <Text style={styles.infoValue}>
-                      {parkingSession.slotCode || parkingSession.slotName || 'Dang cap nhat'}
+                      {parkingSession.slotCode || parkingSession.slotName || 'Đang cập nhật'}
                     </Text>
                     {parkingSession.floorLabel ? (
                       <Text style={styles.infoHint}>{parkingSession.floorLabel}</Text>
@@ -386,7 +386,7 @@ const BookingConfirmScreen: React.FC = () => {
                     <Text style={styles.infoValue}>
                       {parkingSession.checkOutTime
                         ? formatters.dateTime(parkingSession.checkOutTime)
-                        : 'Chua check-out'}
+                        : 'Chưa check-out'}
                     </Text>
                   </View>
                 </View>

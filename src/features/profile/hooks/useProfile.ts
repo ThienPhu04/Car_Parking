@@ -35,8 +35,8 @@ export const useProfile = () => {
       if (!user?.code) {
         console.error('[useProfile] Missing user.code in Auth Context');
         Alert.alert(
-          'Loi du lieu User',
-          'Tai khoan dang dang nhap khong co ma nguoi dung (code). Vui long kiem tra du lieu dang nhap.',
+          'Lỗi dữ liệu người dùng',
+          'Tài khoản đang đăng nhập không có mã người dùng (code). Vui lòng kiểm tra dữ liệu đăng nhập.',
         );
       }
 
@@ -72,7 +72,7 @@ export const useProfile = () => {
       }
 
       if (!user?.code) {
-        Alert.alert('Loi', 'Khong tim thay ma nguoi dung de gui len server.');
+        Alert.alert('Lỗi', 'Không tìm thấy mã người dùng để gửi lên server.');
         throw new Error('Missing user code');
       }
 

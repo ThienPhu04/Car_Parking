@@ -45,7 +45,7 @@ const normalizeLoginPayload = (payload: any) => {
     ?? null;
 
   if (!responseData?.email) {
-    throw new Error('Khong nhan duoc thong tin nguoi dung tu server');
+    throw new Error('Không nhận được thông tin người dùng từ server');
   }
 
   const normalizedUser: User = {
@@ -76,7 +76,7 @@ const normalizeUserPayload = (payload: any, fallbackUser?: User | null): User =>
   const responseData = payload?.data?.data ?? payload?.data ?? payload?.user ?? payload;
 
   if (!responseData && !fallbackUser) {
-    throw new Error('Khong nhan duoc thong tin nguoi dung tu server');
+    throw new Error('Không nhận được thông tin người dùng từ server');
   }
 
   return {
@@ -98,8 +98,8 @@ const normalizeUserPayload = (payload: any, fallbackUser?: User | null): User =>
 const buildGuestUser = (): User => ({
   id: 'guest-local-user',
   code: 'GUEST',
-  name: 'Khach',
-  userName: 'Khach',
+  name: 'Khách',
+  userName: 'Khách',
   role: 'guest',
   email: 'guest@local.smartparking',
   isGuest: true,
@@ -225,7 +225,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     }
 
     if (!user?.code) {
-      throw new Error('Khong tim thay ma nguoi dung');
+      throw new Error('Không tìm thấy mã người dùng');
     }
 
     try {
@@ -251,7 +251,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
 
     try {
       if (!user?.code) {
-        throw new Error('Khong tim thay ma nguoi dung');
+        throw new Error('Không tìm thấy mã người dùng');
       }
 
       const response = await authService.getInfoAccount(user.code);

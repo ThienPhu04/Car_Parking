@@ -31,10 +31,10 @@ export class FloorLayoutGenerator {
     const mockSlots = this.generateMockSlots(floorLevel);
     const mockFloorDTO: LegacyFloorDTO = {
       code: `MOCK-F${floorLevel}`,
-      nameFloor: `Tang ${floorLevel}`,
+      nameFloor: `Tầng ${floorLevel}`,
       level: floorLevel,
       status: 1,
-      statusName: 'Hoat dong',
+      statusName: 'Hoạt động',
       entrances: this.createMockEntrances(),
       exits: this.createMockExits(),
       lanes: [],
@@ -56,7 +56,7 @@ export class FloorLayoutGenerator {
         witdh: 40,
         rotation: 0,
         status: 1,
-        statusName: 'Hoat dong',
+        statusName: 'Hoạt động',
       },
       {
         code: 'ENTRY-B',
@@ -66,7 +66,7 @@ export class FloorLayoutGenerator {
         witdh: 40,
         rotation: 0,
         status: 1,
-        statusName: 'Hoat dong',
+        statusName: 'Hoạt động',
       },
     ];
   }
@@ -100,7 +100,7 @@ export class FloorLayoutGenerator {
     const zoneMap = new Map<string, SlotDTO[]>();
 
     slots.forEach(slot => {
-      const zoneName = slot.zone || slot.nameZone || 'Khong xac dinh';
+      const zoneName = slot.zone || slot.nameZone || 'Không xác định';
       const existing = zoneMap.get(zoneName) ?? [];
       existing.push(slot);
       zoneMap.set(zoneName, existing);
@@ -111,7 +111,7 @@ export class FloorLayoutGenerator {
       nameZone: zoneName,
       color: index % 2 === 0 ? '#34C759' : '#5AC8FA',
       status: 1,
-      statusName: 'Hoat dong',
+      statusName: 'Hoạt động',
       points: [],
       groupSlots: [],
       slots: zoneSlots,
@@ -131,7 +131,7 @@ export class FloorLayoutGenerator {
         const status = this.randomStatus();
         slots.push({
           code: `MOCK-F${floorLevel}-L${slotIndex}`,
-          nameSlot: `Vi tri L${slotIndex}`,
+          nameSlot: `Vị trí L${slotIndex}`,
           x,
           y,
           status,
@@ -150,7 +150,7 @@ export class FloorLayoutGenerator {
         const status = this.randomStatus();
         slots.push({
           code: `MOCK-F${floorLevel}-R${slotIndex}`,
-          nameSlot: `Vi tri R${slotIndex}`,
+          nameSlot: `Vị trí R${slotIndex}`,
           x,
           y,
           status,
@@ -180,12 +180,12 @@ export class FloorLayoutGenerator {
       case SlotStatus.OCCUPIED:
         return 'Có xe';
       default:
-        return 'Khong xac dinh';
+        return 'Không xác định';
     }
   }
 
   private static getFloorName(floorDto: LegacyFloorDTO): string {
-    return floorDto.nameFloor || floorDto.name || `Tang ${floorDto.level}`;
+    return floorDto.nameFloor || floorDto.name || `Tầng ${floorDto.level}`;
   }
 
   /**
@@ -280,7 +280,7 @@ export class FloorLayoutGenerator {
       name: dto.nameSlot,
       floorId: floorDto.code,
       floorLevel: floorDto.level,
-      zone: dto.zone || dto.nameZone || 'Khong xac dinh',
+      zone: dto.zone || dto.nameZone || 'Không xác định',
       x: dto.x,
       y: dto.y,
       status: dto.status as SlotStatus,
@@ -417,7 +417,7 @@ export class FloorLayoutGenerator {
     if (numEntries >= 1) {
       entries.push({
         id: `${floorDto.code}-ENTRY-A`,
-        name: `Loi vao ${floorDto.level}A`,
+        name: `Lối vào ${floorDto.level}A`,
         floorId: floorDto.code,
         floorLevel: floorDto.level,
         x: centerCol1,
@@ -430,7 +430,7 @@ export class FloorLayoutGenerator {
     if (numEntries >= 2) {
       entries.push({
         id: `${floorDto.code}-ENTRY-B`,
-        name: `Loi vao ${floorDto.level}B`,
+        name: `Lối vào ${floorDto.level}B`,
         floorId: floorDto.code,
         floorLevel: floorDto.level,
         x: centerCol2,
@@ -460,7 +460,7 @@ export class FloorLayoutGenerator {
     if (numExits >= 1) {
       exits.push({
         id: `${floorDto.code}-EXIT-A`,
-        name: `Loi ra ${floorDto.level}A`,
+        name: `Lối ra ${floorDto.level}A`,
         floorId: floorDto.code,
         floorLevel: floorDto.level,
         x: centerCol1,
@@ -473,7 +473,7 @@ export class FloorLayoutGenerator {
     if (numExits >= 2) {
       exits.push({
         id: `${floorDto.code}-EXIT-B`,
-        name: `Loi ra ${floorDto.level}B`,
+        name: `Lối ra ${floorDto.level}B`,
         floorId: floorDto.code,
         floorLevel: floorDto.level,
         x: centerCol2,

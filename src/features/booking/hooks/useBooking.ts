@@ -43,7 +43,7 @@ export const useBooking = () => {
   const createBooking = useCallback(async (data: CreateBookingRequest) => {
     try {
       if (!user?.code) {
-        throw new Error('Khong tim thay ma nguoi dung');
+        throw new Error('Không tìm thấy mã người dùng');
       }
 
       setIsLoading(true);
@@ -83,10 +83,10 @@ export const useBooking = () => {
 
         addNotification({
           type: NotificationType.BOOKING_REMINDER,
-          title: 'Nhac nho dat cho',
+          title: 'Nhắc nhở đặt chỗ',
           message: newBooking.slot?.code
-            ? `Gan den gio dat cho tai ${newBooking.slot.code}`
-            : 'Gan den gio vao bai xe theo lich da dat',
+            ? `Gần đến giờ đặt chỗ tại ${newBooking.slot.code}`
+            : 'Gần đến giờ vào bãi xe theo lịch đã đặt',
           data: { bookingId: newBooking.id },
         });
       }
@@ -104,7 +104,7 @@ export const useBooking = () => {
   const cancelBooking = useCallback(async (id: string) => {
     try {
       if (!user?.code) {
-        throw new Error('Khong tim thay ma nguoi dung');
+        throw new Error('Không tìm thấy mã người dùng');
       }
 
       const targetBooking = bookings.find(
@@ -138,8 +138,8 @@ export const useBooking = () => {
 
       addNotification({
         type: NotificationType.SYSTEM,
-        title: 'Da huy dat cho',
-        message: 'Dat cho cua ban da duoc huy thanh cong',
+        title: 'Đã hủy đặt chỗ',
+        message: 'Đặt chỗ của bạn đã được hủy thành công',
       });
     } catch (err) {
       setError(err as Error);

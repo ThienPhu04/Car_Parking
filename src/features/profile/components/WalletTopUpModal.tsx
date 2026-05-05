@@ -70,8 +70,8 @@ export const WalletTopUpModal: React.FC<WalletTopUpModalProps> = ({
   const handleCreateTransaction = async () => {
     if (parsedAmount < 10000) {
       Alert.alert(
-        'So tien khong hop le',
-        'Vui long nhap it nhat 10.000 VND'
+        'Số tiền không hợp lệ',
+        'Vui lòng nhập ít nhất 10.000 VND'
       );
       return;
     }
@@ -80,7 +80,7 @@ export const WalletTopUpModal: React.FC<WalletTopUpModalProps> = ({
       const nextDraft = await onCreateDraft(parsedAmount);
       setDraft(nextDraft);
     } catch (error: any) {
-      Alert.alert('Loi', error?.message || 'Không thể tạo mã QR nạp tiền');
+      Alert.alert('Lỗi', error?.message || 'Không thể tạo mã QR nạp tiền');
     }
   };
 
@@ -97,7 +97,7 @@ export const WalletTopUpModal: React.FC<WalletTopUpModalProps> = ({
       );
       onClose();
     } catch (error: any) {
-      Alert.alert('Loi', error?.message || 'Không thể xác nhận giao dịch');
+      Alert.alert('Lỗi', error?.message || 'Không thể xác nhận giao dịch');
     }
   };
 
@@ -167,47 +167,13 @@ export const WalletTopUpModal: React.FC<WalletTopUpModalProps> = ({
                 />
               )}
               {isQrContentFallback ? (
-                <Text style={styles.qrFallbackNote}>
-                
-                </Text>
+                <Text style={styles.qrFallbackNote} />
               ) : null}
             </View>
 
-            {/* <View style={styles.infoBlock}>
-              <Text style={styles.infoLabel}>Tai khoan dich</Text>
-              <Text style={styles.infoValue}>{draft.bankName}</Text>
-            </View>
-            <View style={styles.infoBlock}>
-              <Text style={styles.infoLabel}>Ma ngan hang</Text>
-              <Text style={styles.infoValue}>{draft.bankCode}</Text>
-            </View>
-            <View style={styles.infoBlock}>
-              <Text style={styles.infoLabel}>So tai khoan</Text>
-              <Text style={styles.infoValue}>{draft.bankAccountNumber}</Text>
-            </View>
-            <View style={styles.infoBlock}>
-              <Text style={styles.infoLabel}>Chu tai khoan</Text>
-              <Text style={styles.infoValue}>
-                {draft.bankAccountName || 'Dang cap nhat'}
-              </Text>
-            </View>
-            <View style={styles.infoBlock}>
-              <Text style={styles.infoLabel}>So tien</Text>
-              <Text style={[styles.infoValue, styles.amountValue]}>
-                {formatCurrency(draft.amount)}
-              </Text>
-            </View>
-            <View style={styles.infoBlock}>
-              <Text style={styles.infoLabel}>Ma giao dich</Text>
-              <Text style={styles.infoValue}>{draft.transactionId}</Text>
-            </View>
-            <View style={styles.infoBlock}>
-              <Text style={styles.infoLabel}>Noi dung chuyen khoan</Text>
-              <Text style={styles.infoValue}>{draft.transferContent}</Text>
-            </View> */}
             {draft.expireAt ? (
               <View style={styles.infoBlock}>
-                <Text style={styles.infoLabel}>Het han</Text>
+                <Text style={styles.infoLabel}>Hết hạn</Text>
                 <Text style={styles.infoValue}>
                   {new Date(draft.expireAt).toLocaleString('vi-VN')}
                 </Text>
@@ -215,13 +181,13 @@ export const WalletTopUpModal: React.FC<WalletTopUpModalProps> = ({
             ) : null}
 
             <Button
-              title="Hoan tat"
+              title="Hoàn tất"
               onPress={handleConfirm}
               loading={loading}
               fullWidth
             />
             <Button
-              title="Tao lai"
+              title="Tạo lại"
               onPress={() => setDraft(null)}
               variant="outline"
               fullWidth

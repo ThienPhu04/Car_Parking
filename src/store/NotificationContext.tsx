@@ -53,7 +53,7 @@ const mapNotificationDto = (item: NotificationDto): Notification => ({
     || item.id
     || `${item.title || 'notification'}-${item.createdAt || Date.now()}`,
   type: normalizeNotificationType(item.type),
-  title: item.title || 'Thong bao',
+  title: item.title || 'Thông báo',
   message: item.message || '',
   data: item.metadata || item.data || {},
   isRead: Boolean(item.isRead),

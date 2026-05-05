@@ -130,7 +130,7 @@ export const useParkingMap = (
       const payload: any = rawPayload?.data ?? rawPayload;
       const parkingDto = resolveParkingFromResponse(payload, parkingCode);
       if (!parkingDto) {
-        throw new Error('Khong co du lieu bai xe tu API');
+        throw new Error('Không có dữ liệu bãi xe từ API');
       }
       const normalized = normalizeParkingDto(parkingDto);
       const map = ParkingMapTransformer.transformParkingMap(normalized);

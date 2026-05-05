@@ -11,8 +11,8 @@ import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
+import { RouteProp } from '@react-navigation/native';
 
-import { Button } from '../../../shared/components/Button';
 import { Card } from '../../../shared/components/Card';
 import { EmptyState } from '../../../shared/components/EmptyState';
 import { Loading } from '../../../shared/components/Loading';
@@ -24,7 +24,6 @@ import { TabParamList } from '../../../types/navigation.types';
 import { useProfile } from '../../profile/hooks/useProfile';
 import { TimeSelector } from '../components/TimeSelector';
 import { useBooking } from '../hooks/useBooking';
-import { RouteProp } from '@react-navigation/native';
 
 type BookingScreenRouteProp = RouteProp<TabParamList, 'Booking'>;
 
@@ -130,7 +129,7 @@ const BookingScreen: React.FC = () => {
 
   const validateBookingForm = useCallback(() => {
     if (!selectedVehicle) {
-      Alert.alert('Loi', 'Vui long chon xe');
+      Alert.alert('Lỗi', 'Vui lòng chọn xe');
       return false;
     }
 
@@ -140,7 +139,7 @@ const BookingScreen: React.FC = () => {
     const maxTimeMs = now + 10 * 24 * 60 * 60 * 1000;
 
     if (arrivalTimeMs < minTimeMs || arrivalTimeMs > maxTimeMs) {
-      Alert.alert('Loi', 'Thời gian đặt phải sau 30 phút và trước 10 ngày');
+      Alert.alert('Lỗi', 'Thời gian đặt phải sau 30 phút và trước 10 ngày');
       return false;
     }
 
@@ -175,7 +174,7 @@ const BookingScreen: React.FC = () => {
   }, [arrivalTime, createBooking, navigation, resetBookingForm, selectedVehicle, validateBookingForm]);
 
   if (isLoadingVehicles && vehicles.length === 0) {
-    return <Loading fullscreen text="Dang tai danh sach xe..." />;
+    return <Loading fullscreen text="Đang tải danh sách xe..." />;
   }
 
   if (vehicles.length === 0) {
@@ -223,7 +222,7 @@ const BookingScreen: React.FC = () => {
                     size={24}
                     color={
                       selectedVehicle === vehicle.id
-                        ? "#FF9500"
+                        ? '#FF9500'
                         : COLORS.textSecondary
                     }
                   />
@@ -237,7 +236,7 @@ const BookingScreen: React.FC = () => {
                     <Icon
                       name="checkmark-circle"
                       size={24}
-                      color={"#FF9500"}
+                      color="#FF9500"
                     />
                   )}
                 </View>
@@ -338,7 +337,7 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   vehicleCardActive: {
-    borderColor: "#FF9500",
+    borderColor: '#FF9500',
   },
   vehicleContent: {
     flexDirection: 'row',
@@ -401,7 +400,7 @@ const styles = StyleSheet.create({
   },
   bookButton: {
     width: '100%',
-    backgroundColor: "#FF9500",
+    backgroundColor: '#FF9500',
     paddingVertical: 14,
     borderRadius: 8,
     alignItems: 'center',
@@ -410,7 +409,6 @@ const styles = StyleSheet.create({
   bookButtonDisabled: {
     opacity: 0.6,
   },
-
   bookButtonText: {
     color: '#000000',
     fontSize: TYPOGRAPHY.fontSize.md,
