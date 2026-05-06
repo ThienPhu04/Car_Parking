@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -29,6 +29,9 @@ import { SlotLegend } from '../components/SlotLegend';
 import { useParkingMap } from '../hooks/useParkingMap';
 import { ParkingNavigator } from '../ultils/navigationHelper';
 import { useAuth } from '../../../store/AuthContext';
+import { parkingSessionService } from '../../booking/services/parkingSessionService';
+import { normalizeParkingSessionList } from '../../booking/utils/parkingSessionAdapters';
+import { ParkingSessionStatus } from '../../../types/parkingSession.types';
 
 type ParkingMapRouteProp = RouteProp<MainStackParamList, 'ParkingMap'>;
 
@@ -79,10 +82,31 @@ const ParkingMapScreen: React.FC = () => {
   const [navRoute, setNavRoute] = useState<NavigationRoute | null>(null);
   const [showEntryModal, setShowEntryModal] = useState(false);
   const [showSlotActionModal, setShowSlotActionModal] = useState(false);
+  const [vehicleSlotCode, setVehicleSlotCode] = useState<string | null>(null);
+  const [hasFocusedVehicleSlot, setHasFocusedVehicleSlot] = useState(false);
 
   const currentFloorInfo =
     parkingMap?.floors.find(floor => floor.id === currentLayout?.floorId)
     ?? parkingMap?.floors[0];
+
+  const highlightedVehicleSlot = useMemo(
+    () =>
+      currentLayout?.slots.find(slot => slot.code === vehicleSlotCode)
+      ?? null,
+    [currentLayout?.slots, vehicleSlotCode],
+  );
+
+  const highlightedVehicleFloorLabel = useMemo(() => {
+    if (!parkingMap || !vehicleSlotCode) {
+      return null;
+    }
+
+    const matchedLayout = parkingMap.layouts.find(layout =>
+      layout.slots.some(slot => slot.code === vehicleSlotCode),
+    );
+
+    return matchedLayout?.floorName ?? null;
+  }, [parkingMap, vehicleSlotCode]);
 
   useEffect(() => {
     if (!route.params?.selectedSlot || !currentLayout) {
@@ -100,6 +124,64 @@ const ParkingMapScreen: React.FC = () => {
       setShowSlotActionModal(true);
     }
   }, [currentLayout, route.params?.selectedSlot]);
+
+  const loadActiveVehicleSlot = useCallback(async () => {
+    if (!user?.code || user.isGuest) {
+      setVehicleSlotCode(null);
+      return;
+    }
+
+    try {
+      const response = await parkingSessionService.getParkingSessions({
+        userCode: user.code,
+        status: ParkingSessionStatus.ONGOING,
+      });
+      const sessions = normalizeParkingSessionList(response.data);
+      const activeSession = [...sessions]
+        .filter(session => session.status === ParkingSessionStatus.ONGOING && session.slotCode)
+        .sort(
+          (left, right) =>
+            new Date(right.checkInTime).getTime() - new Date(left.checkInTime).getTime(),
+        )[0];
+
+      setHasFocusedVehicleSlot(false);
+      setVehicleSlotCode(activeSession?.slotCode ?? null);
+    } catch (loadError) {
+      console.error('Error loading active vehicle slot:', loadError);
+      setHasFocusedVehicleSlot(false);
+      setVehicleSlotCode(null);
+    }
+  }, [user?.code, user?.isGuest]);
+
+  useEffect(() => {
+    loadActiveVehicleSlot();
+  }, [loadActiveVehicleSlot]);
+
+  useEffect(() => {
+    if (
+      !parkingMap
+      || !currentLayout
+      || !vehicleSlotCode
+      || hasFocusedVehicleSlot
+    ) {
+      return;
+    }
+
+    const matchedLayout = parkingMap.layouts.find(layout =>
+      layout.slots.some(slot => slot.code === vehicleSlotCode),
+    );
+
+    if (!matchedLayout) {
+      setHasFocusedVehicleSlot(true);
+      return;
+    }
+
+    if (matchedLayout.floorId !== currentLayout.floorId) {
+      switchFloor(matchedLayout.floorId);
+    }
+
+    setHasFocusedVehicleSlot(true);
+  }, [currentLayout, hasFocusedVehicleSlot, parkingMap, switchFloor, vehicleSlotCode]);
 
   const handleSlotPress = useCallback((slot: ParkingSlot) => {
     setSelectedSlot(slot);
@@ -271,11 +353,27 @@ const ParkingMapScreen: React.FC = () => {
         </Card>
       )}
 
+      {highlightedVehicleSlot && (
+        <Card style={styles.vehicleHighlightCard}>
+          <InfoRow
+            icon="car-sport"
+            color={COLORS.primary}
+            text={`Xe của bạn đang ở ${highlightedVehicleSlot.code}`}
+          />
+          <InfoRow
+            icon="layers"
+            color={COLORS.textSecondary}
+            text={highlightedVehicleFloorLabel ?? currentLayout?.floorName ?? 'Đang cập nhật tầng'}
+          />
+        </Card>
+      )}
+
       <View style={styles.gridContainer}>
         {currentLayout ? (
           <EnhancedParkingGrid
             layout={currentLayout}
             selectedSlot={selectedSlot}
+            highlightedSlot={highlightedVehicleSlot}
             navigationPath={navRoute?.path ?? null}
             onSlotPress={handleSlotPress}
           />
@@ -470,6 +568,14 @@ const styles = StyleSheet.create({
     marginHorizontal: SPACING.md,
     marginTop: SPACING.sm,
     padding: SPACING.md,
+  },
+  vehicleHighlightCard: {
+    marginHorizontal: SPACING.md,
+    marginTop: SPACING.sm,
+    padding: SPACING.md,
+    borderWidth: 1,
+    borderColor: `${COLORS.primary}35`,
+    backgroundColor: `${COLORS.primary}08`,
   },
   infoRow: {
     flexDirection: 'row',

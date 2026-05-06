@@ -92,6 +92,7 @@ export const generateThreeJSHTML = parkingData => {
         ? LAYOUT.floor.boundary
         : [];
       const selectedSlotId = LAYOUT.selectedSlotId || null;
+      const highlightedSlotId = LAYOUT.highlightedSlotId || null;
       const route = Array.isArray(LAYOUT.route) ? LAYOUT.route : [];
 
       function drawRoundRect(ctx, x, y, w, h, r) {
@@ -638,8 +639,10 @@ export const generateThreeJSHTML = parkingData => {
       });
 
       const slotHitboxes = [];
+      const animatedHighlights = [];
       let selectedEntry = null;
       let selectedSlotHitbox = null;
+      let highlightedVehicleEntry = null;
       let routeGroup = null;
 
       slots.forEach(slot => {
@@ -691,6 +694,51 @@ export const generateThreeJSHTML = parkingData => {
         carTopView.position.y = 0.02;
         group.add(carTopView);
 
+        const highlightRadius = Math.max(slotWidth, slotDepth) * 0.78;
+        const vehicleHighlightRing = new THREE.Mesh(
+          new THREE.RingGeometry(Math.max(highlightRadius - 0.07, 0.12), highlightRadius, 40),
+          new THREE.MeshBasicMaterial({
+            color: 0x38bdf8,
+            transparent: true,
+            opacity: 0.82,
+            side: THREE.DoubleSide,
+            depthWrite: false
+          })
+        );
+        vehicleHighlightRing.rotation.x = -Math.PI / 2;
+        vehicleHighlightRing.position.y = SLOT_THICKNESS + 0.09;
+        vehicleHighlightRing.visible = false;
+        vehicleHighlightRing.renderOrder = 90;
+        group.add(vehicleHighlightRing);
+
+        const vehicleHighlightHalo = new THREE.Mesh(
+          new THREE.RingGeometry(highlightRadius * 0.84, highlightRadius * 1.22, 48),
+          new THREE.MeshBasicMaterial({
+            color: 0x93c5fd,
+            transparent: true,
+            opacity: 0.28,
+            side: THREE.DoubleSide,
+            depthWrite: false
+          })
+        );
+        vehicleHighlightHalo.rotation.x = -Math.PI / 2;
+        vehicleHighlightHalo.position.y = SLOT_THICKNESS + 0.07;
+        vehicleHighlightHalo.visible = false;
+        vehicleHighlightHalo.renderOrder = 89;
+        group.add(vehicleHighlightHalo);
+
+        const vehicleBadge = createTextSprite(
+          'Xe cua ban',
+          'rgba(8, 47, 73, 0.92)',
+          '#e0f2fe',
+          34,
+          3.9,
+          1
+        );
+        vehicleBadge.position.set(0, 0.95, 0);
+        vehicleBadge.visible = false;
+        group.add(vehicleBadge);
+
         const hitbox = new THREE.Mesh(
           new THREE.BoxGeometry(slotWidth, 0.6, slotDepth),
           new THREE.MeshBasicMaterial({ visible: false })
@@ -701,8 +749,15 @@ export const generateThreeJSHTML = parkingData => {
           group: group,
           baseMaterial: baseMaterial,
           outlineMaterial: outlineMaterial,
-          palette: palette
+          palette: palette,
+          vehicleHighlightRing: vehicleHighlightRing,
+          vehicleHighlightHalo: vehicleHighlightHalo,
+          vehicleBadge: vehicleBadge
         };
+        animatedHighlights.push({
+          ring: vehicleHighlightRing,
+          halo: vehicleHighlightHalo
+        });
         slotHitboxes.push(hitbox);
         group.add(hitbox);
         root.add(group);
@@ -782,6 +837,7 @@ export const generateThreeJSHTML = parkingData => {
 
       function applyMapState(nextState) {
         const nextSelectedSlotId = nextState && nextState.selectedSlotId ? nextState.selectedSlotId : null;
+        const nextHighlightedSlotId = nextState && nextState.highlightedSlotId ? nextState.highlightedSlotId : null;
         const nextRoute = nextState && Array.isArray(nextState.route) ? nextState.route : [];
 
         if (nextSelectedSlotId) {
@@ -795,6 +851,18 @@ export const generateThreeJSHTML = parkingData => {
           hideTooltip();
         }
 
+        if (nextHighlightedSlotId) {
+          const highlightedSlotHitbox =
+            slotHitboxes.find(hitbox => hitbox.userData.slot.id === nextHighlightedSlotId) || null;
+          if (highlightedSlotHitbox) {
+            applyVehicleHighlight(highlightedSlotHitbox);
+          } else {
+            clearVehicleHighlight();
+          }
+        } else {
+          clearVehicleHighlight();
+        }
+
         renderRoutePath(nextRoute);
       }
 
@@ -802,7 +870,11 @@ export const generateThreeJSHTML = parkingData => {
         applyMapState(nextState || {});
       };
 
-      applyMapState({ selectedSlotId: selectedSlotId, route: route });
+      applyMapState({
+        selectedSlotId: selectedSlotId,
+        highlightedSlotId: highlightedSlotId,
+        route: route
+      });
 
       const target = new THREE.Vector3(0, 0.3, 0);
       const spherical = {
@@ -852,6 +924,22 @@ export const generateThreeJSHTML = parkingData => {
         return;
       }
 
+      function animateHighlights(frame) {
+        const pulse = (Math.sin(frame * 0.12) + 1) / 2;
+        animatedHighlights.forEach(function(entry) {
+          if (!entry.ring.visible || !entry.halo.visible) {
+            return;
+          }
+
+          const ringScale = 1 + pulse * 0.08;
+          const haloScale = 1.02 + pulse * 0.14;
+          entry.ring.scale.set(ringScale, ringScale, 1);
+          entry.halo.scale.set(haloScale, haloScale, 1);
+          entry.ring.material.opacity = 0.72 + pulse * 0.18;
+          entry.halo.material.opacity = 0.16 + pulse * 0.18;
+        });
+      }
+
       function resetSelection() {
         if (!selectedEntry) {
           return;
@@ -861,6 +949,28 @@ export const generateThreeJSHTML = parkingData => {
         selectedEntry.baseMaterial.emissiveIntensity = 0;
         selectedEntry.outlineMaterial.color.setHex(selectedEntry.palette.line);
         selectedEntry = null;
+      }
+
+      function clearVehicleHighlight() {
+        if (!highlightedVehicleEntry) {
+          return;
+        }
+
+        highlightedVehicleEntry.vehicleHighlightRing.visible = false;
+        highlightedVehicleEntry.vehicleHighlightHalo.visible = false;
+        highlightedVehicleEntry.vehicleBadge.visible = false;
+        highlightedVehicleEntry = null;
+      }
+
+      function applyVehicleHighlight(hitbox) {
+        clearVehicleHighlight();
+
+        const entry = hitbox.userData;
+        entry.vehicleHighlightRing.visible = true;
+        entry.vehicleHighlightHalo.visible = true;
+        entry.vehicleBadge.visible = true;
+        highlightedVehicleEntry = entry;
+        return entry;
       }
 
       function highlightSlot(hitbox) {
@@ -1122,6 +1232,7 @@ export const generateThreeJSHTML = parkingData => {
 
         accentLight.intensity = 1.45 + Math.sin(frame * 0.018) * 0.18;
         backLight.intensity = 0.55 + Math.cos(frame * 0.012) * 0.08;
+        animateHighlights(frame);
 
         renderer.render(scene, camera);
       }

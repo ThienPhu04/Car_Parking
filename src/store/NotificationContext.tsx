@@ -70,6 +70,37 @@ const isAuthSessionError = (error: unknown) => {
   return apiError?.statusCode === 401 || message.includes('refresh token');
 };
 
+const getNotificationTimestamp = (createdAt: string) => {
+  const directTimestamp = Date.parse(createdAt);
+  if (!Number.isNaN(directTimestamp)) {
+    return directTimestamp;
+  }
+
+  const isoLikeTimestamp = Date.parse(createdAt.replace(' ', 'T'));
+  if (!Number.isNaN(isoLikeTimestamp)) {
+    return isoLikeTimestamp;
+  }
+
+  const match = createdAt.match(
+    /^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/
+  );
+
+  if (!match) {
+    return 0;
+  }
+
+  const [, day, month, year, hour = '0', minute = '0', second = '0'] = match;
+
+  return new Date(
+    Number(year),
+    Number(month) - 1,
+    Number(day),
+    Number(hour),
+    Number(minute),
+    Number(second)
+  ).getTime();
+};
+
 export const NotificationProvider: React.FC<{ children: ReactNode }> = ({
   children,
 }) => {
@@ -170,7 +201,8 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({
 
     return merged.sort(
       (left, right) =>
-        new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime()
+        getNotificationTimestamp(right.createdAt)
+        - getNotificationTimestamp(left.createdAt)
     );
   }, [localNotifications, locallyReadIds, remoteNotifications]);
 

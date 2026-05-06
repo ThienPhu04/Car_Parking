@@ -100,6 +100,7 @@ export interface ParkingMap3DLayoutData {
 
 export interface ParkingMap3DViewState {
   selectedSlotId: string | null;
+  highlightedSlotId: string | null;
   route: ParkingMap3DPoint[];
 }
 
@@ -484,9 +485,11 @@ export const buildParkingMap3DLayoutData = (layout: FloorLayout): ParkingMap3DLa
 
 export const buildParkingMap3DViewState = (
   selectedSlot: ParkingSlot | null,
+  highlightedSlot: ParkingSlot | null,
   navigationPath: Position[] | null,
 ): ParkingMap3DViewState => ({
   selectedSlotId: selectedSlot?.id ?? null,
+  highlightedSlotId: highlightedSlot?.id ?? null,
   route: (navigationPath ?? []).map(point => toWorldPoint(point.x + 0.5, point.y + 0.5)),
 });
 

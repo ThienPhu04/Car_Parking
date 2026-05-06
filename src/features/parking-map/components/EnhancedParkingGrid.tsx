@@ -13,6 +13,7 @@ import { generateThreeJSHTML } from '../utils/parkingMap3DTemplate';
 interface EnhancedParkingGridProps {
   layout: FloorLayout;
   selectedSlot: ParkingSlot | null;
+  highlightedSlot: ParkingSlot | null;
   navigationPath: Position[] | null;
   onSlotPress: (slot: ParkingSlot) => void;
   onCellPress?: (x: number, y: number) => void;
@@ -21,6 +22,7 @@ interface EnhancedParkingGridProps {
 export const EnhancedParkingGrid: React.FC<EnhancedParkingGridProps> = ({
   layout,
   selectedSlot,
+  highlightedSlot,
   navigationPath,
   onSlotPress,
   onCellPress: _onCellPress,
@@ -29,8 +31,8 @@ export const EnhancedParkingGrid: React.FC<EnhancedParkingGridProps> = ({
   const [isReady, setIsReady] = useState(false);
   const parkingData = useMemo(() => buildParkingMap3DLayoutData(layout), [layout]);
   const viewState = useMemo(
-    () => buildParkingMap3DViewState(selectedSlot, navigationPath),
-    [navigationPath, selectedSlot],
+    () => buildParkingMap3DViewState(selectedSlot, highlightedSlot, navigationPath),
+    [highlightedSlot, navigationPath, selectedSlot],
   );
   const html = useMemo(() => generateThreeJSHTML(parkingData), [parkingData]);
 
