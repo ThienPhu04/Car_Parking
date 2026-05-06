@@ -38,34 +38,34 @@ export const CountdownTimer: React.FC<CountdownTimerProps> = ({
 
   const isWarning = timeLeft < 300; // Less than 5 minutes
 
-  return (
-    <View
-      style={[
-        styles.container,
-        isWarning && styles.containerWarning,
-      ]}
-    >
-      <Text style={styles.label}>Thời gian còn lại</Text>
-      <View style={styles.timerRow}>
-        <View style={styles.timerBox}>
-          <Text style={[styles.timerValue, isWarning && styles.timerValueWarning]}>
-            {String(minutes).padStart(2, '0')}
-          </Text>
-          <Text style={styles.timerUnit}>Phút</Text>
-        </View>
-        <Text style={[styles.separator, isWarning && styles.separatorWarning]}>:</Text>
-        <View style={styles.timerBox}>
-          <Text style={[styles.timerValue, isWarning && styles.timerValueWarning]}>
-            {String(seconds).padStart(2, '0')}
-          </Text>
-          <Text style={styles.timerUnit}>Giây</Text>
-        </View>
-      </View>
-      {isWarning && (
-        <Text style={styles.warningText}>⚠️ Sắp hết thời gian giữ chỗ!</Text>
-      )}
-    </View>
-  );
+  // return (
+  //   // <View
+  //   //   style={[
+  //   //     styles.container,
+  //   //     isWarning && styles.containerWarning,
+  //   //   ]}
+  //   // >
+  //   //   {/* <Text style={styles.label}>Thời gian còn lại</Text> */}
+  //   //   {/* <View style={styles.timerRow}>
+  //   //     <View style={styles.timerBox}>
+  //   //       <Text style={[styles.timerValue, isWarning && styles.timerValueWarning]}>
+  //   //         {String(minutes).padStart(2, '0')}
+  //   //       </Text>
+  //   //       <Text style={styles.timerUnit}>Phút</Text>
+  //   //     </View>
+  //   //     <Text style={[styles.separator, isWarning && styles.separatorWarning]}>:</Text>
+  //   //     <View style={styles.timerBox}>
+  //   //       <Text style={[styles.timerValue, isWarning && styles.timerValueWarning]}>
+  //   //         {String(seconds).padStart(2, '0')}
+  //   //       </Text>
+  //   //       <Text style={styles.timerUnit}>Giây</Text>
+  //   //     </View>
+  //   //   </View> */}
+  //   //   {isWarning && (
+  //   //     <Text style={styles.warningText}>⚠️ Sắp hết thời gian giữ chỗ!</Text>
+  //   //   )}
+  //   // </View>
+  // );
 };
 
 const styles = StyleSheet.create({

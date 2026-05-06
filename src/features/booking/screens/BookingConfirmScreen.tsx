@@ -316,14 +316,14 @@ const BookingConfirmScreen: React.FC = () => {
           </View>
         </Card>
 
-        {isPendingAssignment && showHoldTimer && (
-          <Card style={styles.noticeCard}>
-            <Text style={styles.noticeTitle}>Slot chưa được gán</Text>
-            <Text style={styles.noticeText}>
-              Theo backend mới, booking sẽ được tạo trước và slot sẽ được hệ thống tự động cấp sau.
-            </Text>
-          </Card>
-        )}
+        {/* {isPendingAssignment && showHoldTimer && (
+          // <Card style={styles.noticeCard}>
+          //   <Text style={styles.noticeTitle}>Slot chưa được gán</Text>
+          //   <Text style={styles.noticeText}>
+          //     Theo backend mới, booking sẽ được tạo trước và slot sẽ được hệ thống tự động cấp sau.
+          //   </Text>
+          // </Card>
+        )} */}
 
         {showParkingSession && (
           <Card style={styles.infoCard}>
@@ -418,7 +418,7 @@ const BookingConfirmScreen: React.FC = () => {
           </Card>
         )}
 
-        {!showParkingSession && (
+        {/* {!showParkingSession && (
           <Card style={styles.qrCard}>
             <Text style={styles.qrTitle}>Mã QR Check-in</Text>
             <View style={styles.qrPlaceholder}>
@@ -428,7 +428,7 @@ const BookingConfirmScreen: React.FC = () => {
               Hiện tại chưa trả về QR code.
             </Text>
           </Card>
-        )}
+        )} */}
 
         <View style={styles.actions}>
           <Button

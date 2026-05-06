@@ -112,7 +112,7 @@ export const BookingCard: React.FC<BookingCardProps> = ({
           <View style={styles.detailRow}>
             <Icon name="layers-outline" size={16} color={COLORS.textSecondary} />
             <Text style={styles.detailText}>
-              ầng {booking.slot?.floorLevel || 'Đang cập nhật'}
+              {booking.slot?.floorLevel || 'Đang cập nhật'}
             </Text>
           </View>
 

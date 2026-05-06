@@ -40,7 +40,7 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
             onPress={onEdit}
             activeOpacity={0.7}
           >
-            <Icon name="create-outline" size={24} color={COLORS.primary} />
+            <Icon name="create-outline" size={24} color={COLORS.white} />
           </TouchableOpacity>
           
           <TouchableOpacity 

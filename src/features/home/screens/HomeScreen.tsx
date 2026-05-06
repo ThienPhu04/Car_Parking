@@ -1,24 +1,25 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  RefreshControl,
-  ImageBackground,
   ActivityIndicator,
+  ImageBackground,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
   TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
 import { COLORS } from '../../../shared/constants/colors';
-import { parkingService } from '../../parking-map/services/parkingService';
-import { ParkingMapDTO } from '../../../types/parking.types';
 import { SPACING } from '../../../shared/constants/spacing';
 import { useNotifications } from '../../../store/NotificationContext';
+import { ParkingMapDTO } from '../../../types/parking.types';
+import { parkingService } from '../../parking-map/services/parkingService';
 
 type HomeScreenNavigationProp = NativeStackNavigationProp<any>;
 
@@ -112,6 +113,7 @@ const HomeScreen: React.FC = () => {
     let total = 0;
     let available = 0;
     let occupied = 0;
+    let reserved = 0;
 
     lot.floors?.forEach(floor => {
       floor.zones?.forEach(zone => {
@@ -124,6 +126,8 @@ const HomeScreen: React.FC = () => {
             total++;
             if (slot.sensorStatus === true || slot.status === 2) {
               occupied++;
+            } else if (slot.status === 1) {
+              reserved++;
             } else if (slot.status === 0 || slot.sensorStatus === false) {
               available++;
             }
@@ -136,20 +140,23 @@ const HomeScreen: React.FC = () => {
       lot.floors?.forEach(floor => {
         floor.zones?.forEach(zone => {
           zone.groupSlots?.forEach(groupSlot => {
-            const visibleSlots = (groupSlot.slots ?? []).filter(slot => !isHiddenSlot(slot));
+            const visibleSlots = (groupSlot.slots ?? []).filter(
+              slot => !isHiddenSlot(slot),
+            );
             total += visibleSlots.length;
             available += visibleSlots.filter(
-              slot => slot.status === 0 || slot.sensorStatus === false
+              slot => slot.status === 0 || slot.sensorStatus === false,
             ).length;
+            reserved += visibleSlots.filter(slot => slot.status === 1).length;
             occupied += visibleSlots.filter(
-              slot => slot.sensorStatus === true || slot.status === 2
+              slot => slot.sensorStatus === true || slot.status === 2,
             ).length;
           });
         });
       });
     }
 
-    return { total, available, occupied };
+    return { total, available, occupied, reserved };
   };
 
   const featuredStats = featuredParkingLot
@@ -217,7 +224,7 @@ const HomeScreen: React.FC = () => {
           <ActivityIndicator
             size="large"
             color={COLORS.primary}
-            style={{ marginTop: 20 }}
+            style={styles.loadingIndicator}
           />
         ) : featuredParkingLot && featuredStats ? (
           <TouchableOpacity
@@ -240,14 +247,24 @@ const HomeScreen: React.FC = () => {
                 <Text style={styles.parkingLocation}>
                   {featuredParkingLot.location}
                 </Text>
+
                 <View style={styles.statsRow}>
-                  <Text style={styles.statText}>
-                    Tổng vị trí: {featuredStats.total} --
-                  </Text>
-                  <Text style={styles.statText}>
-                    Vị trí đã đỗ: {featuredStats.occupied}
-                  </Text>
+                  <View style={styles.statPill}>
+                    <View
+                      style={[
+                        styles.statDot,
+                        { backgroundColor: COLORS.success },
+                      ]}
+                    />
+                    <Text style={styles.statText}>
+                      {featuredStats.available} trống
+                    </Text>
+                  </View>
                 </View>
+
+                <Text style={styles.totalText}>
+                  Tổng vị trí: {featuredStats.total}
+                </Text>
               </View>
             </ImageBackground>
           </TouchableOpacity>
@@ -351,12 +368,6 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.xxl,
     height: 60,
   },
-  searchPlaceholder: {
-    color: COLORS.white,
-    fontSize: 16,
-    fontWeight: '500',
-    opacity: 0.8,
-  },
   searchInput: {
     flex: 1,
     color: COLORS.white,
@@ -371,6 +382,9 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '700',
     color: '#000000',
+  },
+  loadingIndicator: {
+    marginTop: 20,
   },
   parkingCard: {
     height: 220,
@@ -411,13 +425,32 @@ const styles = StyleSheet.create({
   statsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 6,
+    gap: 8,
+    marginBottom: 10,
+  },
+  statPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+  },
+  statDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 6,
   },
   statText: {
     color: COLORS.white,
     fontSize: 12,
+    fontWeight: '600',
+  },
+  totalText: {
+    color: 'rgba(255,255,255,0.88)',
+    fontSize: 12,
     fontWeight: '500',
-    opacity: 0.9,
   },
   emptyContainer: {
     alignItems: 'center',

@@ -189,7 +189,7 @@ const VehicleManagementScreen: React.FC = () => {
                     {editingVehicle ? 'Chỉnh sửa xe' : 'Thêm xe mới'}
                   </Text>
                   <TouchableOpacity onPress={resetForm}>
-                    <Icon name="close-circle" size={24} color={COLORS.textSecondary} />
+                    <Icon name="close-circle" size={24} color={COLORS.white} />
                   </TouchableOpacity>
                 </View>
                 

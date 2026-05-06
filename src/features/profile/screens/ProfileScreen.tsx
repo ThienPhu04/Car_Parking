@@ -82,6 +82,14 @@ const ProfileScreen: React.FC = () => {
           onPress: () => (navigation as any).navigate('MyBookings'),
         },
         {
+          key: 'wallet-history',
+          icon: 'wallet-outline',
+          title: 'Lịch sử hoạt động ví',
+          subtitle: 'Xem các giao dịch nạp tiền, trừ tiền và thông báo trừ tiền trong ví',
+          hiddenForGuest: true,
+          onPress: () => (navigation as any).navigate('WalletHistory'),
+        },
+        {
           key: 'notifications',
           icon: 'notifications-outline',
           title: 'Thông báo',

@@ -37,6 +37,7 @@ export type MainStackParamList = {
   FindCar: undefined;
   Notifications: undefined;
   VehicleManagement: undefined;
+  WalletHistory: undefined;
   EditProfile: undefined;
   Settings: undefined;
 };

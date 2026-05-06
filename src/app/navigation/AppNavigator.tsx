@@ -19,6 +19,7 @@ import FindCarScreen from '../../features/find-car/screens/FindCarScreen';
 import NotificationsScreen from '../../features/notifications/screens/NotificationsScreen';
 import ParkingMapScreen from '../../features/parking-map/screens/ParkingMapScreen';
 import VehicleManagementScreen from '../../features/profile/screens/VehicleManagementScreen';
+import WalletHistoryScreen from '../../features/profile/screens/WalletHistoryScreen';
 import EditProfileScreen from '../../features/profile/screens/EditProfileScreen';
 import SettingsScreen from '../../features/profile/screens/SettingsScreen';
 import { TabNavigator } from './TabNavigator';
@@ -38,7 +39,10 @@ const AuthNavigator: React.FC = () => {
     >
       <AuthStack.Screen name="Login" component={LoginScreen} />
       <AuthStack.Screen name="Register" component={RegisterScreen} />
-      <AuthStack.Screen name="OTPVerification" component={OTPVerificationScreen} />
+      <AuthStack.Screen
+        name="OTPVerification"
+        component={OTPVerificationScreen}
+      />
     </AuthStack.Navigator>
   );
 };
@@ -112,6 +116,14 @@ const MainNavigator: React.FC = () => {
         component={VehicleManagementScreen}
         options={{
           title: 'Quản lý xe',
+          headerBackTitle: 'Quay lại',
+        }}
+      />
+      <MainStack.Screen
+        name="WalletHistory"
+        component={WalletHistoryScreen}
+        options={{
+          title: 'Lịch sử hoạt động ví',
           headerBackTitle: 'Quay lại',
         }}
       />
