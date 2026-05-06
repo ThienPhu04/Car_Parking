@@ -177,10 +177,6 @@ const HomeScreen: React.FC = () => {
             <View style={styles.locationIconContainer}>
               <Icon name="car" size={20} color="#FF9500" />
             </View>
-            <View style={styles.locationTextContainer}>
-              <Text style={styles.locationLabel}>Vị trí của bạn</Text>
-              <Text style={styles.locationValue}>Gò Vấp, Hồ Chí Minh</Text>
-            </View>
           </View>
           <TouchableOpacity
             style={styles.notificationButton}
