@@ -1,4 +1,5 @@
 import { ParkingSlot } from "./parking.types";
+import { ParkingSession } from "./parkingSession.types";
 import { Vehicle } from "./vehicle.types";
 
 export enum BookingStatus {
@@ -24,6 +25,9 @@ export interface Booking {
   licensePlate?: string;
   createdAt: string;
   qrCode?: string;
+  sourceType?: 'booking' | 'parking_session';
+  displayTitle?: string;
+  parkingSession?: ParkingSession;
 }
 
 export interface CreateBookingRequest {

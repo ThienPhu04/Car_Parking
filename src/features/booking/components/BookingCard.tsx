@@ -20,6 +20,16 @@ export const BookingCard: React.FC<BookingCardProps> = ({
   onPress,
   onCancel,
 }) => {
+  const displayTitle =
+    booking.displayTitle
+    || booking.slot?.code
+    || booking.slotId
+    || 'Chờ hệ thống xếp vị trí';
+  const floorText =
+    typeof booking.slot?.floorLevel === 'number' && booking.slot.floorLevel > 0
+      ? `Tầng ${booking.slot.floorLevel}`
+      : booking.parkingSession?.floorLabel || 'Đang cập nhật';
+
   const getStatusColor = () => {
     switch (booking.status) {
       case BookingStatus.ACTIVE:
@@ -36,7 +46,7 @@ export const BookingCard: React.FC<BookingCardProps> = ({
   const getStatusText = () => {
     switch (booking.status) {
       case BookingStatus.ACTIVE:
-        return 'Đã gần vị trí';
+        return 'Đang hoạt động';
       case BookingStatus.COMPLETED:
         return 'Hoàn thành';
       case BookingStatus.CANCELLED:
@@ -81,9 +91,7 @@ export const BookingCard: React.FC<BookingCardProps> = ({
               />
             </View>
             <View style={styles.headerText}>
-              <Text style={styles.slotCode}>
-                {booking.slot?.code || booking.slotId || 'Chờ hệ thống xếp vị trí'}
-              </Text>
+              <Text style={styles.slotCode}>{displayTitle}</Text>
               <View
                 style={[
                   styles.statusBadge,
@@ -111,9 +119,7 @@ export const BookingCard: React.FC<BookingCardProps> = ({
 
           <View style={styles.detailRow}>
             <Icon name="layers-outline" size={16} color={COLORS.textSecondary} />
-            <Text style={styles.detailText}>
-              {booking.slot?.floorLevel || 'Đang cập nhật'}
-            </Text>
+            <Text style={styles.detailText}>{floorText}</Text>
           </View>
 
           <View style={styles.detailRow}>

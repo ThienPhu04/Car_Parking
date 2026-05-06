@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   View,
   Text,
@@ -9,39 +9,129 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
-// import Icon from 'react-native-vector-icons/Ionicons';
-import { COLORS, } from '../../../shared/constants/colors';
+
+import { COLORS } from '../../../shared/constants/colors';
+import { useAuth } from '../../../store/AuthContext';
 import { useBooking } from '../hooks/useBooking';
-import { BookingStatus } from '../../../types/booking.types';
+import { Booking, BookingStatus } from '../../../types/booking.types';
+import {
+  ParkingSession,
+  ParkingSessionStatus,
+} from '../../../types/parkingSession.types';
 import { EmptyState } from '../../../shared/components/EmptyState';
 import { Loading } from '../../../shared/components/Loading';
 import { SPACING } from '@shared/constants/spacing';
 import { TYPOGRAPHY } from '@shared/constants/typography';
 import { BookingCard } from '../components/BookingCard';
+import { parkingSessionService } from '../services/parkingSessionService';
+import { normalizeParkingSessionList } from '../utils/parkingSessionAdapters';
+
+const mapParkingSessionToHistoryItem = (session: ParkingSession): Booking => ({
+  id: `parking-session-${session.id}`,
+  code: session.code || session.id,
+  userId: session.userId || '',
+  slotId: session.slotCode,
+  slot: session.slotCode || session.slotName || session.floorLabel
+    ? {
+        id: session.slotCode || session.slotName || session.id,
+        code: session.slotCode || '',
+        name: session.slotName || '',
+        floorId: '',
+        floorLevel: 0,
+      }
+    : undefined,
+  vehicleId: session.plateNumber || session.id,
+  vehicle: session.plateNumber || session.vehicleName
+    ? {
+        id: session.plateNumber || session.id,
+        licensePlate: session.plateNumber || '',
+        brand: session.vehicleName || '',
+      }
+    : undefined,
+  startTime: session.checkInTime,
+  endTime: session.checkOutTime,
+  status:
+    session.status === ParkingSessionStatus.COMPLETED
+      ? BookingStatus.COMPLETED
+      : BookingStatus.ACTIVE,
+  statusName: session.statusName,
+  licensePlate: session.plateNumber,
+  createdAt: session.createdAt || session.checkInTime,
+  sourceType: 'parking_session',
+  displayTitle: 'Phiên đỗ xe',
+  parkingSession: session,
+});
 
 const MyBookingsScreen: React.FC = () => {
   const navigation = useNavigation();
+  const { user } = useAuth();
   const { bookings, isLoading, fetchBookings, cancelBooking } = useBooking();
   const [refreshing, setRefreshing] = useState(false);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [filter, setFilter] = useState<'all' | BookingStatus>('all');
+  const [standaloneSessions, setStandaloneSessions] = useState<Booking[]>([]);
 
-  useEffect(() => {
-    fetchBookings();
-  }, [fetchBookings]);
+  const loadHistory = useCallback(async () => {
+    try {
+      setIsLoadingHistory(true);
+      const normalizedBookings = await fetchBookings();
+
+      if (!user?.code) {
+        setStandaloneSessions([]);
+        return;
+      }
+
+      const response = await parkingSessionService.getParkingSessions({
+        userCode: user.code,
+      });
+      const sessions = normalizeParkingSessionList(response.data);
+      const bookingCodes = new Set(
+        normalizedBookings
+          .map(booking => booking.code)
+          .filter((code): code is string => Boolean(code)),
+      );
+
+      setStandaloneSessions(
+        sessions
+          .filter(session => !session.bookingCode || !bookingCodes.has(session.bookingCode))
+          .map(mapParkingSessionToHistoryItem),
+      );
+    } catch (error) {
+      console.error('Error loading booking history:', error);
+      setStandaloneSessions([]);
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  }, [fetchBookings, user?.code]);
 
   useFocusEffect(
     React.useCallback(() => {
-      fetchBookings();
-    }, [fetchBookings]),
+      loadHistory();
+    }, [loadHistory]),
   );
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await fetchBookings();
+    await loadHistory();
     setRefreshing(false);
   };
 
-  const filteredBookings = bookings.filter((booking) =>
+  const historyItems = [...bookings, ...standaloneSessions].sort((firstItem, secondItem) => {
+    const firstTime = new Date(
+      firstItem.parkingSession?.checkInTime
+      || firstItem.startTime
+      || firstItem.createdAt,
+    ).getTime();
+    const secondTime = new Date(
+      secondItem.parkingSession?.checkInTime
+      || secondItem.startTime
+      || secondItem.createdAt,
+    ).getTime();
+
+    return secondTime - firstTime;
+  });
+
+  const filteredBookings = historyItems.filter(booking =>
     filter === 'all' ? true : booking.status === filter
   );
 
@@ -52,7 +142,7 @@ const MyBookingsScreen: React.FC = () => {
     { label: 'Đã hủy', value: BookingStatus.CANCELLED },
   ];
 
-  if (isLoading && bookings.length === 0) {
+  if ((isLoading || isLoadingHistory) && historyItems.length === 0) {
     return <Loading fullscreen />;
   }
 
@@ -62,7 +152,6 @@ const MyBookingsScreen: React.FC = () => {
         <Text style={styles.title}>Lịch sử đặt chỗ</Text>
       </View>
 
-      {/* Filters */}
       <View style={styles.filterContainer}>
         {filterOptions.map((option) => (
           <TouchableOpacity
@@ -111,8 +200,11 @@ const MyBookingsScreen: React.FC = () => {
                 })
               }
               onCancel={
-                item.status === BookingStatus.ACTIVE
-                || item.status === BookingStatus.PENDING
+                item.sourceType !== 'parking_session'
+                && (
+                  item.status === BookingStatus.ACTIVE
+                  || item.status === BookingStatus.PENDING
+                )
                   ? () => cancelBooking(item.id)
                   : undefined
               }

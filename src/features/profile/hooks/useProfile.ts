@@ -16,6 +16,11 @@ const GUEST_VEHICLES_KEY = CONFIG.STORAGE_KEYS.GUEST_VEHICLES;
 const createGuestVehicleId = () =>
   `guest-vehicle-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
+const buildVehiclePayload = (payload: Record<string, unknown>) =>
+  Object.fromEntries(
+    Object.entries(payload).filter(([, value]) => value !== undefined && value !== ''),
+  );
+
 export const useProfile = () => {
   const { user, updateUser, refreshUser } = useAuth();
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
@@ -35,8 +40,8 @@ export const useProfile = () => {
       if (!user?.code) {
         console.error('[useProfile] Missing user.code in Auth Context');
         Alert.alert(
-          'Lỗi dữ liệu người dùng',
-          'Tài khoản đang đăng nhập không có mã người dùng (code). Vui lòng kiểm tra dữ liệu đăng nhập.',
+          'Loi du lieu nguoi dung',
+          'Tai khoan dang dang nhap khong co ma nguoi dung (code).',
         );
       }
 
@@ -72,29 +77,39 @@ export const useProfile = () => {
       }
 
       if (!user?.code) {
-        Alert.alert('Lỗi', 'Không tìm thấy mã người dùng để gửi lên server.');
+        Alert.alert('Loi', 'Khong tim thay ma nguoi dung de gui len server.');
         throw new Error('Missing user code');
       }
 
       setIsLoading(true);
       setError(null);
 
-      const payload = {
+      const normalizedLicensePlate = vehicle.licensePlate.trim().toUpperCase();
+      const hasDuplicateLicensePlate = vehicles.some(existingVehicle =>
+        existingVehicle.licensePlate.trim().toUpperCase() === normalizedLicensePlate,
+      );
+
+      if (hasDuplicateLicensePlate) {
+        throw new Error('Bien so xe nay da ton tai.');
+      }
+
+      const payload = buildVehiclePayload({
         userId: user.code,
         nameVehicles: buildVehicleName(vehicle.brand, vehicle.model),
-        licensePlate: vehicle.licensePlate,
+        licensePlate: normalizedLicensePlate,
         brand: vehicle.brand,
         model: vehicle.model,
         color: vehicle.color,
         type: vehicle.type,
         status: 1,
-      };
+      });
 
       const response = await vehicleService.createVehicle(payload);
       const createdVehicle = normalizeVehicleResponse(response.data, {
         ...vehicle,
-        id: '',
         userId: user.code,
+        licensePlate: normalizedLicensePlate,
+        status: 1,
       });
 
       if (createdVehicle?.id) {
@@ -144,20 +159,34 @@ export const useProfile = () => {
       setError(null);
 
       const currentVehicle = vehicles.find(vehicle => vehicle.id === id);
-      const payload = {
-        licensePlate: data.licensePlate,
+      const normalizedLicensePlate = data.licensePlate?.trim().toUpperCase();
+      const hasDuplicateLicensePlate = normalizedLicensePlate
+        ? vehicles.some(vehicle =>
+            vehicle.id !== id
+            && vehicle.licensePlate.trim().toUpperCase() === normalizedLicensePlate,
+          )
+        : false;
+
+      if (hasDuplicateLicensePlate) {
+        throw new Error('Bien so xe nay da ton tai.');
+      }
+
+      const payload = buildVehiclePayload({
+        licensePlate: normalizedLicensePlate,
         nameVehicles: buildVehicleName(data.brand, data.model),
         brand: data.brand,
         model: data.model,
         color: data.color,
         type: data.type,
-      };
+        status: data.status,
+      });
 
       const response = await vehicleService.updateVehicle(id, payload);
       const updatedVehicle = normalizeVehicleResponse(response.data, {
         ...currentVehicle,
         ...data,
         id,
+        licensePlate: normalizedLicensePlate ?? currentVehicle?.licensePlate,
       });
 
       if (updatedVehicle?.id) {
@@ -191,11 +220,13 @@ export const useProfile = () => {
 
       setIsLoading(true);
       setError(null);
+
+      await vehicleService.updateVehicle(id, { status: 0 });
       await vehicleService.deleteVehicle(id);
       setVehicles(prevVehicles => prevVehicles.filter(vehicle => vehicle.id !== id));
     } catch (err) {
       setError(err as Error);
-      console.error('Error deleting vehicle:', err);
+      console.error('[useProfile] Error deleting vehicle:', err);
       throw err;
     } finally {
       setIsLoading(false);
@@ -224,7 +255,7 @@ export const useProfile = () => {
       );
     } catch (err) {
       setError(err as Error);
-      console.error('Error setting default vehicle:', err);
+      console.error('[useProfile] Error setting default vehicle:', err);
       throw err;
     } finally {
       setIsLoading(false);

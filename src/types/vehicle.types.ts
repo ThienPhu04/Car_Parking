@@ -9,6 +9,7 @@ export interface Vehicle {
   userId: string;
   licensePlate: string;
   type: VehicleType;
+  status?: number;
   brand?: string;
   model?: string;
   color?: string;

@@ -105,6 +105,12 @@ export const normalizeVehicle = (
       fallbackVehicle.licensePlate,
     ),
     type: normalizeVehicleType(rawVehicle?.type ?? fallbackVehicle.type),
+    status:
+      typeof rawVehicle?.status === 'number'
+        ? rawVehicle.status
+        : typeof fallbackVehicle.status === 'number'
+          ? fallbackVehicle.status
+          : undefined,
     brand: pickString(rawVehicle?.brand, fallbackVehicle.brand, fallbackName.brand),
     model: pickString(rawVehicle?.model, fallbackVehicle.model, fallbackName.model),
     color: pickString(rawVehicle?.color, fallbackVehicle.color),
