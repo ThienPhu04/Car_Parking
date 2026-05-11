@@ -153,8 +153,19 @@ export const useBooking = () => {
   const getActiveBooking = useCallback(async () => {
     try {
       setIsLoading(true);
-      const response = await bookingService.getActiveBooking();
-      const booking = normalizeBookingResponse(response.data);
+
+      if (!user?.code) {
+        setActiveBooking(null);
+        return null;
+      }
+
+      const response = await bookingService.getBookings({ userId: user.code });
+      const booking = normalizeBookingList(response.data).find(
+        item =>
+          item.status === BookingStatus.ACTIVE
+          || item.status === BookingStatus.PENDING,
+      ) ?? null;
+
       setActiveBooking(booking);
       return booking;
     } catch (err) {
@@ -164,7 +175,7 @@ export const useBooking = () => {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [user?.code]);
 
   return {
     bookings,

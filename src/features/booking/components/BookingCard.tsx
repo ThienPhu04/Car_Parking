@@ -20,11 +20,6 @@ export const BookingCard: React.FC<BookingCardProps> = ({
   onPress,
   onCancel,
 }) => {
-  const displayTitle =
-    booking.displayTitle
-    || booking.slot?.code
-    || booking.slotId
-    || 'Chờ hệ thống xếp vị trí';
   const floorText =
     typeof booking.slot?.floorLevel === 'number' && booking.slot.floorLevel > 0
       ? `Tầng ${booking.slot.floorLevel}`
@@ -46,13 +41,13 @@ export const BookingCard: React.FC<BookingCardProps> = ({
   const getStatusText = () => {
     switch (booking.status) {
       case BookingStatus.ACTIVE:
-        return 'Đang hoạt động';
+        return 'Đặt chỗ thành công';
       case BookingStatus.COMPLETED:
         return 'Hoàn thành';
       case BookingStatus.CANCELLED:
         return 'Đã hủy';
       case BookingStatus.PENDING:
-        return 'Đang chờ gắn slot';
+        return 'Đang chờ gán slot';
       case BookingStatus.EXPIRED:
         return 'Đã hết hạn';
       default:
@@ -73,6 +68,31 @@ export const BookingCard: React.FC<BookingCardProps> = ({
     }
   };
 
+  const getDisplayTitle = () => {
+    if (booking.sourceType === 'parking_session') {
+      return booking.displayTitle
+        || booking.slot?.code
+        || booking.slotId
+        || 'Phiên đỗ xe';
+    }
+
+    switch (booking.status) {
+      case BookingStatus.ACTIVE:
+        return 'Đã đặt lịch thành công';
+      case BookingStatus.CANCELLED:
+        return 'Đã hủy đặt lịch';
+      case BookingStatus.COMPLETED:
+        return 'Hoàn thành đặt lịch';
+      default:
+        return 'Đã đặt lịch thành công';
+    }
+  };
+
+  const statusDisplayText =
+    booking.status === BookingStatus.ACTIVE
+      ? 'Đặt chỗ thành công'
+      : booking.statusName || getStatusText();
+
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.7}>
       <Card style={styles.card}>
@@ -91,7 +111,7 @@ export const BookingCard: React.FC<BookingCardProps> = ({
               />
             </View>
             <View style={styles.headerText}>
-              <Text style={styles.slotCode}>{displayTitle}</Text>
+              <Text style={styles.slotCode}>{getDisplayTitle()}</Text>
               <View
                 style={[
                   styles.statusBadge,
@@ -99,7 +119,7 @@ export const BookingCard: React.FC<BookingCardProps> = ({
                 ]}
               >
                 <Text style={[styles.statusText, { color: getStatusColor() }]}>
-                  {booking.statusName || getStatusText()}
+                  {statusDisplayText}
                 </Text>
               </View>
             </View>

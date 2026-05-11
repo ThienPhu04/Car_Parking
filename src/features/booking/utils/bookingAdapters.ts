@@ -46,13 +46,20 @@ const unwrapBookingPayload = (payload: any): any => {
   return current;
 };
 
-const normalizeBookingStatus = (status: unknown, statusName?: unknown): BookingStatus => {
-  const normalizedStatusName = typeof statusName === 'string'
-    ? statusName.trim().toLowerCase()
+const normalizeText = (value: unknown) =>
+  typeof value === 'string'
+    ? value
+      .trim()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
     : '';
 
+const normalizeBookingStatus = (status: unknown, statusName?: unknown): BookingStatus => {
+  const normalizedStatusName = normalizeText(statusName);
+
   if (typeof status === 'string') {
-    const normalizedStatus = status.trim().toLowerCase();
+    const normalizedStatus = normalizeText(status);
 
     if (normalizedStatus === BookingStatus.ACTIVE) {
       return BookingStatus.ACTIVE;
@@ -95,6 +102,14 @@ const normalizeBookingStatus = (status: unknown, statusName?: unknown): BookingS
 
   if (normalizedStatusName.includes('huy')) {
     return BookingStatus.CANCELLED;
+  }
+
+  if (normalizedStatusName.includes('gan vi tri')) {
+    return BookingStatus.ACTIVE;
+  }
+
+  if (normalizedStatusName.includes('dat truoc')) {
+    return BookingStatus.PENDING;
   }
 
   if (normalizedStatusName.includes('hoan thanh')) {
@@ -148,7 +163,14 @@ export const normalizeBooking = (rawBooking: any): Booking => {
                 : 0,
         }
       : undefined,
-    vehicleId: pickString(vehicleSource?.code, rawBooking?.vehiclesId, rawBooking?.vehicleId),
+    vehicleId: pickString(
+      vehicleSource?.code,
+      vehicleSource?._id,
+      rawBooking?.vehiclesId?._id,
+      rawBooking?.vehiclesId,
+      rawBooking?.vehicleId?._id,
+      rawBooking?.vehicleId,
+    ),
     vehicle: vehicleSource || rawBooking?.licensePlate
       ? {
           id: pickString(vehicleSource?.id, vehicleSource?._id, vehicleSource?.code),

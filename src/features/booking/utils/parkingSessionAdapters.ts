@@ -34,6 +34,29 @@ const pickNumber = (...values: unknown[]) => {
   return 0;
 };
 
+const unwrapSessionPayload = (payload: any): any[] => {
+  let current = payload;
+
+  while (current && typeof current === 'object' && !Array.isArray(current)) {
+    if (Array.isArray(current.data)) {
+      return current.data;
+    }
+
+    if (Array.isArray(current.items)) {
+      return current.items;
+    }
+
+    if (current.data && typeof current.data === 'object') {
+      current = current.data;
+      continue;
+    }
+
+    break;
+  }
+
+  return Array.isArray(current) ? current : [];
+};
+
 const normalizeSessionStatus = (status: unknown): ParkingSessionStatus => {
   return Number(status) === ParkingSessionStatus.COMPLETED
     ? ParkingSessionStatus.COMPLETED
@@ -51,20 +74,29 @@ export const normalizeParkingSession = (rawSession: any): ParkingSession => {
   const bookingSource = rawSession?.bookingId;
   const licensePlateSource = rawSession?.licensePlateId;
   const vehicleSource = rawSession?.vehicleId;
-
-  const floorLabel =
+  const floorLevel =
     typeof slotSource?.floorLevel === 'number'
-      ? `Tầng ${slotSource.floorLevel}`
+      ? slotSource.floorLevel
+      : typeof slotSource?.floor === 'number'
+        ? slotSource.floor
+        : undefined;
+  const floorLabel =
+    typeof floorLevel === 'number' && floorLevel > 0
+      ? `Tầng ${floorLevel}`
       : '';
 
   return {
     id: pickString(rawSession?.id, rawSession?._id, rawSession?.code),
     code: pickString(rawSession?.code),
-    userId: pickString(rawSession?.userId?.code, rawSession?.userId),
+    userId: pickString(rawSession?.userId?.code, rawSession?.userId?._id, rawSession?.userId),
     status: normalizeSessionStatus(rawSession?.status),
-    statusName: pickString(rawSession?.statusName),
+    statusName:
+      pickString(rawSession?.statusName)
+      || (Number(rawSession?.status) === ParkingSessionStatus.COMPLETED ? 'COMPLETED' : 'ONGOING'),
     paymentStatus: normalizePaymentStatus(rawSession?.statusPayment),
-    paymentStatusName: pickString(rawSession?.statusPaymentName),
+    paymentStatusName:
+      pickString(rawSession?.statusPaymentName)
+      || (Number(rawSession?.statusPayment) === ParkingPaymentStatus.PAID ? 'PAID' : 'UNPAID'),
     price: pickNumber(rawSession?.price),
     checkInTime: pickString(rawSession?.checkInTime),
     checkOutTime: pickString(rawSession?.checkOutTime) || undefined,
@@ -84,11 +116,7 @@ export const normalizeParkingSession = (rawSession: any): ParkingSession => {
 };
 
 export const normalizeParkingSessionList = (payload: any): ParkingSession[] => {
-  const sessions = Array.isArray(payload)
-    ? payload
-    : Array.isArray(payload?.data)
-      ? payload.data
-      : [];
+  const sessions = unwrapSessionPayload(payload);
 
   return sessions
     .map((session: any) => normalizeParkingSession(session))

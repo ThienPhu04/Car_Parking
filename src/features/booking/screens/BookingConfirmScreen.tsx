@@ -92,18 +92,18 @@ const findMatchingParkingSession = (
 
 const buildParkingPaymentDescription = (session: ParkingSession | null) => {
   if (!session) {
-    return 'He thong se cap nhat trang thai thanh toan sau khi xe ra vao bai.';
+    return 'Hệ thống sẽ cập nhật trạng thái thanh toán sau khi xe ra vào bãi.';
   }
 
   if (session.paymentStatus === ParkingPaymentStatus.PAID) {
-    return 'Phi giu xe da duoc tru tu dong tu vi khi xe checkout.';
+    return 'Phí giữ xe đã được trừ tự động từ ví khi xe checkout.';
   }
 
   if (session.status === ParkingSessionStatus.ONGOING) {
-    return 'Phi giu xe se duoc tinh va tru tu dong khi he thong ghi nhan checkout.';
+    return 'Phí giữ xe sẽ được tính và trừ tự động khi hệ thống ghi nhận checkout.';
   }
 
-  return 'Neu vi khong du so du khi checkout, he thong se tao QR de thanh toan bo sung.';
+  return 'Nếu ví không đủ số dư khi checkout, hệ thống sẽ tạo QR để thanh toán bổ sung.';
 };
 
 const BookingConfirmScreen: React.FC = () => {
@@ -129,7 +129,7 @@ const BookingConfirmScreen: React.FC = () => {
       }
 
       if (!user?.code) {
-        throw new Error('Khong tim thay thong tin nguoi dung');
+        throw new Error('Không tìm thấy thông tin người dùng');
       }
 
       setIsLoading(true);
@@ -140,7 +140,7 @@ const BookingConfirmScreen: React.FC = () => {
 
       setBooking(matchedBooking);
     } catch (error: any) {
-      Alert.alert('Loi', error?.message || 'Khong the tai thong tin dat cho');
+      Alert.alert('Lỗi', error?.message || 'Không thể tải thông tin đặt chỗ');
     } finally {
       setIsLoading(false);
     }
@@ -197,7 +197,7 @@ const BookingConfirmScreen: React.FC = () => {
 
   const handleCancel = async () => {
     if (!booking?.code || !user?.code || booking.sourceType === 'parking_session') {
-      Alert.alert('Loi', 'Khong tim thay thong tin dat cho de huy');
+      Alert.alert('Lỗi', 'Không tìm thấy thông tin đặt chỗ để hủy');
       return;
     }
 
@@ -213,15 +213,15 @@ const BookingConfirmScreen: React.FC = () => {
           ? {
               ...prev,
               status: BookingStatus.CANCELLED,
-              statusName: 'Da huy',
+              statusName: 'Đã hủy',
               slotId: undefined,
             }
           : prev,
       );
 
-      Alert.alert('Thong bao', 'Huy dat cho thanh cong');
+      Alert.alert('Thông báo', 'Hủy đặt chỗ thành công');
     } catch (error: any) {
-      Alert.alert('Loi', error?.message || 'Khong the huy dat cho');
+      Alert.alert('Lỗi', error?.message || 'Không thể hủy đặt chỗ');
     } finally {
       setIsCancelling(false);
     }
@@ -229,14 +229,14 @@ const BookingConfirmScreen: React.FC = () => {
 
   const handleTimeout = () => {
     Alert.alert(
-      'Thong bao',
-      'Thoi gian giu cho da het. Vui long kiem tra lai trang thai dat cho.',
+      'Thông báo',
+      'Thời gian giữ chỗ đã hết. Vui lòng kiểm tra lại trạng thái đặt chỗ.',
       [{ text: 'OK', onPress: () => navigation.goBack() }],
     );
   };
 
   if (isLoading) {
-    return <Loading fullscreen text="Dang tai thong tin dat cho..." />;
+    return <Loading fullscreen text="Đang tải thông tin đặt chỗ..." />;
   }
 
   if (!booking) {
@@ -244,7 +244,7 @@ const BookingConfirmScreen: React.FC = () => {
       <SafeAreaView style={styles.container}>
         <View style={styles.errorContainer}>
           <Icon name="alert-circle-outline" size={64} color={COLORS.error} />
-          <Text style={styles.errorText}>Khong tim thay thong tin dat cho</Text>
+          <Text style={styles.errorText}>Không tìm thấy thông tin đặt chỗ</Text>
         </View>
       </SafeAreaView>
     );
@@ -273,15 +273,15 @@ const BookingConfirmScreen: React.FC = () => {
 
         <Text style={styles.title}>
           {booking.sourceType === 'parking_session'
-            ? 'Chi tiet phien do xe'
-            : showParkingSession ? 'Chi tiet dat cho' : 'Dat lich thanh cong'}
+            ? 'Chi tiết phiên đỗ xe'
+            : showParkingSession ? 'Chi tiết đặt chỗ' : 'Đặt lịch thành công'}
         </Text>
         <Text style={styles.subtitle}>
           {booking.sourceType === 'parking_session'
-            ? 'Phien do nay duoc tao tu dong khi xe vao bai ma khong co lich dat truoc.'
+            ? 'Phiên đỗ này được tạo tự động khi xe vào bãi mà không có lịch đặt trước.'
             : showParkingSession
-              ? 'Thong tin phien do duoc gan voi lich dat cho da hoan thanh.'
-              : 'He thong se tu dong sap xep slot cho ban khi den thoi diem phu hop.'}
+              ? 'Thông tin phiên đỗ được ghép theo lịch đặt chỗ đã hoàn thành.'
+              : 'Hệ thống sẽ tự động sắp xếp slot cho bạn khi đến thời điểm phù hợp.'}
         </Text>
 
         {showHoldTimer && (
@@ -296,7 +296,7 @@ const BookingConfirmScreen: React.FC = () => {
             <Icon name="pricetag-outline" size={24} color={COLORS.primary} />
             <View style={styles.infoContent}>
               <Text style={styles.infoLabel}>
-                {booking.sourceType === 'parking_session' ? 'Ma phien do' : 'Ma dat cho'}
+                {booking.sourceType === 'parking_session' ? 'Mã phiên đỗ' : 'Mã đặt chỗ'}
               </Text>
               <Text style={styles.infoValue}>
                 {sessionDetail?.code || booking.code || booking.id}
@@ -304,29 +304,27 @@ const BookingConfirmScreen: React.FC = () => {
             </View>
           </View>
 
-          <View style={styles.infoRow}>
-            <Icon name="location-outline" size={24} color={COLORS.primary} />
-            <View style={styles.infoContent}>
-              <Text style={styles.infoLabel}>
-                {booking.sourceType === 'parking_session' ? 'Vi tri thuc te' : 'Vi tri'}
-              </Text>
-              <Text style={styles.infoValue}>
-                {sessionDetail?.slotCode
-                  || sessionDetail?.slotName
-                  || booking.slot?.code
-                  || booking.slotId
-                  || 'He thong se tu dong gan'}
-              </Text>
-              {sessionDetail?.floorLabel ? (
-                <Text style={styles.infoHint}>{sessionDetail.floorLabel}</Text>
-              ) : null}
+          {booking.sourceType === 'parking_session' && (
+            <View style={styles.infoRow}>
+              <Icon name="location-outline" size={24} color={COLORS.primary} />
+              <View style={styles.infoContent}>
+                <Text style={styles.infoLabel}>Vị trí thực tế</Text>
+                <Text style={styles.infoValue}>
+                  {sessionDetail?.slotCode
+                    || sessionDetail?.slotName
+                    || 'Hệ thống sẽ tự động gán'}
+                </Text>
+                {sessionDetail?.floorLabel ? (
+                  <Text style={styles.infoHint}>{sessionDetail.floorLabel}</Text>
+                ) : null}
+              </View>
             </View>
-          </View>
+          )}
 
           <View style={styles.infoRow}>
             <Icon name="car-outline" size={24} color={COLORS.primary} />
             <View style={styles.infoContent}>
-              <Text style={styles.infoLabel}>Phuong tien</Text>
+              <Text style={styles.infoLabel}>Phương tiện</Text>
               <Text style={styles.infoValue}>
                 {sessionDetail?.plateNumber
                   || booking.vehicle?.licensePlate
@@ -344,7 +342,7 @@ const BookingConfirmScreen: React.FC = () => {
             />
             <View style={styles.infoContent}>
               <Text style={styles.infoLabel}>
-                {booking.sourceType === 'parking_session' ? 'Check-in' : 'Thoi gian vao bai'}
+                {booking.sourceType === 'parking_session' ? 'Check-in' : 'Thời gian vào bãi'}
               </Text>
               <Text style={styles.infoValue}>
                 {formatters.dateTime(sessionDetail?.checkInTime || booking.startTime)}
@@ -360,7 +358,7 @@ const BookingConfirmScreen: React.FC = () => {
                 <Text style={styles.infoValue}>
                   {sessionDetail?.checkOutTime
                     ? formatters.dateTime(sessionDetail.checkOutTime)
-                    : 'Chua check-out'}
+                    : 'Chưa check-out'}
                 </Text>
               </View>
             </View>
@@ -369,7 +367,7 @@ const BookingConfirmScreen: React.FC = () => {
           <View style={styles.infoRow}>
             <Icon name="information-circle-outline" size={24} color={COLORS.primary} />
             <View style={styles.infoContent}>
-              <Text style={styles.infoLabel}>Trang thai</Text>
+              <Text style={styles.infoLabel}>Trạng thái</Text>
               <Text style={styles.infoValue}>
                 {sessionDetail?.statusName || booking.statusName || booking.status}
               </Text>
@@ -380,9 +378,9 @@ const BookingConfirmScreen: React.FC = () => {
             <View style={styles.infoRow}>
               <Icon name="wallet-outline" size={24} color={COLORS.primary} />
               <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>Thanh toan</Text>
+                <Text style={styles.infoLabel}>Thanh toán</Text>
                 <Text style={[styles.infoValue, { color: paymentStatusColor }]}>
-                  {sessionDetail.paymentStatusName || 'Dang cap nhat'}
+                  {sessionDetail.paymentStatusName || 'Đang cập nhật'}
                 </Text>
                 <Text style={styles.infoHint}>
                   {formatters.currency(sessionDetail.price || 0)}
@@ -395,9 +393,9 @@ const BookingConfirmScreen: React.FC = () => {
 
         {isPendingAssignment && showHoldTimer && (
           <Card style={styles.noticeCard}>
-            <Text style={styles.noticeTitle}>Slot chua duoc gan</Text>
+            <Text style={styles.noticeTitle}>Slot chưa được gán</Text>
             <Text style={styles.noticeText}>
-              He thong se tu dong cap vi tri khi den thoi diem phu hop.
+              Hệ thống sẽ tự động cấp vị trí khi đến thời điểm phù hợp.
             </Text>
           </Card>
         )}
@@ -405,7 +403,7 @@ const BookingConfirmScreen: React.FC = () => {
         {showLinkedParkingSessionCard && (
           <Card style={styles.infoCard}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Thong tin phien do</Text>
+              <Text style={styles.sectionTitle}>Thông tin phiên đỗ</Text>
               {isLoadingParkingSession && (
                 <ActivityIndicator color={COLORS.primary} size="small" />
               )}
@@ -416,7 +414,7 @@ const BookingConfirmScreen: React.FC = () => {
                 <View style={styles.infoRow}>
                   <Icon name="clipboard-outline" size={24} color={COLORS.primary} />
                   <View style={styles.infoContent}>
-                    <Text style={styles.infoLabel}>Ma phien do</Text>
+                    <Text style={styles.infoLabel}>Mã phiên đỗ</Text>
                     <Text style={styles.infoValue}>
                       {parkingSession.code || parkingSession.id}
                     </Text>
@@ -426,9 +424,9 @@ const BookingConfirmScreen: React.FC = () => {
                 <View style={styles.infoRow}>
                   <Icon name="location-outline" size={24} color={COLORS.primary} />
                   <View style={styles.infoContent}>
-                    <Text style={styles.infoLabel}>Vi tri thuc te</Text>
+                    <Text style={styles.infoLabel}>Vị trí thực tế</Text>
                     <Text style={styles.infoValue}>
-                      {parkingSession.slotCode || parkingSession.slotName || 'Dang cap nhat'}
+                      {parkingSession.slotCode || parkingSession.slotName || 'Đang cập nhật'}
                     </Text>
                     {parkingSession.floorLabel ? (
                       <Text style={styles.infoHint}>{parkingSession.floorLabel}</Text>
@@ -439,7 +437,7 @@ const BookingConfirmScreen: React.FC = () => {
                 <View style={styles.infoRow}>
                   <Icon name="car-outline" size={24} color={COLORS.primary} />
                   <View style={styles.infoContent}>
-                    <Text style={styles.infoLabel}>Bien so</Text>
+                    <Text style={styles.infoLabel}>Biển số</Text>
                     <Text style={styles.infoValue}>
                       {parkingSession.plateNumber
                         || booking.vehicle?.licensePlate
@@ -466,7 +464,7 @@ const BookingConfirmScreen: React.FC = () => {
                     <Text style={styles.infoValue}>
                       {parkingSession.checkOutTime
                         ? formatters.dateTime(parkingSession.checkOutTime)
-                        : 'Chua check-out'}
+                        : 'Chưa check-out'}
                     </Text>
                   </View>
                 </View>
@@ -474,9 +472,9 @@ const BookingConfirmScreen: React.FC = () => {
                 <View style={styles.infoRow}>
                   <Icon name="wallet-outline" size={24} color={COLORS.primary} />
                   <View style={styles.infoContent}>
-                    <Text style={styles.infoLabel}>Thanh toan</Text>
+                    <Text style={styles.infoLabel}>Thanh toán</Text>
                     <Text style={[styles.infoValue, { color: paymentStatusColor }]}>
-                      {parkingSession.paymentStatusName || 'Dang cap nhat'}
+                      {parkingSession.paymentStatusName || 'Đang cập nhật'}
                     </Text>
                     <Text style={styles.infoHint}>
                       {formatters.currency(parkingSession.price || 0)}
@@ -489,7 +487,7 @@ const BookingConfirmScreen: React.FC = () => {
               <View style={styles.emptySessionState}>
                 <Icon name="document-text-outline" size={24} color={COLORS.textSecondary} />
                 <Text style={styles.emptySessionText}>
-                  Chua tim thay thong tin phien do cho lich dat cho nay.
+                  Chưa tìm thấy thông tin phiên đỗ cho lịch đặt chỗ này.
                 </Text>
               </View>
             )}
@@ -498,14 +496,14 @@ const BookingConfirmScreen: React.FC = () => {
 
         <View style={styles.actions}>
           <Button
-            title="Xem lich su dat cho"
+            title="Xem lịch sử đặt chỗ"
             onPress={() => navigation.goBack()}
             variant="outline"
             style={styles.actionButton}
           />
           {booking.sourceType !== 'parking_session' && canCancelBooking(booking) && (
             <Button
-              title="Huy dat cho"
+              title="Hủy đặt chỗ"
               onPress={handleCancel}
               variant="text"
               style={styles.actionButton}
