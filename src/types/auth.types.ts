@@ -35,6 +35,12 @@ export interface EmailVerificationRequest {
   token: string;
 }
 
+export interface ResetPasswordRequest {
+  token: string;
+  password: string;
+  confirmPassword: string;
+}
+
 export interface LoginResponseData extends User {
   accessToken?: string;
   refreshToken?: string;

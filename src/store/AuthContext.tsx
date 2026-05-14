@@ -230,8 +230,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
 
     try {
       const response = await authService.updateInfoAccount(user.code, userData);
+      const responseUser = response.data
+        ? normalizeUserPayload(response.data, user)
+        : null;
       const profileResponse = await authService.getInfoAccount(user.code);
-      const updatedUser = normalizeUserPayload(profileResponse.data, user);
+      const updatedUser = normalizeUserPayload(
+        profileResponse.data ?? responseUser ?? user,
+        responseUser ?? user,
+      );
 
       await persistUser(updatedUser);
       return {

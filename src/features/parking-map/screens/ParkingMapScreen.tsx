@@ -96,18 +96,6 @@ const ParkingMapScreen: React.FC = () => {
     [currentLayout?.slots, vehicleSlotCode],
   );
 
-  const highlightedVehicleFloorLabel = useMemo(() => {
-    if (!parkingMap || !vehicleSlotCode) {
-      return null;
-    }
-
-    const matchedLayout = parkingMap.layouts.find(layout =>
-      layout.slots.some(slot => slot.code === vehicleSlotCode),
-    );
-
-    return matchedLayout?.floorName ?? null;
-  }, [parkingMap, vehicleSlotCode]);
-
   useEffect(() => {
     if (!route.params?.selectedSlot || !currentLayout) {
       return;
@@ -353,21 +341,6 @@ const ParkingMapScreen: React.FC = () => {
         </Card>
       )}
 
-      {highlightedVehicleSlot && (
-        <Card style={styles.vehicleHighlightCard}>
-          <InfoRow
-            icon="car-sport"
-            color={COLORS.primary}
-            text={`Xe của bạn đang ở ${highlightedVehicleSlot.code}`}
-          />
-          <InfoRow
-            icon="layers"
-            color={COLORS.textSecondary}
-            text={highlightedVehicleFloorLabel ?? currentLayout?.floorName ?? 'Đang cập nhật tầng'}
-          />
-        </Card>
-      )}
-
       <View style={styles.gridContainer}>
         {currentLayout ? (
           <EnhancedParkingGrid
@@ -568,14 +541,6 @@ const styles = StyleSheet.create({
     marginHorizontal: SPACING.md,
     marginTop: SPACING.sm,
     padding: SPACING.md,
-  },
-  vehicleHighlightCard: {
-    marginHorizontal: SPACING.md,
-    marginTop: SPACING.sm,
-    padding: SPACING.md,
-    borderWidth: 1,
-    borderColor: `${COLORS.primary}35`,
-    backgroundColor: `${COLORS.primary}08`,
   },
   infoRow: {
     flexDirection: 'row',

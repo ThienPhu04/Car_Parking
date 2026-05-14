@@ -68,6 +68,7 @@ class ApiClient {
           ENDPOINTS.REFRESH_TOKEN,
           ENDPOINTS.VERIFY_EMAIL,
           ENDPOINTS.FORGOT_PASSWORD,
+          ENDPOINTS.RESET_PASSWORD,
         ];
         const requestUrl = originalRequest.url || '';
         const isAuthEndpoint = authEndpoints.some((endpoint) =>

@@ -6,6 +6,7 @@ export const ENDPOINTS = {
   REFRESH_TOKEN: '/api/us/refresh-token',
   LOGOUT: '/api/us/logout',
   FORGOT_PASSWORD: '/api/us/forgot-password',
+  RESET_PASSWORD: '/api/us/reset-password',
 
   // User
   GET_PROFILE: '/users/profile',

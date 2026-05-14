@@ -20,8 +20,8 @@ const resolveDevHost = () => {
 };
 
 const DEV_HOST = resolveDevHost();
-const DEV_API_BASE_URL = `http://${DEV_HOST}:3000/`;
-// const DEV_API_BASE_URL = 'http://10.127.227.232:3000/';
+// const DEV_API_BASE_URL = `http://${DEV_HOST}:3000/`;
+const DEV_API_BASE_URL = 'http://192.168.1.7:3000/';
 
 const DEV_MQTT_BROKER_URL = `mqtt://${DEV_HOST}:1883`;
 const PROD_API_BASE_URL = 'https://be-smartparking.onrender.com/';
@@ -44,6 +44,11 @@ export const CONFIG = {
   BOOKING_REMINDER_MINUTES: 5,
   MAX_BOOKING_DURATION_HOURS: 24,
   MIN_BOOKING_DURATION_MINUTES: 30,
+  MAX_BOOKING_ADVANCE_DAYS: 10,
+  BOOKING_RESTRICTED_HOURS: {
+    START: 23,
+    END: 5,
+  },
   
   // Map Configuration
   INITIAL_REGION: {

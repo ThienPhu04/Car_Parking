@@ -8,15 +8,15 @@ import {
   View,
 } from 'react-native';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
-import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
+import { RouteProp, useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
-import { RouteProp } from '@react-navigation/native';
 
 import { Card } from '../../../shared/components/Card';
 import { EmptyState } from '../../../shared/components/EmptyState';
 import { Loading } from '../../../shared/components/Loading';
 import { COLORS } from '../../../shared/constants/colors';
+import { CONFIG } from '../../../shared/constants/config';
 import { SPACING } from '../../../shared/constants/spacing';
 import { TYPOGRAPHY } from '../../../shared/constants/typography';
 import { formatters } from '../../../shared/utils/formatters';
@@ -24,6 +24,12 @@ import { TabParamList } from '../../../types/navigation.types';
 import { useProfile } from '../../profile/hooks/useProfile';
 import { TimeSelector } from '../components/TimeSelector';
 import { useBooking } from '../hooks/useBooking';
+import {
+  getDefaultBookingArrivalTime,
+  getNextAllowedBookingTime,
+  isRestrictedBookingHour,
+  validateBookingArrivalTime,
+} from '../utils/bookingValidation';
 
 type BookingScreenRouteProp = RouteProp<TabParamList, 'Booking'>;
 
@@ -36,27 +42,17 @@ const isValidDate = (value?: string) => {
   return Number.isNaN(parsedDate.getTime()) ? null : parsedDate;
 };
 
-const roundUpToNextHalfHour = () => {
-  const now = new Date();
-  const roundedDate = new Date(now);
-  roundedDate.setSeconds(0, 0);
+const buildInitialArrivalTime = (params?: TabParamList['Booking']) => {
+  const requestedArrivalTime = isValidDate(params?.expectedArrivalTime);
 
-  const minutes = roundedDate.getMinutes();
-  const remainder = minutes % 30;
-
-  if (remainder !== 0) {
-    roundedDate.setMinutes(minutes + (30 - remainder));
+  if (!requestedArrivalTime) {
+    return getDefaultBookingArrivalTime();
   }
 
-  if (roundedDate.getTime() <= now.getTime()) {
-    roundedDate.setMinutes(roundedDate.getMinutes() + 30);
-  }
-
-  return roundedDate;
+  return isRestrictedBookingHour(requestedArrivalTime)
+    ? getNextAllowedBookingTime(requestedArrivalTime)
+    : requestedArrivalTime;
 };
-
-const buildInitialArrivalTime = (params?: TabParamList['Booking']) =>
-  isValidDate(params?.expectedArrivalTime) ?? roundUpToNextHalfHour();
 
 const BookingScreen: React.FC = () => {
   const navigation = useNavigation();
@@ -78,8 +74,9 @@ const BookingScreen: React.FC = () => {
   const [arrivalTime, setArrivalTime] = useState(initialArrivalTimeRef.current);
 
   const resetBookingForm = useCallback(() => {
-    const defaultVehicle = vehicles.find(vehicle => vehicle.isDefault) ?? vehicles[0] ?? null;
-    setArrivalTime(roundUpToNextHalfHour());
+    const defaultVehicle =
+      vehicles.find(vehicle => vehicle.isDefault) ?? vehicles[0] ?? null;
+    setArrivalTime(getDefaultBookingArrivalTime());
     setSelectedVehicle(defaultVehicle?.id ?? null);
   }, [vehicles]);
 
@@ -115,7 +112,11 @@ const BookingScreen: React.FC = () => {
     const nextArrivalTime = isValidDate(route.params?.expectedArrivalTime);
 
     if (nextArrivalTime) {
-      setArrivalTime(nextArrivalTime);
+      setArrivalTime(
+        isRestrictedBookingHour(nextArrivalTime)
+          ? getNextAllowedBookingTime(nextArrivalTime)
+          : nextArrivalTime,
+      );
     }
   }, [route.params?.expectedArrivalTime]);
 
@@ -129,17 +130,14 @@ const BookingScreen: React.FC = () => {
 
   const validateBookingForm = useCallback(() => {
     if (!selectedVehicle) {
-      Alert.alert('Lỗi', 'Vui lòng chọn xe');
+      Alert.alert('Lỗi', 'Vui lòng thêm xe trước khi đặt lịch');
       return false;
     }
 
-    const now = Date.now();
-    const arrivalTimeMs = arrivalTime.getTime();
-    const minTimeMs = now + 30 * 60 * 1000;
-    const maxTimeMs = now + 10 * 24 * 60 * 60 * 1000;
+    const validationMessage = validateBookingArrivalTime(arrivalTime);
 
-    if (arrivalTimeMs < minTimeMs || arrivalTimeMs > maxTimeMs) {
-      Alert.alert('Lỗi', 'Thời gian đặt phải sau 30 phút và trước 10 ngày');
+    if (validationMessage) {
+      Alert.alert('Lỗi', validationMessage);
       return false;
     }
 
@@ -201,48 +199,6 @@ const BookingScreen: React.FC = () => {
       >
         <View style={styles.header}>
           <Text style={styles.title}>Đặt lịch đỗ xe</Text>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Chọn xe</Text>
-          {vehicles.map(vehicle => (
-            <TouchableOpacity
-              key={vehicle.id}
-              onPress={() => setSelectedVehicle(vehicle.id)}
-            >
-              <Card
-                style={[
-                  styles.vehicleCard,
-                  selectedVehicle === vehicle.id && styles.vehicleCardActive,
-                ]}
-              >
-                <View style={styles.vehicleContent}>
-                  <Icon
-                    name="car-outline"
-                    size={24}
-                    color={
-                      selectedVehicle === vehicle.id
-                        ? '#FF9500'
-                        : COLORS.textSecondary
-                    }
-                  />
-                  <View style={styles.vehicleInfo}>
-                    <Text style={styles.vehiclePlate}>{vehicle.licensePlate}</Text>
-                    <Text style={styles.vehicleModel}>
-                      {vehicle.brand} {vehicle.model}
-                    </Text>
-                  </View>
-                  {selectedVehicle === vehicle.id && (
-                    <Icon
-                      name="checkmark-circle"
-                      size={24}
-                      color="#FF9500"
-                    />
-                  )}
-                </View>
-              </Card>
-            </TouchableOpacity>
-          ))}
         </View>
 
         <View style={styles.section}>
@@ -330,32 +286,6 @@ const styles = StyleSheet.create({
     fontWeight: TYPOGRAPHY.fontWeight.semibold,
     color: COLORS.textPrimary,
     marginBottom: SPACING.md,
-  },
-  vehicleCard: {
-    marginBottom: SPACING.sm,
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  vehicleCardActive: {
-    borderColor: '#FF9500',
-  },
-  vehicleContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  vehicleInfo: {
-    flex: 1,
-    marginLeft: SPACING.md,
-  },
-  vehiclePlate: {
-    fontSize: TYPOGRAPHY.fontSize.md,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold,
-    color: COLORS.textPrimary,
-  },
-  vehicleModel: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    color: COLORS.textSecondary,
-    marginTop: SPACING.xs,
   },
   noticeCard: {
     marginTop: SPACING.sm,

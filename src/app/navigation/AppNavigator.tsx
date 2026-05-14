@@ -13,6 +13,7 @@ import {
 import LoginScreen from '../../features/auth/screens/LoginScreen';
 import RegisterScreen from '../../features/auth/screens/RegisterScreen';
 import OTPVerificationScreen from '../../features/auth/screens/OTPVerificationScreen';
+import ResetPasswordScreen from '../../features/auth/screens/ResetPasswordScreen';
 import BookingConfirmScreen from '../../features/booking/screens/BookingConfirmScreen';
 import MyBookingsScreen from '../../features/booking/screens/MyBookingsScreen';
 import FindCarScreen from '../../features/find-car/screens/FindCarScreen';
@@ -42,6 +43,10 @@ const AuthNavigator: React.FC = () => {
       <AuthStack.Screen
         name="OTPVerification"
         component={OTPVerificationScreen}
+      />
+      <AuthStack.Screen
+        name="ResetPassword"
+        component={ResetPasswordScreen}
       />
     </AuthStack.Navigator>
   );
@@ -85,6 +90,13 @@ const MainNavigator: React.FC = () => {
         options={{
           title: 'Xác nhận đặt chỗ',
           headerBackTitle: 'Quay lại',
+        }}
+      />
+      <MainStack.Screen
+        name="ResetPassword"
+        component={ResetPasswordScreen}
+        options={{
+          headerShown: false,
         }}
       />
       <MainStack.Screen

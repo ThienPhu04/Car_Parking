@@ -18,6 +18,11 @@ export interface ParkingMapRouteParams {
   expectedLeaveTime?: string;
 }
 
+export interface ResetPasswordRouteParams {
+  email: string;
+  origin?: 'auth' | 'profile';
+}
+
 export type RootStackParamList = {
   Auth: NavigatorScreenParams<AuthStackParamList>;
   Main: NavigatorScreenParams<MainStackParamList>;
@@ -27,12 +32,14 @@ export type AuthStackParamList = {
   Login: undefined;
   Register: undefined;
   OTPVerification: { email: string };
+  ResetPassword: ResetPasswordRouteParams;
 };
 
 export type MainStackParamList = {
   MainTabs: NavigatorScreenParams<TabParamList>;
   ParkingMap: ParkingMapRouteParams | undefined;
   BookingConfirm: { bookingId: string; booking?: Booking };
+  ResetPassword: ResetPasswordRouteParams;
   MyBookings: undefined;
   FindCar: undefined;
   Notifications: undefined;

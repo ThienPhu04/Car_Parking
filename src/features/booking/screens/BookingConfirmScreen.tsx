@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Image,
   ScrollView,
   StyleSheet,
   Text,
@@ -10,6 +11,7 @@ import {
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
+import QRCodeStyled from 'react-native-qrcode-styled';
 
 import { useAuth } from '../../../store/AuthContext';
 import { Button } from '../../../shared/components/Button';
@@ -25,8 +27,10 @@ import { MainStackParamList } from '../../../types/navigation.types';
 import {
   ParkingPaymentStatus,
   ParkingSession,
+  ParkingSessionProcessType,
   ParkingSessionStatus,
 } from '../../../types/parkingSession.types';
+import { useWallet } from '../../profile/hooks/useWallet';
 import { CountdownTimer } from '../components/CountdownTimer';
 import { bookingService } from '../services/bookingService';
 import { parkingSessionService } from '../services/parkingSessionService';
@@ -35,15 +39,31 @@ import { normalizeParkingSessionList } from '../utils/parkingSessionAdapters';
 
 type BookingConfirmRouteProp = RouteProp<MainStackParamList, 'BookingConfirm'>;
 
+type ParkingPaymentQrDraft = {
+  qr?: string;
+  content?: string;
+  amount: number;
+  message?: string;
+  type?: ParkingSessionProcessType;
+};
+
+const isRemoteImageUrl = (value?: string | null) =>
+  typeof value === 'string'
+  && /^https?:\/\//i.test(value)
+  && /\.(png|jpg|jpeg|webp|gif)(\?.*)?$/i.test(value);
+
 const buildHoldExpiryTime = (booking: Booking) => {
   const createdAt = new Date(booking.createdAt || Date.now());
-  const createdAtMs = Number.isNaN(createdAt.getTime()) ? Date.now() : createdAt.getTime();
+  const createdAtMs = Number.isNaN(createdAt.getTime())
+    ? Date.now()
+    : createdAt.getTime();
 
   return new Date(createdAtMs + CONFIG.BOOKING_TIMEOUT_MINUTES * 60 * 1000);
 };
 
 const canCancelBooking = (booking: Booking) =>
-  booking.status === BookingStatus.ACTIVE || booking.status === BookingStatus.PENDING;
+  booking.status === BookingStatus.ACTIVE
+  || booking.status === BookingStatus.PENDING;
 
 const buildSessionLookupDate = (booking: Booking) => {
   const bookingDate = booking.startTime || booking.createdAt;
@@ -84,8 +104,12 @@ const findMatchingParkingSession = (
   }
 
   return [...sessions].sort((firstSession, secondSession) => {
-    const firstDelta = Math.abs(new Date(firstSession.checkInTime).getTime() - bookingTime);
-    const secondDelta = Math.abs(new Date(secondSession.checkInTime).getTime() - bookingTime);
+    const firstDelta = Math.abs(
+      new Date(firstSession.checkInTime).getTime() - bookingTime,
+    );
+    const secondDelta = Math.abs(
+      new Date(secondSession.checkInTime).getTime() - bookingTime,
+    );
     return firstDelta - secondDelta;
   })[0];
 };
@@ -96,22 +120,24 @@ const buildParkingPaymentDescription = (session: ParkingSession | null) => {
   }
 
   if (session.paymentStatus === ParkingPaymentStatus.PAID) {
-    return 'Phí giữ xe đã được trừ tự động từ ví khi xe checkout.';
+    return 'Phí gửi xe đã được trừ tự động từ ví khi xe checkout.';
   }
 
   if (session.status === ParkingSessionStatus.ONGOING) {
-    return 'Phí giữ xe sẽ được tính và trừ tự động khi hệ thống ghi nhận checkout.';
+    return 'Phí gửi xe sẽ được tính và trừ tự động khi hệ thống ghi nhận checkout.';
   }
 
-  return 'Nếu ví không đủ số dư khi checkout, hệ thống sẽ tạo QR để thanh toán bổ sung.';
+  return 'Nếu ví không đủ số dư khi checkout, hệ thống sẽ tạo QR để thanh toán trực tiếp phiên đỗ.';
 };
 
 const BookingConfirmScreen: React.FC = () => {
   const navigation = useNavigation();
   const route = useRoute<BookingConfirmRouteProp>();
   const { user } = useAuth();
+  const { wallet, fetchWalletData } = useWallet();
   const { bookingId, booking: initialBooking } = route.params;
-  const isStandaloneParkingSession = initialBooking?.sourceType === 'parking_session';
+  const isStandaloneParkingSession =
+    initialBooking?.sourceType === 'parking_session';
 
   const [booking, setBooking] = useState<Booking | null>(initialBooking ?? null);
   const [isLoading, setIsLoading] = useState(!initialBooking);
@@ -120,6 +146,18 @@ const BookingConfirmScreen: React.FC = () => {
     initialBooking?.parkingSession ?? null,
   );
   const [isLoadingParkingSession, setIsLoadingParkingSession] = useState(false);
+  const [parkingPaymentQrDraft, setParkingPaymentQrDraft] =
+    useState<ParkingPaymentQrDraft | null>(null);
+  const [isCreatingParkingPaymentQr, setIsCreatingParkingPaymentQr] =
+    useState(false);
+
+  useEffect(() => {
+    if (!user?.isGuest) {
+      fetchWalletData().catch(error => {
+        console.error('[BookingConfirmScreen] Error fetching wallet:', error);
+      });
+    }
+  }, [fetchWalletData, user?.isGuest]);
 
   const loadBooking = useCallback(async () => {
     try {
@@ -136,7 +174,8 @@ const BookingConfirmScreen: React.FC = () => {
       const response = await bookingService.getBookings({ userId: user.code });
       const bookings = normalizeBookingList(response.data);
       const matchedBooking =
-        bookings.find(item => item.id === bookingId || item.code === bookingId) ?? null;
+        bookings.find(item => item.id === bookingId || item.code === bookingId)
+        ?? null;
 
       setBooking(matchedBooking);
     } catch (error: any) {
@@ -157,34 +196,38 @@ const BookingConfirmScreen: React.FC = () => {
     loadBooking();
   }, [initialBooking, loadBooking]);
 
-  const loadParkingSession = useCallback(async (targetBooking: Booking) => {
-    if (targetBooking.sourceType === 'parking_session') {
-      setParkingSession(targetBooking.parkingSession ?? null);
-      return;
-    }
+  const loadParkingSession = useCallback(
+    async (targetBooking: Booking) => {
+      if (targetBooking.sourceType === 'parking_session') {
+        setParkingSession(targetBooking.parkingSession ?? null);
+        return;
+      }
 
-    if (!user?.code || targetBooking.status !== BookingStatus.COMPLETED) {
-      setParkingSession(null);
-      return;
-    }
+      if (!user?.code || targetBooking.status !== BookingStatus.COMPLETED) {
+        setParkingSession(null);
+        return;
+      }
 
-    try {
-      setIsLoadingParkingSession(true);
-      const lookupDate = buildSessionLookupDate(targetBooking);
-      const response = await parkingSessionService.getParkingSessions({
-        userCode: user.code,
-        plateNumber: targetBooking.vehicle?.licensePlate || targetBooking.licensePlate,
-        fromDate: lookupDate,
-        toDate: lookupDate,
-      });
-      const sessions = normalizeParkingSessionList(response.data);
-      setParkingSession(findMatchingParkingSession(sessions, targetBooking));
-    } catch {
-      setParkingSession(null);
-    } finally {
-      setIsLoadingParkingSession(false);
-    }
-  }, [user?.code]);
+      try {
+        setIsLoadingParkingSession(true);
+        const lookupDate = buildSessionLookupDate(targetBooking);
+        const response = await parkingSessionService.getParkingSessions({
+          userCode: user.code,
+          plateNumber:
+            targetBooking.vehicle?.licensePlate || targetBooking.licensePlate,
+          fromDate: lookupDate,
+          toDate: lookupDate,
+        });
+        const sessions = normalizeParkingSessionList(response.data);
+        setParkingSession(findMatchingParkingSession(sessions, targetBooking));
+      } catch {
+        setParkingSession(null);
+      } finally {
+        setIsLoadingParkingSession(false);
+      }
+    },
+    [user?.code],
+  );
 
   useEffect(() => {
     if (!booking) {
@@ -196,7 +239,11 @@ const BookingConfirmScreen: React.FC = () => {
   }, [booking, loadParkingSession]);
 
   const handleCancel = async () => {
-    if (!booking?.code || !user?.code || booking.sourceType === 'parking_session') {
+    if (
+      !booking?.code
+      || !user?.code
+      || booking.sourceType === 'parking_session'
+    ) {
       Alert.alert('Lỗi', 'Không tìm thấy thông tin đặt chỗ để hủy');
       return;
     }
@@ -235,6 +282,192 @@ const BookingConfirmScreen: React.FC = () => {
     );
   };
 
+  const sessionDetail = booking?.parkingSession ?? parkingSession;
+  const showHoldTimer =
+    !!booking
+    && booking.sourceType !== 'parking_session'
+    && canCancelBooking(booking);
+  const showParkingSession =
+    booking?.sourceType === 'parking_session'
+    || booking?.status === BookingStatus.COMPLETED;
+  const showLinkedParkingSessionCard =
+    !!booking
+    && booking.sourceType !== 'parking_session'
+    && showParkingSession;
+  const paymentStatusColor =
+    sessionDetail?.paymentStatus === ParkingPaymentStatus.PAID
+      ? COLORS.success
+      : COLORS.warning;
+  const parkingPaymentDescription = buildParkingPaymentDescription(
+    sessionDetail || null,
+  );
+  const isPendingAssignment =
+    !!booking
+    && booking.sourceType !== 'parking_session'
+    && !booking.slot?.code
+    && !booking.slotId;
+  const sessionPrice = Number(sessionDetail?.price || 0);
+  const walletBalance = Number(wallet?.balance || 0);
+  const shortfallAmount = Math.max(0, sessionPrice - walletBalance);
+  const shouldShowInsufficientWalletNotice = Boolean(
+    !user?.isGuest
+      && wallet
+      && sessionDetail
+      && sessionDetail.paymentStatus !== ParkingPaymentStatus.PAID
+      && shortfallAmount > 0,
+  );
+  const parkingPaymentQrValue =
+    parkingPaymentQrDraft?.qr || parkingPaymentQrDraft?.content || '';
+  const shouldRenderParkingPaymentQrImage = isRemoteImageUrl(
+    parkingPaymentQrDraft?.qr,
+  );
+
+  const handleCreateParkingPaymentQr = useCallback(async () => {
+    if (!shouldShowInsufficientWalletNotice || !sessionDetail?.plateNumber) {
+      return;
+    }
+
+    try {
+      setIsCreatingParkingPaymentQr(true);
+      const response = await parkingSessionService.handleParkingSession({
+        plateNumber: sessionDetail.plateNumber,
+      });
+      const result = response.data;
+
+      if (result.session) {
+        setParkingSession(result.session);
+      }
+
+      if (result.type === 'QR_REQUIRED' && result.paymentQr) {
+        setParkingPaymentQrDraft({
+          qr: result.paymentQr.qr,
+          content: result.paymentQr.content,
+          amount: Number(result.paymentQr.amount || sessionPrice || 0),
+          message: result.message,
+          type: result.type,
+        });
+        return;
+      }
+
+      setParkingPaymentQrDraft(null);
+
+      if (result.type === 'SUCCESS' || result.type === 'ALREADY_PAID') {
+        await fetchWalletData().catch(() => undefined);
+      }
+
+      if (result.message) {
+        Alert.alert('Thông báo', result.message);
+      }
+    } catch (error: any) {
+      Alert.alert('Lỗi', error?.message || 'Không thể tạo mã QR thanh toán');
+    } finally {
+      setIsCreatingParkingPaymentQr(false);
+    }
+  }, [
+    fetchWalletData,
+    sessionDetail?.plateNumber,
+    sessionPrice,
+    shouldShowInsufficientWalletNotice,
+  ]);
+
+  useEffect(() => {
+    if (!shouldShowInsufficientWalletNotice) {
+      setParkingPaymentQrDraft(null);
+      return;
+    }
+
+    if (!parkingPaymentQrDraft && !isCreatingParkingPaymentQr) {
+      handleCreateParkingPaymentQr();
+    }
+  }, [
+    handleCreateParkingPaymentQr,
+    isCreatingParkingPaymentQr,
+    parkingPaymentQrDraft,
+    shouldShowInsufficientWalletNotice,
+  ]);
+
+  const handleRefreshParkingPaymentStatus = useCallback(async () => {
+    if (!booking) {
+      return;
+    }
+
+    try {
+      await fetchWalletData().catch(() => undefined);
+      await loadParkingSession(booking);
+    } catch (error: any) {
+      Alert.alert(
+        'Lỗi',
+        error?.message || 'Không thể cập nhật trạng thái thanh toán',
+      );
+    }
+  }, [booking, fetchWalletData, loadParkingSession]);
+
+  const paymentAssistContent = shouldShowInsufficientWalletNotice ? (
+    <View style={styles.paymentAssistBlock}>
+      <Text style={styles.paymentAssistText}>
+        Số dư hiện tại không đủ để trừ tự động. Hệ thống sẽ tạo QR thanh toán
+        trực tiếp cho phiên đỗ ngay bên dưới.
+      </Text>
+      <Text style={styles.paymentAssistText}>
+        Số dư ví: {formatters.currency(walletBalance)}. Còn thiếu:{' '}
+        {formatters.currency(shortfallAmount)}.
+      </Text>
+      {isCreatingParkingPaymentQr && !parkingPaymentQrDraft ? (
+        <View style={styles.qrLoadingBlock}>
+          <ActivityIndicator color={COLORS.primary} />
+          <Text style={styles.qrLoadingText}>Đang tạo mã QR thanh toán...</Text>
+        </View>
+      ) : null}
+      {parkingPaymentQrDraft ? (
+        <View style={styles.qrInlineCard}>
+          {shouldRenderParkingPaymentQrImage ? (
+            <Image
+              source={{ uri: parkingPaymentQrDraft.qr }}
+              style={styles.qrCode}
+              resizeMode="contain"
+            />
+          ) : (
+            <QRCodeStyled
+              data={parkingPaymentQrValue}
+              style={styles.qrCode}
+              padding={18}
+              pieceBorderRadius={2}
+              isPiecesGlued
+              color={COLORS.primaryDark}
+              outerEyesOptions={{
+                topLeft: { color: COLORS.primaryDark },
+                topRight: { color: COLORS.primaryDark },
+                bottomLeft: { color: COLORS.primaryDark },
+              }}
+            />
+          )}
+          <Text style={styles.qrAmountText}>
+            Số tiền thanh toán: {formatters.currency(parkingPaymentQrDraft.amount)}
+          </Text>
+          {parkingPaymentQrDraft.content ? (
+            <Text style={styles.qrMetaText}>
+              Nội dung: {parkingPaymentQrDraft.content}
+            </Text>
+          ) : null}
+          {parkingPaymentQrDraft.message ? (
+            <Text style={styles.qrMetaText}>{parkingPaymentQrDraft.message}</Text>
+          ) : null}
+          <Button
+            title="Làm mới trạng thái"
+            onPress={handleRefreshParkingPaymentStatus}
+            style={styles.paymentAssistButton}
+          />
+          <Button
+            title="Tạo lại QR"
+            onPress={handleCreateParkingPaymentQr}
+            variant="outline"
+            style={styles.secondaryPaymentButton}
+          />
+        </View>
+      ) : null}
+    </View>
+  ) : null;
+
   if (isLoading) {
     return <Loading fullscreen text="Đang tải thông tin đặt chỗ..." />;
   }
@@ -250,20 +483,6 @@ const BookingConfirmScreen: React.FC = () => {
     );
   }
 
-  const sessionDetail = booking.parkingSession ?? parkingSession;
-  const showHoldTimer =
-    booking.sourceType !== 'parking_session' && canCancelBooking(booking);
-  const showParkingSession = booking.sourceType === 'parking_session'
-    || booking.status === BookingStatus.COMPLETED;
-  const showLinkedParkingSessionCard =
-    booking.sourceType !== 'parking_session' && showParkingSession;
-  const paymentStatusColor = sessionDetail?.paymentStatus === ParkingPaymentStatus.PAID
-    ? COLORS.success
-    : COLORS.warning;
-  const parkingPaymentDescription = buildParkingPaymentDescription(sessionDetail || null);
-  const isPendingAssignment =
-    booking.sourceType !== 'parking_session' && !booking.slot?.code && !booking.slotId;
-
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -274,7 +493,9 @@ const BookingConfirmScreen: React.FC = () => {
         <Text style={styles.title}>
           {booking.sourceType === 'parking_session'
             ? 'Chi tiết phiên đỗ xe'
-            : showParkingSession ? 'Chi tiết đặt chỗ' : 'Đặt lịch thành công'}
+            : showParkingSession
+              ? 'Chi tiết đặt chỗ'
+              : 'Đặt lịch thành công'}
         </Text>
         <Text style={styles.subtitle}>
           {booking.sourceType === 'parking_session'
@@ -284,42 +505,27 @@ const BookingConfirmScreen: React.FC = () => {
               : 'Hệ thống sẽ tự động sắp xếp slot cho bạn khi đến thời điểm phù hợp.'}
         </Text>
 
-        {showHoldTimer && (
+        {showHoldTimer ? (
           <CountdownTimer
             endTime={buildHoldExpiryTime(booking)}
             onTimeout={handleTimeout}
           />
-        )}
+        ) : null}
 
         <Card style={styles.infoCard}>
           <View style={styles.infoRow}>
             <Icon name="pricetag-outline" size={24} color={COLORS.primary} />
             <View style={styles.infoContent}>
               <Text style={styles.infoLabel}>
-                {booking.sourceType === 'parking_session' ? 'Mã phiên đỗ' : 'Mã đặt chỗ'}
+                {booking.sourceType === 'parking_session'
+                  ? 'Mã phiên đỗ'
+                  : 'Mã đặt chỗ'}
               </Text>
               <Text style={styles.infoValue}>
                 {sessionDetail?.code || booking.code || booking.id}
               </Text>
             </View>
           </View>
-
-          {booking.sourceType === 'parking_session' && (
-            <View style={styles.infoRow}>
-              <Icon name="location-outline" size={24} color={COLORS.primary} />
-              <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>Vị trí thực tế</Text>
-                <Text style={styles.infoValue}>
-                  {sessionDetail?.slotCode
-                    || sessionDetail?.slotName
-                    || 'Hệ thống sẽ tự động gán'}
-                </Text>
-                {sessionDetail?.floorLabel ? (
-                  <Text style={styles.infoHint}>{sessionDetail.floorLabel}</Text>
-                ) : null}
-              </View>
-            </View>
-          )}
 
           <View style={styles.infoRow}>
             <Icon name="car-outline" size={24} color={COLORS.primary} />
@@ -334,15 +540,38 @@ const BookingConfirmScreen: React.FC = () => {
             </View>
           </View>
 
+          {booking.sourceType === 'parking_session' ? (
+            <View style={styles.infoRow}>
+              <Icon name="location-outline" size={24} color={COLORS.primary} />
+              <View style={styles.infoContent}>
+                <Text style={styles.infoLabel}>Vị trí thực tế</Text>
+                <Text style={styles.infoValue}>
+                  {sessionDetail?.slotCode
+                    || sessionDetail?.slotName
+                    || 'Hệ thống sẽ tự động gán'}
+                </Text>
+                {sessionDetail?.floorLabel ? (
+                  <Text style={styles.infoHint}>{sessionDetail.floorLabel}</Text>
+                ) : null}
+              </View>
+            </View>
+          ) : null}
+
           <View style={styles.infoRow}>
             <Icon
-              name={booking.sourceType === 'parking_session' ? 'log-in-outline' : 'time-outline'}
+              name={
+                booking.sourceType === 'parking_session'
+                  ? 'log-in-outline'
+                  : 'time-outline'
+              }
               size={24}
               color={COLORS.primary}
             />
             <View style={styles.infoContent}>
               <Text style={styles.infoLabel}>
-                {booking.sourceType === 'parking_session' ? 'Check-in' : 'Thời gian vào bãi'}
+                {booking.sourceType === 'parking_session'
+                  ? 'Check-in'
+                  : 'Thời gian vào bãi'}
               </Text>
               <Text style={styles.infoValue}>
                 {formatters.dateTime(sessionDetail?.checkInTime || booking.startTime)}
@@ -350,7 +579,7 @@ const BookingConfirmScreen: React.FC = () => {
             </View>
           </View>
 
-          {booking.sourceType === 'parking_session' && (
+          {booking.sourceType === 'parking_session' ? (
             <View style={styles.infoRow}>
               <Icon name="log-out-outline" size={24} color={COLORS.primary} />
               <View style={styles.infoContent}>
@@ -362,10 +591,14 @@ const BookingConfirmScreen: React.FC = () => {
                 </Text>
               </View>
             </View>
-          )}
+          ) : null}
 
           <View style={styles.infoRow}>
-            <Icon name="information-circle-outline" size={24} color={COLORS.primary} />
+            <Icon
+              name="information-circle-outline"
+              size={24}
+              color={COLORS.primary}
+            />
             <View style={styles.infoContent}>
               <Text style={styles.infoLabel}>Trạng thái</Text>
               <Text style={styles.infoValue}>
@@ -374,7 +607,7 @@ const BookingConfirmScreen: React.FC = () => {
             </View>
           </View>
 
-          {booking.sourceType === 'parking_session' && sessionDetail && (
+          {booking.sourceType === 'parking_session' && sessionDetail ? (
             <View style={styles.infoRow}>
               <Icon name="wallet-outline" size={24} color={COLORS.primary} />
               <View style={styles.infoContent}>
@@ -386,27 +619,28 @@ const BookingConfirmScreen: React.FC = () => {
                   {formatters.currency(sessionDetail.price || 0)}
                 </Text>
                 <Text style={styles.infoHint}>{parkingPaymentDescription}</Text>
+                {paymentAssistContent}
               </View>
             </View>
-          )}
+          ) : null}
         </Card>
 
-        {isPendingAssignment && showHoldTimer && (
+        {isPendingAssignment && showHoldTimer ? (
           <Card style={styles.noticeCard}>
             <Text style={styles.noticeTitle}>Slot chưa được gán</Text>
             <Text style={styles.noticeText}>
               Hệ thống sẽ tự động cấp vị trí khi đến thời điểm phù hợp.
             </Text>
           </Card>
-        )}
+        ) : null}
 
-        {showLinkedParkingSessionCard && (
+        {showLinkedParkingSessionCard ? (
           <Card style={styles.infoCard}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Thông tin phiên đỗ</Text>
-              {isLoadingParkingSession && (
+              {isLoadingParkingSession ? (
                 <ActivityIndicator color={COLORS.primary} size="small" />
-              )}
+              ) : null}
             </View>
 
             {parkingSession ? (
@@ -422,19 +656,6 @@ const BookingConfirmScreen: React.FC = () => {
                 </View>
 
                 <View style={styles.infoRow}>
-                  <Icon name="location-outline" size={24} color={COLORS.primary} />
-                  <View style={styles.infoContent}>
-                    <Text style={styles.infoLabel}>Vị trí thực tế</Text>
-                    <Text style={styles.infoValue}>
-                      {parkingSession.slotCode || parkingSession.slotName || 'Đang cập nhật'}
-                    </Text>
-                    {parkingSession.floorLabel ? (
-                      <Text style={styles.infoHint}>{parkingSession.floorLabel}</Text>
-                    ) : null}
-                  </View>
-                </View>
-
-                <View style={styles.infoRow}>
                   <Icon name="car-outline" size={24} color={COLORS.primary} />
                   <View style={styles.infoContent}>
                     <Text style={styles.infoLabel}>Biển số</Text>
@@ -444,6 +665,21 @@ const BookingConfirmScreen: React.FC = () => {
                         || booking.licensePlate
                         || 'N/A'}
                     </Text>
+                  </View>
+                </View>
+
+                <View style={styles.infoRow}>
+                  <Icon name="location-outline" size={24} color={COLORS.primary} />
+                  <View style={styles.infoContent}>
+                    <Text style={styles.infoLabel}>Vị trí thực tế</Text>
+                    <Text style={styles.infoValue}>
+                      {parkingSession.slotCode
+                        || parkingSession.slotName
+                        || 'Đang cập nhật'}
+                    </Text>
+                    {parkingSession.floorLabel ? (
+                      <Text style={styles.infoHint}>{parkingSession.floorLabel}</Text>
+                    ) : null}
                   </View>
                 </View>
 
@@ -480,19 +716,24 @@ const BookingConfirmScreen: React.FC = () => {
                       {formatters.currency(parkingSession.price || 0)}
                     </Text>
                     <Text style={styles.infoHint}>{parkingPaymentDescription}</Text>
+                    {paymentAssistContent}
                   </View>
                 </View>
               </>
             ) : (
               <View style={styles.emptySessionState}>
-                <Icon name="document-text-outline" size={24} color={COLORS.textSecondary} />
+                <Icon
+                  name="document-text-outline"
+                  size={24}
+                  color={COLORS.textSecondary}
+                />
                 <Text style={styles.emptySessionText}>
                   Chưa tìm thấy thông tin phiên đỗ cho lịch đặt chỗ này.
                 </Text>
               </View>
             )}
           </Card>
-        )}
+        ) : null}
 
         <View style={styles.actions}>
           <Button
@@ -501,7 +742,7 @@ const BookingConfirmScreen: React.FC = () => {
             variant="outline"
             style={styles.actionButton}
           />
-          {booking.sourceType !== 'parking_session' && canCancelBooking(booking) && (
+          {booking.sourceType !== 'parking_session' && canCancelBooking(booking) ? (
             <Button
               title="Hủy đặt chỗ"
               onPress={handleCancel}
@@ -509,7 +750,7 @@ const BookingConfirmScreen: React.FC = () => {
               style={styles.actionButton}
               loading={isCancelling}
             />
-          )}
+          ) : null}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -596,6 +837,62 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.fontSize.sm,
     color: COLORS.textSecondary,
     lineHeight: 20,
+  },
+  paymentAssistBlock: {
+    marginTop: SPACING.sm,
+    padding: SPACING.md,
+    borderRadius: 12,
+    backgroundColor: COLORS.background,
+  },
+  paymentAssistText: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    color: COLORS.textSecondary,
+    lineHeight: 20,
+    marginBottom: SPACING.xs,
+  },
+  qrLoadingBlock: {
+    marginTop: SPACING.sm,
+    alignItems: 'center',
+  },
+  qrLoadingText: {
+    marginTop: SPACING.xs,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    color: COLORS.textSecondary,
+  },
+  qrInlineCard: {
+    marginTop: SPACING.sm,
+    padding: SPACING.md,
+    borderRadius: 16,
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
+    alignItems: 'center',
+  },
+  qrCode: {
+    width: 220,
+    height: 220,
+    marginBottom: SPACING.sm,
+  },
+  qrAmountText: {
+    fontSize: TYPOGRAPHY.fontSize.md,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold,
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.xs,
+    textAlign: 'center',
+  },
+  qrMetaText: {
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    color: COLORS.textSecondary,
+    marginBottom: SPACING.xs,
+    textAlign: 'center',
+  },
+  paymentAssistButton: {
+    marginTop: SPACING.sm,
+    alignSelf: 'stretch',
+  },
+  secondaryPaymentButton: {
+    marginTop: SPACING.sm,
+    alignSelf: 'stretch',
   },
   emptySessionState: {
     flexDirection: 'row',

@@ -6,10 +6,10 @@ import {
   LoginRequest,
   LoginResponseData,
   RegisterRequest,
+  ResetPasswordRequest,
   UpdateUserPayload,
 } from '../../../types/auth.types';
 import { ApiResponse, AuthApiResponse } from '../../../types/api.types';
-
 
 export const authService = {
   async login(credentials: LoginRequest): Promise<AuthApiResponse<LoginResponseData>> {
@@ -17,14 +17,14 @@ export const authService = {
   },
 
   async register(
-    data: RegisterRequest
+    data: RegisterRequest,
   ): Promise<ApiResponse<{ id: string; email: string }>> {
     return apiClient.post(ENDPOINTS.REGISTER, data);
   },
 
   async verifyEmail(token: string): Promise<ApiResponse<void>> {
     return apiClient.get(
-      `${ENDPOINTS.VERIFY_EMAIL}?token=${encodeURIComponent(token)}`
+      `${ENDPOINTS.VERIFY_EMAIL}?token=${encodeURIComponent(token)}`,
     );
   },
 
@@ -38,6 +38,18 @@ export const authService = {
 
   async forgotPassword(email: string): Promise<ApiResponse<{ message: string }>> {
     return apiClient.post(ENDPOINTS.FORGOT_PASSWORD, { email });
+  },
+
+  async resetPassword(data: ResetPasswordRequest): Promise<ApiResponse<{ message: string }>> {
+    const url = `${ENDPOINTS.RESET_PASSWORD}?token=${encodeURIComponent(data.token)}`;
+
+    if (__DEV__) {
+      console.log('[authService.resetPassword] POST', url);
+    }
+
+    return apiClient.post(url, {
+      password: data.password,
+    });
   },
 
   async getProfile(): Promise<ApiResponse<User>> {
@@ -54,7 +66,7 @@ export const authService = {
 
   async updateInfoAccount(
     code: string,
-    data: UpdateUserPayload
+    data: UpdateUserPayload,
   ): Promise<ApiResponse<User | null>> {
     return apiClient.post(ENDPOINTS.UPDATE_INFO_ACCOUNT, {
       code,

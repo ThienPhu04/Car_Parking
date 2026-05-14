@@ -67,6 +67,10 @@ const EditProfileScreen: React.FC = () => {
   });
   const [errors, setErrors] = useState<FormErrors>(createEmptyErrors());
 
+  useEffect(() => {
+    setFormData(initialValues);
+  }, [initialValues]);
+
   const updateField = (field: keyof FormState, value: string) => {
     setFormData((prev) => ({
       ...prev,

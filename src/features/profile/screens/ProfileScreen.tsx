@@ -21,15 +21,17 @@ import { COLORS } from '../../../shared/constants/colors';
 import { SPACING } from '../../../shared/constants/spacing';
 import { TYPOGRAPHY } from '../../../shared/constants/typography';
 import { useAuth } from '@store/AuthContext';
+import { authService } from '../../auth/services/authService';
 import { WalletTopUpModal } from '../components/WalletTopUpModal';
 import { useWallet } from '../hooks/useWallet';
 
 const ProfileScreen: React.FC = () => {
   const navigation = useNavigation();
-  const { user, logout } = useAuth();
+  const { user, logout, refreshUser } = useAuth();
   const isGuest = !!user?.isGuest;
   const insets = useSafeAreaInsets();
   const [showTopUpModal, setShowTopUpModal] = useState(false);
+  const [isSendingResetEmail, setIsSendingResetEmail] = useState(false);
   const {
     wallet,
     isLoading,
@@ -45,8 +47,11 @@ const ProfileScreen: React.FC = () => {
 
   useFocusEffect(
     useCallback(() => {
+      refreshUser().catch((error) => {
+        console.error('[ProfileScreen] Error refreshing user:', error);
+      });
       fetchWalletData();
-    }, [fetchWalletData])
+    }, [fetchWalletData, refreshUser])
   );
 
   const handleLogout = useCallback(() => {
@@ -61,6 +66,42 @@ const ProfileScreen: React.FC = () => {
       },
     ]);
   }, [logout]);
+
+  const handleResetPassword = useCallback(async () => {
+    const normalizedEmail = user?.email?.trim();
+
+    if (!normalizedEmail) {
+      Alert.alert('Thông báo', 'Không tìm thấy email để gửi mã đặt lại mật khẩu.');
+      return;
+    }
+
+    try {
+      setIsSendingResetEmail(true);
+      await authService.forgotPassword(normalizedEmail);
+
+      Alert.alert(
+        'Đã gửi email',
+        'Mã hoặc liên kết đặt lại mật khẩu đã được gửi tới email của bạn.',
+        [
+          {
+            text: 'Nhập mã',
+            onPress: () =>
+              (navigation as any).navigate('ResetPassword', {
+                email: normalizedEmail,
+                origin: 'profile',
+              }),
+          },
+        ],
+      );
+    } catch (error: any) {
+      Alert.alert(
+        'Không thể gửi email',
+        error?.message || 'Không thể gửi mã đặt lại mật khẩu lúc này.',
+      );
+    } finally {
+      setIsSendingResetEmail(false);
+    }
+  }, [navigation, user?.email]);
 
   const menuItems = useMemo(
     () =>
@@ -98,6 +139,14 @@ const ProfileScreen: React.FC = () => {
           onPress: () => (navigation as any).navigate('Notifications'),
         },
         {
+          key: 'reset-password',
+          icon: 'lock-closed-outline',
+          title: 'Đặt lại mật khẩu',
+          subtitle: 'Gửi mã về email rồi nhập mã để cập nhật mật khẩu mới',
+          hiddenForGuest: true,
+          onPress: handleResetPassword,
+        },
+        {
           key: 'help',
           icon: 'help-circle-outline',
           title: 'Trợ giúp',
@@ -120,7 +169,7 @@ const ProfileScreen: React.FC = () => {
           onPress: handleLogout,
         },
       ].filter((item) => !(isGuest && item.hiddenForGuest)),
-    [handleLogout, isGuest, navigation]
+    [handleLogout, handleResetPassword, isGuest]
   );
 
   return (
@@ -188,6 +237,7 @@ const ProfileScreen: React.FC = () => {
               key={item.key}
               onPress={item.onPress}
               activeOpacity={0.7}
+              disabled={item.key === 'reset-password' && isSendingResetEmail}
             >
               <Card style={styles.menuItem}>
                 <View style={styles.menuItemIcon}>

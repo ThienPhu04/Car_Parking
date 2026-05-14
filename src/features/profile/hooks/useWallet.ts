@@ -18,6 +18,7 @@ const ADMIN_ACCOUNT_NUMBER = '2702868679';
 const ADMIN_ACCOUNT_NAME = 'NGUYEN VAN A';
 const GUEST_WALLET_KEY = CONFIG.STORAGE_KEYS.GUEST_WALLET;
 const GUEST_WALLET_HISTORY_KEY = CONFIG.STORAGE_KEYS.GUEST_WALLET_HISTORY;
+const MINIMUM_AUTO_TOP_UP_AMOUNT = 5000;
 
 const toWallet = (wallet?: Partial<Wallet> | null): Wallet => ({
   _id: wallet?._id,
@@ -270,6 +271,24 @@ export const useWallet = () => {
     ]
   );
 
+  const createParkingShortfallTopUpDraft = useCallback(
+    async (shortfallAmount: number): Promise<WalletTopUpDraft> => {
+      const normalizedShortfall = Number(shortfallAmount || 0);
+
+      if (normalizedShortfall <= 0) {
+        throw new Error('Khong co so tien can nap them');
+      }
+
+      const suggestedAmount = Math.max(
+        MINIMUM_AUTO_TOP_UP_AMOUNT,
+        Math.ceil(normalizedShortfall),
+      );
+
+      return createTopUpDraft(suggestedAmount);
+    },
+    [createTopUpDraft],
+  );
+
   return {
     wallet,
     history,
@@ -278,6 +297,7 @@ export const useWallet = () => {
     isSubmitting,
     fetchWalletData,
     createTopUpDraft,
+    createParkingShortfallTopUpDraft,
     confirmTopUp,
   };
 };

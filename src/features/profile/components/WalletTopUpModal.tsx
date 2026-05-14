@@ -22,6 +22,9 @@ interface WalletTopUpModalProps {
   visible: boolean;
   loading?: boolean;
   creating?: boolean;
+  title?: string;
+  initialDraft?: WalletTopUpDraft | null;
+  lockDraft?: boolean;
   onClose: () => void;
   onCreateDraft: (amount: number) => Promise<WalletTopUpDraft>;
   onConfirmSuccess: (draft: WalletTopUpDraft) => Promise<void>;
@@ -41,23 +44,32 @@ export const WalletTopUpModal: React.FC<WalletTopUpModalProps> = ({
   visible,
   loading = false,
   creating = false,
+  title = 'Nạp tiền vào ví',
+  initialDraft = null,
+  lockDraft = false,
   onClose,
   onCreateDraft,
   onConfirmSuccess,
 }) => {
   const [amountInput, setAmountInput] = useState('');
-  const [draft, setDraft] = useState<WalletTopUpDraft | null>(null);
+  const [draft, setDraft] = useState<WalletTopUpDraft | null>(initialDraft);
 
   useEffect(() => {
     if (!visible) {
       setAmountInput('');
-      setDraft(null);
+      setDraft(initialDraft);
     }
-  }, [visible]);
+  }, [initialDraft, visible]);
+
+  useEffect(() => {
+    if (visible) {
+      setDraft(initialDraft);
+    }
+  }, [initialDraft, visible]);
 
   const parsedAmount = useMemo(
     () => Number(amountInput.replace(/[^\d]/g, '')) || 0,
-    [amountInput]
+    [amountInput],
   );
   const qrValue =
     draft?.qrValue || draft?.qrUrl || draft?.transferContent || '';
@@ -71,7 +83,7 @@ export const WalletTopUpModal: React.FC<WalletTopUpModalProps> = ({
     if (parsedAmount < 10000) {
       Alert.alert(
         'Số tiền không hợp lệ',
-        'Vui lòng nhập ít nhất 10.000 VND'
+        'Vui lòng nhập ít nhất 10.000 VND',
       );
       return;
     }
@@ -93,7 +105,7 @@ export const WalletTopUpModal: React.FC<WalletTopUpModalProps> = ({
       await onConfirmSuccess(draft);
       Alert.alert(
         'Đã ghi nhận',
-        'Yêu cầu nạp tiền đã được ghi nhận. Số dư sẽ được cập nhật sau khi hệ thống xác nhận giao dịch.'
+        'Yêu cầu nạp tiền đã được ghi nhận. Số dư sẽ được cập nhật sau khi hệ thống xác nhận giao dịch.',
       );
       onClose();
     } catch (error: any) {
@@ -102,7 +114,7 @@ export const WalletTopUpModal: React.FC<WalletTopUpModalProps> = ({
   };
 
   return (
-    <Modal visible={visible} onClose={onClose} title="Nạp tiền vào ví">
+    <Modal visible={visible} onClose={onClose} title={title}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -186,13 +198,15 @@ export const WalletTopUpModal: React.FC<WalletTopUpModalProps> = ({
               loading={loading}
               fullWidth
             />
-            <Button
-              title="Tạo lại"
-              onPress={() => setDraft(null)}
-              variant="outline"
-              fullWidth
-              style={styles.secondaryAction}
-            />
+            {!lockDraft ? (
+              <Button
+                title="Tạo lại"
+                onPress={() => setDraft(null)}
+                variant="outline"
+                fullWidth
+                style={styles.secondaryAction}
+              />
+            ) : null}
           </View>
         )}
       </ScrollView>

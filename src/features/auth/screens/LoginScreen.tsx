@@ -151,6 +151,20 @@ const LoginScreen: React.FC = () => {
       Alert.alert(
         'Đã gửi email',
         'Liên kết khôi phục mật khẩu đã được gửi tới email của bạn.',
+        [
+          {
+            text: 'Để sau',
+            style: 'cancel',
+          },
+          {
+            text: 'Nhập link',
+            onPress: () =>
+              navigation.navigate('ResetPassword', {
+                email: normalizedEmail,
+                origin: 'auth',
+              }),
+          },
+        ],
       );
     } catch (error: any) {
       setForgotPasswordError(
